@@ -90,14 +90,18 @@ export function computeStageDropOff(candidates: CandidateRecord[]): StageDropOff
   for (let i = 0; i < PIPELINE_STAGES.length - 1; i++) {
     const fromStage = PIPELINE_STAGES[i];
     const toStage = PIPELINE_STAGES[i + 1];
-    const reachedFrom = candidates.filter((c) => reachedStage(c, fromStage)).length;
     const reachedTo = candidates.filter((c) => reachedStage(c, toStage)).length;
-    const dropped = reachedFrom - reachedTo;
+    const dropped = candidates.filter((candidate) =>
+      reachedStage(candidate, fromStage) &&
+      !reachedStage(candidate, toStage) &&
+      (candidate.outcome === 'rejected' || candidate.outcome === 'withdrawn'),
+    ).length;
+    const resolvedAtTransition = reachedTo + dropped;
     out.push({
       fromStage,
       toStage,
       dropped,
-      dropRate: reachedFrom === 0 ? 0 : round1((dropped / reachedFrom) * 100),
+      dropRate: resolvedAtTransition === 0 ? 0 : round1((dropped / resolvedAtTransition) * 100),
     });
   }
   return out;
@@ -208,7 +212,7 @@ export function deriveInsights(candidates: CandidateRecord[]): DerivedInsight[] 
     insights.push({
       id: 'biggest-dropoff',
       tone: 'warning',
-      text: `Biggest drop-off is ${STAGE_LABELS[worstDrop.fromStage]} → ${STAGE_LABELS[worstDrop.toStage]}, losing ${worstDrop.dropRate}% of candidates there.`,
+      text: `Biggest resolved drop-off is ${STAGE_LABELS[worstDrop.fromStage]} → ${STAGE_LABELS[worstDrop.toStage]}: ${worstDrop.dropRate}% of candidates with a recorded outcome ended there.`,
     });
   }
 

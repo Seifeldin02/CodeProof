@@ -325,18 +325,85 @@ export function buildRepositoryStrengths(
 export function buildDeterministicQuestions(
   repository: IngestedRepository,
   technologies: TechnologySignal[],
+  patterns: EngineeringPattern[] = detectImplementationPatterns(repository),
+  architecture: ArchitectureSummary | null = null,
 ): InterviewQuestion[] {
-  const files = repository.files.filter((file) => !/readme/i.test(file.path));
-  return files.slice(0, 6).map((file, index) => {
-    const technology = technologies[index % Math.max(technologies.length, 1)];
-    return {
-      question: `Walk through the responsibilities of ${file.path}. What trade-offs would you revisit as this codebase grows?`,
-      relatedSkill: technology?.name ?? "Software architecture",
-      difficulty: index < 2 ? "Foundational" : index < 5 ? "Intermediate" : "Advanced",
-      files: [file.path],
-      relevance: `This question is grounded in a selected ${file.selectionReason.toLowerCase()}.`,
+  const questions: InterviewQuestion[] = [];
+  const add = (question: InterviewQuestion): void => {
+    if (!questions.some((existing) => existing.question === question.question)) questions.push(question);
+  };
+  const patternPrompts: Record<EngineeringPattern["category"], (path: string) => string> = {
+    architecture: (path) => `Use ${path} to explain where this responsibility sits in the system. Which dependency direction does it enforce, and what would break if this boundary moved?`,
+    api: (path) => `Trace one request through ${path}. Where are inputs validated, responses shaped, and failure cases converted into a stable API contract?`,
+    authentication: (path) => `Walk through the trust boundary implemented in ${path}. Which identity or permission assumptions are made, and how would you test a rejected request?`,
+    database: (path) => `Explain the persistence decision visible in ${path}. How are data integrity, query failure, and schema evolution handled by the surrounding design?`,
+    "state-management": (path) => `Use ${path} to explain the state lifecycle: who owns it, which code may change it, and how stale or invalid state is prevented.`,
+    testing: (path) => `Pick a behavior covered in ${path}. What regression does the test protect against, and which important failure path is still missing?`,
+    "error-handling": (path) => `Trace an error path in ${path} from failure to caller-visible behavior. What is recovered, logged, retried, or deliberately allowed to fail?`,
+    observability: (path) => `Use ${path} to explain what production failure would be visible to the team. Which diagnostic context is captured, and what remains opaque?`,
+  };
+
+  for (const pattern of patterns) {
+    const path = pattern.files[0];
+    if (!path) continue;
+    add({
+      question: patternPrompts[pattern.category](path),
+      relatedSkill: pattern.name,
+      difficulty: ["authentication", "database", "architecture", "observability"].includes(pattern.category) ? "Advanced" : "Intermediate",
+      files: pattern.files.slice(0, 2),
+      relevance: `${pattern.summary} The cited files are the repository evidence for this prompt.`,
       origin: "deterministic",
       source: "Deterministic Fact",
-    };
-  });
+    });
+  }
+
+  const boundary = architecture?.boundaries[0];
+  if (boundary) {
+    add({
+      question: `Starting at ${boundary}, map the handoff to the next module or external boundary. Which coupling is intentional, and where would you introduce an interface if the system grew?`,
+      relatedSkill: "Software architecture",
+      difficulty: "Advanced",
+      files: architecture?.boundaries.slice(0, 3) ?? [boundary],
+      relevance: "The prompt uses boundary files identified by deterministic path analysis.",
+      origin: "deterministic",
+      source: "Deterministic Fact",
+    });
+  }
+
+  for (const technology of technologies) {
+    const implementationEvidence = collectTechnologyEvidenceFiles(technology, repository.files)
+      .filter((file) => !/package\.json$|requirements.*\.txt$|\.lock$|\.ya?ml$|\.md$/i.test(file.path) && !/manifest|configuration|documentation/i.test(file.selectionReason));
+    const evidence = implementationEvidence.find((file) => !questions.some((question) => question.files.includes(file.path))) ?? implementationEvidence[0];
+    if (!evidence) continue;
+    add({
+      question: `${technology.name} appears in ${evidence.path}. Show the implementation decision it supports here, then compare it with one reasonable alternative for this codebase.`,
+      relatedSkill: technology.name,
+      difficulty: "Intermediate",
+      files: [evidence.path],
+      relevance: `Grounded in meaningful ${technology.name} usage selected from the repository, not the dependency list alone.`,
+      origin: "deterministic",
+      source: "Deterministic Fact",
+    });
+    if (questions.length >= 8) break;
+  }
+
+  const fallbackFiles = repository.files.filter((item) =>
+    !/readme|package\.json|\.lock$|\.md$|\.ya?ml$|\.json$/i.test(item.path) &&
+    !/manifest|configuration|documentation|security/i.test(item.selectionReason),
+  );
+  for (const file of fallbackFiles) {
+    if (questions.length >= 6) break;
+    if (questions.some((question) => question.files.includes(file.path))) continue;
+    add({
+      question: `Walk through the responsibility of ${file.path}. Which edge case or scaling pressure would make you change this implementation first?`,
+      relatedSkill: "Implementation reasoning",
+      difficulty: questions.length < 2 ? "Foundational" : "Intermediate",
+      files: [file.path],
+      relevance: `Grounded in a selected ${file.selectionReason.toLowerCase()}.`,
+      origin: "deterministic",
+      source: "Deterministic Fact",
+    });
+  }
+
+  return questions.slice(0, 8);
 }

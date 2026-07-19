@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { IngestedRepository } from "@/services/github";
-import { detectImplementationPatterns, detectTechnologies, inferProjectType } from "./deterministic";
+import { buildDeterministicArchitecture, buildDeterministicQuestions, detectImplementationPatterns, detectTechnologies, inferProjectType } from "./deterministic";
 
 const repository: IngestedRepository = {
   metadata: {
@@ -60,5 +60,17 @@ describe("deterministic repository analysis", () => {
     expect(patterns.map((pattern) => pattern.name)).toContain("Automated testing");
     expect(patterns.map((pattern) => pattern.name)).not.toContain("Authentication or authorization");
     expect(patterns[0]).not.toHaveProperty("path");
+  });
+
+  it("builds repository-specific interview prompts from detected implementation files", () => {
+    const technologies = detectTechnologies(repository);
+    const patterns = detectImplementationPatterns(repository);
+    const architecture = buildDeterministicArchitecture(repository, technologies, inferProjectType(repository, technologies));
+    const questions = buildDeterministicQuestions(repository, technologies, patterns, architecture);
+
+    expect(questions.length).toBeGreaterThan(0);
+    expect(questions.every((question) => question.files.every((path) => repository.files.some((file) => file.path === path)))).toBe(true);
+    expect(questions.some((question) => question.question.includes("app/api/users/route.ts"))).toBe(true);
+    expect(questions.some((question) => question.relevance.includes("dependency list alone"))).toBe(true);
   });
 });

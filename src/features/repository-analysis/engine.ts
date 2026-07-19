@@ -146,7 +146,7 @@ export async function analyzeRepository(
   const complexity = buildComplexityIndicators(repository, patterns);
   const strengths = buildRepositoryStrengths(patterns, skills);
   let gaps: EvidenceGap[] = detectEvidenceGaps(repository);
-  let interviewQuestions: InterviewQuestion[] = buildDeterministicQuestions(repository, technologies);
+  let interviewQuestions: InterviewQuestion[] = buildDeterministicQuestions(repository, technologies, patterns, architecture);
   logger.info("deterministic_analysis_completed", {
     analysisId,
     technologyCount: technologies.length,

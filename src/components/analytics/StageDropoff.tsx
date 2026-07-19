@@ -18,12 +18,12 @@ export default function StageDropoff({ data }: { data: StageDropOffMetric[] }) {
                 <span className={isWorst ? 'font-semibold text-rose-600' : 'font-semibold text-slate-700'}>
                   {d.dropRate}%
                 </span>{' '}
-                · {d.dropped} lost
+                · {d.dropped} exited
               </span>
             </div>
             <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
               <div
-                className={`h-full rounded-full ${isWorst ? 'bg-rose-500' : 'bg-amber-400'}`}
+                className={`chart-bar h-full rounded-full ${isWorst ? 'bg-rose-500' : 'bg-amber-400'}`}
                 style={{ width: `${Math.max(d.dropRate, 1)}%` }}
               />
             </div>
