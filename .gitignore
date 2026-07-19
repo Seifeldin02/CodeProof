@@ -6,3 +6,14 @@ coverage/
 !.env.example
 *.tsbuildinfo
 npm-debug.log*
+dist/
+dist-ssr/
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+*.local
+server/data/
+*.db
+*.db-shm
+*.db-wal
