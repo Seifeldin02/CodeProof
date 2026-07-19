@@ -1,6 +1,7 @@
 import type { RepositoryMetadata, SelectedFile } from "@/types/analysis";
+import { logger } from "@/services/observability/logger";
 import { GitHubServiceError } from "./errors";
-import { FILE_LIMITS, selectFileCandidates } from "./file-selection";
+import { exceedsTreeLimit, FILE_LIMITS, selectFileCandidates } from "./file-selection";
 import type {
   GitHubCommitResponse,
   GitHubRepositoryResponse,
@@ -116,7 +117,9 @@ export class GitHubClient {
   }
 
   async ingest(repositoryUrl: string): Promise<IngestedRepository> {
+    const startedAt = Date.now();
     const parsed = parseGitHubRepositoryUrl(repositoryUrl);
+    logger.info("github_fetch_started", { owner: parsed.owner, repository: parsed.repository });
     const base = `/repos/${parsed.owner}/${parsed.repository}`;
     const repository = await this.request<GitHubRepositoryResponse>(base);
     if (repository.private) {
@@ -134,7 +137,7 @@ export class GitHubClient {
     if (treeFiles.length === 0) {
       throw new GitHubServiceError("EMPTY_REPOSITORY", "The repository contains no files.", 422);
     }
-    if (tree.tree.length > FILE_LIMITS.maxTreeEntries) {
+    if (exceedsTreeLimit(tree.tree.length)) {
       throw new GitHubServiceError(
         "OVERSIZED_REPOSITORY",
         `Repository tree exceeds the ${FILE_LIMITS.maxTreeEntries.toLocaleString()} entry safety limit.`,
@@ -165,7 +168,7 @@ export class GitHubClient {
       });
     }
 
-    return {
+    const result: IngestedRepository = {
       metadata: {
         owner: parsed.owner,
         name: repository.name,
@@ -186,5 +189,14 @@ export class GitHubClient {
       treeFileCount: treeFiles.length,
       treeTruncated: tree.truncated,
     };
+    logger.info("github_fetch_completed", {
+      owner: parsed.owner,
+      repository: parsed.repository,
+      durationMs: Date.now() - startedAt,
+      treeFileCount: result.treeFileCount,
+      selectedFileCount: result.files.length,
+      selectedBytes: result.files.reduce((total, file) => total + file.content.length, 0),
+    });
+    return result;
   }
 }

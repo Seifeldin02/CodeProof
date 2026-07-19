@@ -1,4 +1,5 @@
 import type {
+  ExtractedJobRequirement,
   JobMatch,
   JobRequirementMatch,
   ResumeVerification,
@@ -19,8 +20,8 @@ function contains(text: string, value: string): boolean {
   return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(text);
 }
 
-export function extractJobRequirements(text: string): Array<{ requirement: string; importance: JobRequirementMatch["importance"] }> {
-  const requirements: Array<{ requirement: string; importance: JobRequirementMatch["importance"] }> = [];
+export function extractJobRequirements(text: string): ExtractedJobRequirement[] {
+  const requirements: ExtractedJobRequirement[] = [];
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   for (const skill of SKILLS) {
     if (!contains(text, skill)) continue;
@@ -30,11 +31,16 @@ export function extractJobRequirements(text: string): Array<{ requirement: strin
       : /required|must|minimum|need|proficien|experience with/i.test(matchingLine)
         ? "required"
         : "context";
-    requirements.push({ requirement: skill, importance });
+    requirements.push({ requirement: skill, importance, category: "skill", source: "Job Requirement" });
   }
 
   for (const line of lines.filter((item) => /\b(\d+\+? years?|degree|leadership|mentor|communication)\b/i.test(item))) {
-    requirements.push({ requirement: line.replace(/^[-*•]\s*/, "").slice(0, 180), importance: /preferred|nice/i.test(line) ? "preferred" : "context" });
+    requirements.push({
+      requirement: line.replace(/^[-*•]\s*/, "").slice(0, 180),
+      importance: /preferred|nice/i.test(line) ? "preferred" : "context",
+      category: /\d+\+? years?/i.test(line) ? "experience" : "responsibility",
+      source: "Job Requirement",
+    });
   }
   return requirements.filter((item, index, all) => all.findIndex((candidate) => candidate.requirement.toLowerCase() === item.requirement.toLowerCase()) === index).slice(0, 30);
 }
@@ -44,22 +50,25 @@ export function matchJobDescription(
   technologies: TechnologySignal[],
   skills: SkillEvidence[],
   resume: ResumeVerification | null,
+  extractedRequirements?: ExtractedJobRequirement[],
 ): JobMatch {
   const technologyMap = new Map(technologies.map((item) => [item.name.toLowerCase(), item]));
   const skillMap = new Map(skills.map((item) => [item.skill.toLowerCase(), item]));
   const resumeMap = new Map(resume?.claims.map((item) => [item.claim.toLowerCase(), item]) ?? []);
-  const matches = extractJobRequirements(jobDescription).map<JobRequirementMatch>(({ requirement, importance }) => {
+  const matches = (extractedRequirements ?? extractJobRequirements(jobDescription)).map<JobRequirementMatch>(({ requirement, importance, category, source }) => {
     const key = requirement.toLowerCase();
     const skill = skillMap.get(key);
     const technology = technologyMap.get(key);
     const resumeClaim = resumeMap.get(key);
     if (skill && (skill.level === "Strong Evidence" || skill.level === "Good Evidence")) {
-      return { requirement, importance, support: "Strong match", explanation: "Implementation evidence directly supports this requirement.", files: skill.evidence.map((item) => item.file) };
+      return { requirement, importance, category, source, support: "Strong match", explanation: "Implementation evidence directly supports this requirement.", files: skill.evidence.map((item) => item.file) };
     }
     if (skill || technology || (resumeClaim && resumeClaim.support !== "No Repository Evidence")) {
       return {
         requirement,
         importance,
+        category,
+        source,
         support: "Partial match",
         explanation: "The available repository or résumé evidence supports part of this requirement, but not its full expected depth.",
         files: skill?.evidence.map((item) => item.file) ?? technology?.evidence.map((item) => item.split(": ")[0]).filter((path) => path !== "GitHub language statistics") ?? resumeClaim?.files ?? [],
@@ -68,6 +77,8 @@ export function matchJobDescription(
     return {
       requirement,
       importance,
+      category,
+      source,
       support: "No repository evidence",
       explanation: "No supporting evidence was found in this repository. This is not evidence that the candidate lacks the skill.",
       files: [],
@@ -86,5 +97,6 @@ export function matchJobDescription(
       ? `${supportedRequired} of ${required.length} explicitly required skills have at least partial evidence. Review each evidence trail and unsupported requirement before making a decision.`
       : `${strongMatches.length} strong and ${partialMatches.length} partial matches were found. The description did not clearly label required skills.`,
     scoringMethod: "No opaque fit score is used. Requirements are classified independently from implementation evidence, deterministic signals, and résumé claims.",
+    extractionMethod: extractedRequirements ? "ai" : "deterministic",
   };
 }

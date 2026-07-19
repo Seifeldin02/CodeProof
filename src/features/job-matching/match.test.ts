@@ -4,10 +4,11 @@ import type { SkillEvidence, TechnologySignal } from "@/types/analysis";
 
 describe("matchJobDescription", () => {
   it("matches requirements independently without an opaque score", () => {
-    const technologies: TechnologySignal[] = [{ name: "Docker", category: "infrastructure", evidence: ["Dockerfile"] }];
+    const technologies: TechnologySignal[] = [{ name: "Docker", category: "infrastructure", evidence: ["Dockerfile"], source: "Deterministic Fact" }];
     const skills: SkillEvidence[] = [{
       skill: "TypeScript", level: "Strong Evidence", explanation: "Types", origin: "ai_interpretation",
-      evidence: [{ file: "src/app.ts", summary: "Types", implementationExample: "Typed service", origin: "ai_interpretation" }],
+      evidence: [{ file: "src/app.ts", summary: "Types", implementationExample: "Typed service", origin: "ai_interpretation", source: "AI Interpretation" }],
+      source: "AI Interpretation",
     }];
     const result = matchJobDescription("Required: TypeScript and AWS\nPreferred: Docker", technologies, skills, null);
     expect(result.strongMatches.map((item) => item.requirement)).toContain("TypeScript");

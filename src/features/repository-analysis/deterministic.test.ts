@@ -26,4 +26,25 @@ describe("deterministic repository analysis", () => {
     ]));
     expect(inferProjectType(repository, technologies)).toBe("Full-stack application");
   });
+
+  it("handles repositories with no manifest", () => {
+    const noManifest: IngestedRepository = {
+      ...repository,
+      languages: { Go: 5_000 },
+      treePaths: ["src/main.go"],
+      treeFileCount: 1,
+      files: [{ path: "src/main.go", size: 300, sha: "go", truncated: false, selectionReason: "Application entry point", content: "package main\nfunc main() { println(\"hello\") }" }],
+    };
+    expect(detectTechnologies(noManifest).map((item) => item.name)).toContain("Go");
+    expect(inferProjectType(noManifest, detectTechnologies(noManifest))).toBe("Unclear");
+  });
+
+  it("identifies monorepos from workspace tooling without requiring a root manifest", () => {
+    const monorepo: IngestedRepository = {
+      ...repository,
+      treePaths: ["turbo.json", "apps/web/src/app.ts", "services/api/main.py"],
+      treeFileCount: 3,
+    };
+    expect(inferProjectType(monorepo, detectTechnologies(monorepo))).toBe("Monorepo");
+  });
 });

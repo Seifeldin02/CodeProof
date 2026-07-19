@@ -5,6 +5,8 @@ import type {
   SelectedFile,
   SkillEvidence,
   TechnologySignal,
+  ExtractedJobRequirement,
+  ExtractedResumeClaim,
 } from "@/types/analysis";
 
 export interface AiAnalysisContext {
@@ -26,4 +28,6 @@ export interface AiProvider {
   readonly name: string;
   readonly model: string;
   analyze(context: AiAnalysisContext): Promise<AiAnalysisOutput>;
+  extractResumeClaims?(resumeText: string): Promise<ExtractedResumeClaim[]>;
+  extractJobRequirements?(jobDescription: string): Promise<ExtractedJobRequirement[]>;
 }

@@ -7,6 +7,7 @@ import type {
   SkillEvidence,
   TechnologySignal,
 } from "@/types/analysis";
+import { collectTechnologyEvidenceFiles, EVIDENCE_LEVEL_METHOD, maximumEvidenceLevel } from "./evidence-scoring";
 
 interface TechnologyRule {
   name: string;
@@ -111,7 +112,7 @@ export function detectTechnologies(repository: IngestedRepository): TechnologySi
 
   for (const [language] of Object.entries(repository.languages).sort((a, b) => b[1] - a[1])) {
     if (LANGUAGE_NAMES[language]) {
-      detected.push({ name: LANGUAGE_NAMES[language], category: "language", evidence: ["GitHub language statistics"] });
+      detected.push({ name: LANGUAGE_NAMES[language], category: "language", evidence: ["GitHub language statistics"], source: "Deterministic Fact" });
     }
   }
 
@@ -127,7 +128,7 @@ export function detectTechnologies(repository: IngestedRepository): TechnologySi
   ];
   for (const [name, pattern] of packageManagerSignals) {
     const paths = repository.treePaths.filter((path) => pattern.test(path));
-    if (paths.length) detected.push({ name, category: "package-manager", evidence: paths });
+    if (paths.length) detected.push({ name, category: "package-manager", evidence: paths, source: "Deterministic Fact" });
   }
 
   for (const rule of TECHNOLOGY_RULES) {
@@ -142,7 +143,7 @@ export function detectTechnologies(repository: IngestedRepository): TechnologySi
     for (const file of repository.files) {
       if (rule.content?.some((pattern) => pattern.test(file.content.toLowerCase()))) evidence.push(file.path);
     }
-    if (evidence.length) detected.push({ name: rule.name, category: rule.category, evidence: unique(evidence) });
+    if (evidence.length) detected.push({ name: rule.name, category: rule.category, evidence: unique(evidence), source: "Deterministic Fact" });
   }
 
   return detected.filter(
@@ -182,6 +183,7 @@ export function buildDeterministicArchitecture(
     engineeringDecisions: technologies.filter((item) => ["orm", "state-management", "infrastructure", "testing"].includes(item.category)).map((item) => `${item.name} is present (${item.evidence[0]}).`),
     importantFiles: repository.files.slice(0, 10).map((file) => file.path),
     origin: "deterministic",
+    source: "Deterministic Fact",
   };
 }
 
@@ -189,31 +191,29 @@ export function buildDeterministicSkills(
   repository: IngestedRepository,
   technologies: TechnologySignal[],
 ): SkillEvidence[] {
-  const languageExtensions: Record<string, RegExp> = {
-    TypeScript: /\.tsx?$/i, JavaScript: /\.[cm]?jsx?$/i, Python: /\.py$/i, PHP: /\.php$/i, Java: /\.java$/i,
-    Kotlin: /\.kts?$/i, Go: /\.go$/i, Rust: /\.rs$/i, "C#": /\.cs$/i, Swift: /\.swift$/i, Dart: /\.dart$/i, Ruby: /\.rb$/i,
-  };
   return technologies
     .filter((technology) => technology.category !== "package-manager")
     .slice(0, 12)
-    .map<SkillEvidence>((technology) => ({
+    .map<SkillEvidence>((technology) => {
+      const evidenceFiles = collectTechnologyEvidenceFiles(technology, repository.files);
+      const level = maximumEvidenceLevel(evidenceFiles);
+      return {
       skill: technology.name,
-      level: technology.evidence.length >= 3 ? "Good Evidence" : "Partial Evidence",
-      explanation: `${technology.name} is supported by deterministic repository signals. Implementation depth requires human or AI review of the cited files.`,
-      evidence: technology.evidence.slice(0, 4).map((item) => {
-        const signaledPath = item.split(": ")[0];
-        const representative = repository.files.find((file) => languageExtensions[technology.name]?.test(file.path));
-        const file = repository.treePaths.includes(signaledPath) ? signaledPath : representative?.path;
-        if (!file) return null;
+      level,
+      explanation: `${technology.name} is supported by deterministic repository signals. ${EVIDENCE_LEVEL_METHOD[level]}`,
+      evidence: evidenceFiles.slice(0, 6).map((file) => {
+        const matchingSignal = technology.evidence.find((item) => item.split(": ")[0] === file.path);
         return {
-          file,
+          file: file.path,
           summary: `${technology.name} signal detected here.`,
-          implementationExample: item,
+          implementationExample: matchingSignal ?? `${file.selectionReason}; meaningful usage is evaluated by file role and content depth.`,
           origin: "deterministic" as const,
+          source: "Deterministic Fact" as const,
         };
-      }).filter((item): item is NonNullable<typeof item> => item !== null),
+      }),
       origin: "deterministic",
-    })).filter((skill) => skill.evidence.length > 0);
+      source: "Deterministic Fact",
+    };}).filter((skill) => skill.evidence.length > 0);
 }
 
 export function detectEvidenceGaps(repository: IngestedRepository): EvidenceGap[] {
@@ -234,6 +234,7 @@ export function detectEvidenceGaps(repository: IngestedRepository): EvidenceGap[
     explanation,
     checkedFiles: paths.slice(0, 8),
     origin: "deterministic" as const,
+    source: "Deterministic Fact" as const,
   }));
 }
 
@@ -251,6 +252,7 @@ export function buildDeterministicQuestions(
       files: [file.path],
       relevance: `This question is grounded in a selected ${file.selectionReason.toLowerCase()}.`,
       origin: "deterministic",
+      source: "Deterministic Fact",
     };
   });
 }

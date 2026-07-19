@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { GitHubClient, GitHubServiceError, parseGitHubRepositoryUrl } from "./index";
+import { exceedsTreeLimit, FILE_LIMITS, GitHubClient, GitHubServiceError, parseGitHubRepositoryUrl } from "./index";
 import { selectFileCandidates } from "./file-selection";
 import type { GitHubTreeEntry } from "./types";
 
@@ -56,5 +56,18 @@ describe("selectFileCandidates", () => {
       entry("src/app.ts", 100_000),
     ]);
     expect(selected.map((item) => item.path)).toEqual(["package.json", "Dockerfile", "src/services/users.ts"]);
+  });
+
+  it("enforces the huge-tree safety boundary", () => {
+    expect(exceedsTreeLimit(FILE_LIMITS.maxTreeEntries)).toBe(false);
+    expect(exceedsTreeLimit(FILE_LIMITS.maxTreeEntries + 1)).toBe(true);
+  });
+
+  it("rejects binary and oversized candidates", () => {
+    expect(selectFileCandidates([
+      entry("src/photo.png"),
+      entry("src/archive.zip"),
+      entry("src/huge.ts", FILE_LIMITS.maxFileBytes + 1),
+    ])).toEqual([]);
   });
 });

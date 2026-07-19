@@ -51,6 +51,7 @@ async function readAnalysisStream(response: Response, onEvent: (event: StreamEve
 export function AnalysisWorkspace() {
   const [repositoryUrl, setRepositoryUrl] = useState("");
   const [resumeText, setResumeText] = useState("");
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState("");
   const [stage, setStage] = useState<AnalysisStage | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -65,15 +66,24 @@ export function AnalysisWorkspace() {
     setResult(null);
     setStage("fetching_repository");
     try {
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      let body: BodyInit;
+      const headers: HeadersInit = {};
+      if (resumeFile) {
+        const form = new FormData();
+        form.set("repositoryUrl", repositoryUrl);
+        if (resumeText.trim()) form.set("resumeText", resumeText);
+        if (jobDescription.trim()) form.set("jobDescription", jobDescription);
+        form.set("resumeFile", resumeFile);
+        body = form;
+      } else {
+        headers["Content-Type"] = "application/json";
+        body = JSON.stringify({
           repositoryUrl,
           ...(resumeText.trim() ? { resumeText } : {}),
           ...(jobDescription.trim() ? { jobDescription } : {}),
-        }),
-      });
+        });
+      }
+      const response = await fetch("/api/analyze", { method: "POST", headers, body });
       await readAnalysisStream(response, (streamEvent) => {
         if (streamEvent.type === "stage") setStage(streamEvent.stage);
         if (streamEvent.type === "result") setResult(streamEvent.result);
@@ -130,6 +140,14 @@ export function AnalysisWorkspace() {
               <label>
                 <span>Résumé or CV text</span>
                 <textarea value={resumeText} onChange={(event) => setResumeText(event.target.value)} maxLength={50_000} placeholder="Paste the candidate's résumé text…" disabled={isLoading} />
+                <span className="file-label">Or attach a text-based PDF, up to 5 MB</span>
+                <input
+                  className="file-input"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={(event) => setResumeFile(event.target.files?.[0] ?? null)}
+                  disabled={isLoading}
+                />
               </label>
               <label>
                 <span>Job description</span>

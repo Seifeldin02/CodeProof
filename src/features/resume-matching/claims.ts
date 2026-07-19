@@ -1,4 +1,5 @@
 import type {
+  ExtractedResumeClaim,
   ResumeClaimVerification,
   ResumeVerification,
   SkillEvidence,
@@ -18,16 +19,21 @@ function mentions(text: string, claim: string): boolean {
   return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(text);
 }
 
-export function extractResumeClaims(text: string): Array<{ claim: string; category: ResumeClaimVerification["category"] }> {
-  const claims: Array<{ claim: string; category: ResumeClaimVerification["category"] }> = KNOWN_CLAIMS.filter((claim) => mentions(text, claim)).map((claim) => ({
+export function extractResumeClaims(text: string): ExtractedResumeClaim[] {
+  const claims: ExtractedResumeClaim[] = KNOWN_CLAIMS.filter((claim) => mentions(text, claim)).map((claim) => ({
     claim,
     category: "technology" as const,
+    source: "Candidate Claim" as const,
   }));
 
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length >= 12 && line.length <= 180);
   for (const line of lines) {
     if (/\b(architected|designed|built|implemented|developed|led|owned|migrated|scaled|optimized)\b/i.test(line)) {
-      claims.push({ claim: line.replace(/^[-*•]\s*/, ""), category: /\b(led|owned|managed)\b/i.test(line) ? "role" : "engineering" });
+      claims.push({
+        claim: line.replace(/^[-*•]\s*/, ""),
+        category: /\b(led|owned|managed)\b/i.test(line) ? "role" : "engineering",
+        source: "Candidate Claim",
+      });
     }
   }
   return claims.filter((item, index, all) => all.findIndex((candidate) => candidate.claim.toLowerCase() === item.claim.toLowerCase()) === index).slice(0, 30);
@@ -37,10 +43,11 @@ export function verifyResumeClaims(
   resumeText: string,
   technologies: TechnologySignal[],
   skills: SkillEvidence[],
+  extractedClaims?: ExtractedResumeClaim[],
 ): ResumeVerification {
   const technologyByName = new Map(technologies.map((item) => [item.name.toLowerCase(), item]));
   const skillByName = new Map(skills.map((item) => [item.skill.toLowerCase(), item]));
-  const claims = extractResumeClaims(resumeText).map<ResumeClaimVerification>((claim) => {
+  const claims = (extractedClaims ?? extractResumeClaims(resumeText)).map<ResumeClaimVerification>((claim) => {
     const normalized = claim.claim.toLowerCase();
     const skill = skillByName.get(normalized);
     const technology = technologyByName.get(normalized);
@@ -80,5 +87,6 @@ export function verifyResumeClaims(
   return {
     claims,
     disclaimer: "No Repository Evidence does not mean a résumé claim is false. It means this repository does not provide enough evidence to verify or reject it.",
+    extractionMethod: extractedClaims ? "ai" : "deterministic",
   };
 }

@@ -7,6 +7,12 @@ export type EvidenceLevel =
 
 export type EvidenceOrigin = "deterministic" | "ai_interpretation";
 
+export type InformationSource =
+  | "Deterministic Fact"
+  | "AI Interpretation"
+  | "Candidate Claim"
+  | "Job Requirement";
+
 export interface RepositoryMetadata {
   owner: string;
   name: string;
@@ -37,6 +43,7 @@ export interface TechnologySignal {
     | "build"
     | "infrastructure";
   evidence: string[];
+  source: "Deterministic Fact";
 }
 
 export type ProjectType =
@@ -67,6 +74,7 @@ export interface ArchitectureSummary {
   engineeringDecisions: string[];
   importantFiles: string[];
   origin: EvidenceOrigin;
+  source: "Deterministic Fact" | "AI Interpretation";
 }
 
 export interface EvidenceItem {
@@ -74,6 +82,7 @@ export interface EvidenceItem {
   summary: string;
   implementationExample: string;
   origin: EvidenceOrigin;
+  source: "Deterministic Fact" | "AI Interpretation";
 }
 
 export interface SkillEvidence {
@@ -82,6 +91,7 @@ export interface SkillEvidence {
   explanation: string;
   evidence: EvidenceItem[];
   origin: EvidenceOrigin;
+  source: "Deterministic Fact" | "AI Interpretation";
 }
 
 export interface EvidenceGap {
@@ -89,6 +99,7 @@ export interface EvidenceGap {
   explanation: string;
   checkedFiles: string[];
   origin: EvidenceOrigin;
+  source: "Deterministic Fact" | "AI Interpretation";
 }
 
 export type ResumeSupport =
@@ -99,23 +110,42 @@ export type ResumeSupport =
 
 export interface ResumeClaimVerification {
   claim: string;
-  category: "technology" | "framework" | "project" | "role" | "engineering";
+  category:
+    | "technology"
+    | "framework"
+    | "language"
+    | "cloud_platform"
+    | "database"
+    | "role"
+    | "experience"
+    | "project"
+    | "engineering";
   support: ResumeSupport;
   explanation: string;
   files: string[];
+  source: "Candidate Claim";
 }
 
 export interface ResumeVerification {
   claims: ResumeClaimVerification[];
   disclaimer: string;
+  extractionMethod: "ai" | "deterministic";
+}
+
+export interface ExtractedResumeClaim {
+  claim: string;
+  category: ResumeClaimVerification["category"];
+  source: "Candidate Claim";
 }
 
 export interface JobRequirementMatch {
   requirement: string;
   importance: "required" | "preferred" | "context";
+  category: "skill" | "responsibility" | "seniority" | "experience" | "domain";
   support: "Strong match" | "Partial match" | "No repository evidence";
   explanation: string;
   files: string[];
+  source: "Job Requirement";
 }
 
 export interface JobMatch {
@@ -124,6 +154,14 @@ export interface JobMatch {
   unsupportedRequirements: JobRequirementMatch[];
   summary: string;
   scoringMethod: string;
+  extractionMethod: "ai" | "deterministic";
+}
+
+export interface ExtractedJobRequirement {
+  requirement: string;
+  importance: JobRequirementMatch["importance"];
+  category: JobRequirementMatch["category"];
+  source: "Job Requirement";
 }
 
 export interface InterviewQuestion {
@@ -133,6 +171,7 @@ export interface InterviewQuestion {
   files: string[];
   relevance: string;
   origin: EvidenceOrigin;
+  source: "Deterministic Fact" | "AI Interpretation";
 }
 
 export type AnalysisStage =
@@ -157,8 +196,12 @@ export interface AnalysisMetadata {
   inspectedTreeFileCount: number;
   selectedBytes: number;
   cacheHit: boolean;
+  cacheStorage: "postgres" | "filesystem" | "memory" | "disabled";
+  engineVersion: string;
   aiProvider: string | null;
   aiModel: string | null;
+  aiStatus: "completed" | "unavailable_not_configured" | "unavailable_failed";
+  aiUnavailableReason: string | null;
   warnings: AnalysisWarning[];
 }
 

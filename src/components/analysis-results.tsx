@@ -20,6 +20,7 @@ function ClaimList({ claims }: { claims: ResumeClaimVerification[] }) {
   return <div className="match-list">{claims.map((claim) => (
     <article key={`${claim.claim}-${claim.support}`}>
       <div><strong>{claim.claim}</strong><span className="status-badge">{claim.support}</span></div>
+      <small className="source-tag">{claim.source}</small>
       <p>{claim.explanation}</p>
       {claim.files.length > 0 && <code>{claim.files.join(" · ")}</code>}
     </article>
@@ -30,6 +31,7 @@ function RequirementList({ items }: { items: JobRequirementMatch[] }) {
   return <div className="match-list">{items.map((item) => (
     <article key={`${item.requirement}-${item.support}`}>
       <div><strong>{item.requirement}</strong><span className="importance">{item.importance}</span></div>
+      <small className="source-tag">{item.source}</small>
       <p>{item.explanation}</p>
       {item.files.length > 0 && <code>{item.files.join(" · ")}</code>}
     </article>
@@ -62,6 +64,14 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
         </div>
       )}
 
+      {result.metadata.aiStatus !== "completed" && (
+        <div className="availability-panel">
+          <strong>Deep AI evidence analysis unavailable</strong>
+          <span>Showing deterministic repository signals only.</span>
+          {result.metadata.aiUnavailableReason && <small>{result.metadata.aiUnavailableReason}</small>}
+        </div>
+      )}
+
       <ResultSection number="01" title="Repository signals" subtitle="Factual signals derived before AI interpretation.">
         <div className="signal-layout">
           <div className="technology-grid">
@@ -69,6 +79,7 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
               <article key={technology.name}>
                 <span>{technology.category}</span>
                 <strong>{technology.name}</strong>
+                <small className="source-tag">{technology.source}</small>
                 <small>{technology.evidence.slice(0, 2).join(" · ")}</small>
               </article>
             ))}
@@ -100,6 +111,7 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
           {result.skills.map((skill) => (
             <article className="skill-card" key={skill.skill}>
               <div className="skill-title"><h3>{skill.skill}</h3><span>{skill.level}</span></div>
+              <small className="source-tag skill-source">{skill.source}</small>
               <p>{skill.explanation}</p>
               <div className="evidence-list">
                 {skill.evidence.map((evidence, index) => (
@@ -112,13 +124,13 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
       </ResultSection>
 
       {result.resumeVerification && (
-        <ResultSection number="04" title="Résumé verification" subtitle={result.resumeVerification.disclaimer}>
+        <ResultSection number="04" title="Résumé verification" subtitle={`${result.resumeVerification.disclaimer} Claims were extracted using ${result.resumeVerification.extractionMethod === "ai" ? "AI structured extraction" : "the deterministic fallback"}.`}>
           <ClaimList claims={result.resumeVerification.claims} />
         </ResultSection>
       )}
 
       {result.jobMatch && (
-        <ResultSection number={result.resumeVerification ? "05" : "04"} title="Job requirement match" subtitle={result.jobMatch.summary}>
+        <ResultSection number={result.resumeVerification ? "05" : "04"} title="Job requirement match" subtitle={`${result.jobMatch.summary} Requirements were extracted using ${result.jobMatch.extractionMethod === "ai" ? "AI structured extraction" : "the deterministic fallback"}.`}>
           <p className="scoring-note">{result.jobMatch.scoringMethod}</p>
           {result.jobMatch.strongMatches.length > 0 && <><h3 className="match-heading">Strong matches</h3><RequirementList items={result.jobMatch.strongMatches} /></>}
           {result.jobMatch.partialMatches.length > 0 && <><h3 className="match-heading">Partial matches</h3><RequirementList items={result.jobMatch.partialMatches} /></>}
@@ -127,13 +139,13 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
       )}
 
       <ResultSection number={String(4 + Number(Boolean(result.resumeVerification)) + Number(Boolean(result.jobMatch))).padStart(2, "0")} title="Evidence gaps" subtitle="Areas where the selected repository evidence is limited, not claims about the candidate's ability.">
-        <div className="gap-grid">{result.gaps.map((gap) => <article key={gap.area}><span>Limited evidence</span><h3>{gap.area}</h3><p>{gap.explanation}</p></article>)}</div>
+        <div className="gap-grid">{result.gaps.map((gap) => <article key={gap.area}><span>Limited evidence · {gap.source}</span><h3>{gap.area}</h3><p>{gap.explanation}</p></article>)}</div>
       </ResultSection>
 
       <ResultSection number={String(5 + Number(Boolean(result.resumeVerification)) + Number(Boolean(result.jobMatch))).padStart(2, "0")} title="Code-specific interview" subtitle="Questions point back to the implementation that made them relevant.">
         <ol className="question-list">{result.interviewQuestions.map((question, index) => (
           <li key={`${question.question}-${index}`}>
-            <div><span>{question.difficulty}</span><span>{question.relatedSkill}</span></div>
+            <div><span>{question.difficulty}</span><span>{question.relatedSkill}</span><span>{question.source}</span></div>
             <h3>{question.question}</h3><p>{question.relevance}</p><code>{question.files.join(" · ")}</code>
           </li>
         ))}</ol>
@@ -149,6 +161,7 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
       <footer className="result-footer">
         <span>Analysis {result.metadata.analysisId.slice(0, 8)}</span>
         <span>{result.metadata.cacheHit ? "Reused commit analysis" : `Completed in ${(result.metadata.durationMs / 1000).toFixed(1)}s`}</span>
+        <span>Engine {result.metadata.engineVersion} · {result.metadata.cacheStorage} cache</span>
         <span>{new Date(result.metadata.analyzedAt).toLocaleString()}</span>
       </footer>
     </div>

@@ -49,6 +49,10 @@ export interface FileCandidate extends GitHubTreeEntry {
   reason: string;
 }
 
+export function exceedsTreeLimit(entryCount: number): boolean {
+  return entryCount > FILE_LIMITS.maxTreeEntries;
+}
+
 function isExcluded(path: string, size: number): boolean {
   const segments = path.toLowerCase().split("/");
   return (
