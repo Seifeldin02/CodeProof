@@ -1,5 +1,9 @@
 # CodeProof Development Guidelines
 
+## Mandatory first read
+
+Before every task, Codex, Claude, and all other contributors must read and obey `docs/HARD_REQUIREMENTS.md`. Those requirements are permanent product constraints and take precedence over feature-level convenience. Do not weaken, bypass, or remove them without explicit product-owner approval.
+
 CodeProof is an evidence-based developer hiring intelligence platform.
 
 Core product concept:
@@ -33,6 +37,7 @@ The platform combines:
 - Do not modify another developer's feature unless required for integration.
 - Before changing shared types, navigation, routing, database schemas, or global state, inspect existing usage carefully.
 - Run tests/type checks/build before completing a task.
+- For user-facing work, verify desktop English, desktop Arabic RTL, mobile English, and mobile Arabic RTL.
 - Fix errors caused by your changes.
 - Do not silently remove functionality to fix errors.
 

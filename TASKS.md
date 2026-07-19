@@ -1,5 +1,33 @@
 # Active Tasks
 
+## Permanent product contract
+
+Every task is subject to `docs/HARD_REQUIREMENTS.md`. Codex and Claude must read it before work begins. A feature may not be marked complete if it breaks bilingual RTL, mobile responsiveness, the zero-paid-API workflow, exact evidence grounding, accessibility basics, or Replit readiness.
+
+### CP-400 Kanz hard requirements
+Status: READY FOR BROWSER QA
+Branch: development
+
+Required completion evidence:
+- English and Arabic recruiter UI with persistent language preference
+- Global RTL and isolated LTR technical content
+- Desktop and mobile QA in both languages
+- Responsive end-to-end recruiter workflow
+- Professional employer-facing story and shareable candidate report
+- Replit build/run/health path and a separately verified public URL
+- Lint, typecheck, tests, and production build
+
+Completed locally:
+- Persistent English/Arabic UI, global RTL, and LTR technical-token isolation
+- Responsive recruiter flow surfaces plus printable/shareable report and employer story
+- Zero-paid PDF-to-public-repository analysis verified against `sindresorhus/is`
+- Replit build/run configuration and `/api/health`
+- Lint, typecheck, 45 tests, and production build
+
+Open release gates:
+- Four-mode visual QA is pending because no browser runtime was available in the verification environment
+- Public Replit URL deployment and live workflow verification require deployment access
+
 ## Shared integration
 
 ### CP-300 Recruiter-first unified demo

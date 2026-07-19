@@ -1,5 +1,17 @@
 # CodeProof Roadmap
 
+> All phases are governed by `docs/HARD_REQUIREMENTS.md`. English/Arabic, RTL, mobile responsiveness, zero-paid-API operation, real evidence, accessibility, professional branding, and a verified public Replit deployment are release gates, not optional enhancements.
+
+## Permanent release gates
+
+- [ ] Public Replit URL verified with the core recruiter workflow
+- [x] Zero-paid-API deterministic core
+- [x] Recruiter-first CV-to-evidence workflow
+- [x] Exact source-file grounding and no fabricated claims
+- [x] Full English and Arabic UI with global RTL
+- [ ] Mobile verification in English LTR and Arabic RTL
+- [ ] Accessibility and professional-branding review
+
 ## Phase 1 — Foundation
 [x] Landing page
 [x] Mock repository analysis
@@ -67,3 +79,14 @@ Owner: Shared
 [ ] Deployment
 [ ] Replit import/deployment
 [ ] Final presentation
+
+## Phase 9 — Kanz hard requirements
+
+- [x] Persistent English/Arabic language switch
+- [x] Complete Arabic recruiter UI and analysis-report translation
+- [x] Global RTL with LTR technical tokens
+- [x] Mobile-first navigation, forms, reports, tables, and charts
+- [x] Recruiter report export/share view
+- [x] Employer-facing product explanation
+- [ ] Public Replit deployment (build/run configuration and `/api/health` are complete; live URL verification remains external)
+- [ ] Four-mode browser QA: desktop/mobile × English/Arabic

@@ -13,6 +13,8 @@ CodeProof is an evidence-based developer hiring platform. A recruiter uploads a 
 
 The core flow needs no `GITHUB_TOKEN` and no `OPENAI_API_KEY`.
 
+The recruiter workspace includes a persistent English/Arabic switch, global RTL behavior, responsive phone/tablet layouts, and a printable/shareable candidate report. The permanent product contract is documented in [`docs/HARD_REQUIREMENTS.md`](docs/HARD_REQUIREMENTS.md).
+
 ## Safety boundaries
 
 - Repository code is downloaded as an untrusted ZIP archive and is never executed.
@@ -71,8 +73,11 @@ npm audit
 5. Use an Autoscale or Reserved VM deployment because CodeProof has server routes.
 6. Build with `npm ci && npm run build`.
 7. Run with `npm start -- --hostname 0.0.0.0`.
+8. Configure the deployment health check to request `/api/health`; a healthy instance returns `status: "ok"` and `paidApisRequired: false`.
 
 Replit's published filesystem is not durable. SQLite candidate records and filesystem cache entries work during a live demo session but reset after deployment restarts or republishing. A durable candidate-store adapter remains a production follow-up.
+
+The checked-in Replit configuration is deployment-ready, but a public demo is not claimed until its live URL has been exercised through the full recruiter flow.
 
 ## Architecture
 
