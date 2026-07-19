@@ -1,47 +1,13 @@
 /** @type {import('tailwindcss').Config} */
-export default {
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
+module.exports = {
+  content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        // Primary brand accent — a confident, technical blue (not a gradient).
-        brand: {
-          50: '#eff5ff',
-          100: '#dbe7fe',
-          200: '#bfd3fe',
-          300: '#93b4fd',
-          400: '#608cfa',
-          500: '#3b66f5',
-          600: '#2563eb',
-          700: '#1d4fd7',
-          800: '#1e40af',
-          900: '#1e3a8a',
-        },
+        brand: { 50: "#eff8f3", 100: "#d9efe2", 200: "#b5dfc7", 300: "#83c8a2", 400: "#4eaa79", 500: "#2d8c60", 600: "#1e704c", 700: "#195a3f", 800: "#174834", 900: "#143c2c" },
       },
-      fontFamily: {
-        sans: [
-          'Inter',
-          'ui-sans-serif',
-          'system-ui',
-          '-apple-system',
-          'Segoe UI',
-          'Roboto',
-          'Helvetica Neue',
-          'Arial',
-          'sans-serif',
-        ],
-        mono: [
-          'ui-monospace',
-          'SFMono-Regular',
-          'Menlo',
-          'Consolas',
-          'Liberation Mono',
-          'monospace',
-        ],
-      },
-      boxShadow: {
-        card: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06)',
-      },
+      fontFamily: { sans: ["var(--font-sans)", "sans-serif"], mono: ["var(--font-mono)", "monospace"] },
+      boxShadow: { card: "0 1px 2px rgb(15 23 42 / .04), 0 12px 30px rgb(15 23 42 / .05)" },
     },
   },
   plugins: [],

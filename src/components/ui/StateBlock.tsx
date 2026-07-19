@@ -13,9 +13,8 @@ export function ErrorBlock({ message }: { message: string }) {
       <p className="font-medium">Couldn&rsquo;t load data</p>
       <p className="mt-1 text-rose-600">{message}</p>
       <p className="mt-2 text-xs text-rose-500">
-        Is the API running? Start it with{' '}
-        <code className="rounded bg-white px-1 py-0.5">npm run dev:server</code> (or{' '}
-        <code className="rounded bg-white px-1 py-0.5">npm run dev:all</code> for both).
+        Retry the request. If the problem continues, confirm CodeProof is running with{' '}
+        <code className="rounded bg-white px-1 py-0.5">npm run dev</code>.
       </p>
     </div>
   );

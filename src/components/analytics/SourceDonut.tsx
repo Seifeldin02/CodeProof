@@ -10,13 +10,16 @@ const CENTER = SIZE / 2;
 export default function SourceDonut({ data }: { data: SourceMetric[] }) {
   const total = data.reduce((s, d) => s + d.applicants, 0);
 
-  let cumulative = 0;
-  const segments = data.map((d, i) => {
-    const fraction = total === 0 ? 0 : d.applicants / total;
-    const seg = { ...d, fraction, offset: cumulative, color: categorical[i % categorical.length] };
-    cumulative += fraction * C;
-    return seg;
-  });
+  const { segments } = data.reduce<{
+    segments: Array<SourceMetric & { fraction: number; offset: number; color: string }>;
+    cumulative: number;
+  }>((state, item, index) => {
+    const fraction = total === 0 ? 0 : item.applicants / total;
+    return {
+      segments: [...state.segments, { ...item, fraction, offset: state.cumulative, color: categorical[index % categorical.length] }],
+      cumulative: state.cumulative + fraction * C,
+    };
+  }, { segments: [], cumulative: 0 });
 
   return (
     <div className="flex flex-col items-center gap-6 sm:flex-row">

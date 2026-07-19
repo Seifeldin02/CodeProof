@@ -231,7 +231,7 @@ export function deriveInsights(candidates: CandidateRecord[]): DerivedInsight[] 
       insights.push({
         id: 'skills-signal',
         tone: 'positive',
-        text: `Candidates with a verified-skill score ≥ 80 are hired ${factor}× more often than the 40–59 band — evidence is predicting outcomes.`,
+        text: `Candidates with an evidence index of at least 80 have an observed hire rate ${factor} times the 40-59 band in the current dataset.`,
       });
     }
   }

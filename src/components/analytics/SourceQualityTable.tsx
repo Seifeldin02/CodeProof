@@ -16,7 +16,7 @@ export default function SourceQualityTable({ data }: { data: SourceMetric[] }) {
             <th className="pb-2.5 text-right font-medium">Applicants</th>
             <th className="pb-2.5 text-right font-medium">Hire rate</th>
             <th className="pb-2.5 text-right font-medium">Avg time-to-hire</th>
-            <th className="pb-2.5 text-right font-medium">Avg verified</th>
+            <th className="pb-2.5 text-right font-medium">Evidence index</th>
           </tr>
         </thead>
         <tbody>

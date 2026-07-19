@@ -31,8 +31,7 @@ export default function SkillsVsOutcome({ data }: { data: SkillBandOutcome[] }) 
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-        Hire rate by CodeProof verified-skill score band. Higher verified evidence tracks with
-        stronger hiring outcomes.
+        Observed hire rate by weighted evidence-index band. Sample sizes are shown; this chart does not imply causation.
       </p>
     </div>
   );

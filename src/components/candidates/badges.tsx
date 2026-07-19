@@ -25,7 +25,7 @@ export function VerifiedScoreChip({ score }: { score: number }) {
   return (
     <span
       className={`tnum inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold ${tone}`}
-      title="CodeProof verified-skill score"
+      title="Weighted evidence index: Strong 4, Good 3, Partial 2, Limited 1"
     >
       {score}
     </span>
