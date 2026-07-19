@@ -1,50 +1,59 @@
 # CodeProof
 
-CodeProof is an evidence-based developer hiring intelligence platform. It inspects a public GitHub repository selectively, detects factual engineering signals, and builds a reviewable evidence dossier for recruiters and technical interviewers.
+CodeProof is an evidence-based developer hiring platform. A recruiter uploads a candidate CV, confirms detected public GitHub projects, and receives an auditable evidence dossier that becomes part of the candidate pipeline and hiring dashboard.
 
-## What is implemented
+## Free core workflow
 
-- Strict public GitHub repository URL parsing, metadata, commit, recursive tree, and language ingestion
-- Bounded smart file selection that prioritizes manifests, entry points, APIs, services, auth, schemas, tests, and infrastructure
-- Deterministic language, framework, library, database, ORM, testing, state, build, and infrastructure detection
-- Project-type inference without fabricated confidence percentages
-- Optional server-side OpenAI analysis and AI-assisted résumé/job extraction through strict Zod structured outputs
-- File-path grounding that removes invented references and caps unsupported AI evidence levels
-- Pasted-text and server-parsed PDF résumé verification with explicit evidence limitations
-- Repository-specific interview questions and evidence-gap reporting
-- Streamed backend stages consumed by the frontend without simulated progress
-- Versioned persistent caching keyed by repository commit, context hash, provider profile, and engine version
-- Postgres persistence in production with an atomic filesystem fallback for local development
-- Structured, content-safe observability events for GitHub, deterministic, AI, cache, and duration stages
+1. Upload a text-based CV PDF or paste CV text.
+2. CodeProof extracts GitHub repository and profile links locally.
+3. Confirm up to three public repositories or paste repository URLs manually.
+4. CodeProof downloads bounded public source archives without GitHub REST or a token.
+5. Static analysis produces languages, technologies, project type, architecture, implementation patterns, complexity indicators, strengths, gaps, file-backed skills, CV matching, and interview prompts.
+6. The completed report is stored as a candidate record and feeds the recruiter dashboard and Hiring Insights.
 
-## Requirements
+The core flow needs no `GITHUB_TOKEN` and no `OPENAI_API_KEY`.
 
-- Node.js 22.3 or newer
-- npm 10 or newer
+## Safety boundaries
 
-## Setup
+- Repository code is downloaded as an untrusted ZIP archive and is never executed.
+- Only public `https://github.com/owner/repository` URLs are accepted.
+- Archive download is capped at 20 MB, declared expansion at 80 MB, and the tree at 5,000 files.
+- Generated output, dependencies, binaries, lockfile contents, and oversized files are excluded.
+- At most 32 bounded text files and 600 KB of selected evidence are inspected.
+- PDF input is capped at 5 MB, parsed server-side, and never written as an uploaded file.
+- A dependency or config-only signal cannot become Good or Strong Evidence.
+- Every implementation claim and interview prompt retains exact source-file references.
+- Missing evidence is reported as a gap, never as proof that a candidate lacks a skill.
+
+## Evidence method
+
+| Level | Rule |
+| --- | --- |
+| Strong Evidence | Meaningful implementation across at least three files and multiple areas, plus tests or multiple architectural boundaries. |
+| Good Evidence | At least two meaningful implementation files or repeated non-trivial use across modules. |
+| Partial Evidence | One meaningful implementation example or narrow test-backed use. |
+| Limited Evidence | Manifest, dependency, configuration, documentation, or trivial usage only. |
+| Insufficient Evidence | No grounded implementation evidence remains. |
+
+Candidate evidence indices use the visible weighting Strong=4, Good=3, Partial=2, Limited=1, Insufficient=0. They are not AI confidence scores.
+
+## Run locally
+
+Requirements: Node.js 22.5 or newer and npm 10 or newer.
 
 ```bash
 npm install
-cp .env.example .env.local
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000`. No environment file is required.
 
-### Environment variables
+Optional configuration is documented in `.env.example`:
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `GITHUB_TOKEN` | No | Raises GitHub API rate limits for public repository metadata and trees. Never exposed to the browser. |
-| `OPENAI_API_KEY` | No | Enables AI architecture, skill-evidence, gap, and interview interpretation. Without it, deterministic evidence is returned. |
-| `OPENAI_MODEL` | No | Overrides the provider model. Defaults to `gpt-5.6-luna`. |
-| `DATABASE_URL` | Production caching | PostgreSQL connection used for durable, versioned analysis caching. The cache table is created automatically. |
-| `CODEPROOF_CACHE_DIR` | No | Local file-cache location when `DATABASE_URL` is absent. Defaults to `.data/analysis-cache`. |
-
-On Windows PowerShell, replace the copy command with `Copy-Item .env.example .env.local`.
-
-No manual migration is required. When `DATABASE_URL` is configured, CodeProof creates `codeproof_analysis_cache` with `CREATE TABLE IF NOT EXISTS` on first cache access.
+- `OPENAI_API_KEY` and `OPENAI_MODEL` enable the optional grounded AI provider.
+- `DATABASE_URL` enables PostgreSQL analysis caching.
+- `CODEPROOF_CACHE_DIR` changes the local analysis-cache directory.
+- `CODEPROOF_DB_PATH` changes the local SQLite candidate-database path.
 
 ## Verification
 
@@ -53,65 +62,33 @@ npm run verify
 npm audit
 ```
 
-Individual commands are available as `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
+## Replit
+
+1. Import the `development` branch.
+2. Confirm Node.js 22.5 or newer and run `npm ci`.
+3. Do not add secrets for the free core demo.
+4. Run preview with `npm run dev -- --hostname 0.0.0.0`.
+5. Use an Autoscale or Reserved VM deployment because CodeProof has server routes.
+6. Build with `npm ci && npm run build`.
+7. Run with `npm start -- --hostname 0.0.0.0`.
+
+Replit's published filesystem is not durable. SQLite candidate records and filesystem cache entries work during a live demo session but reset after deployment restarts or republishing. A durable candidate-store adapter remains a production follow-up.
 
 ## Architecture
 
-- `src/services/github`: GitHub API isolation, errors, and source-file selection
-- `src/features/repository-analysis`: deterministic analysis, defensible evidence scoring, orchestration, versioning, and cache providers
-- `src/services/ai`: provider contract, OpenAI implementation, structured schema, and grounding filter
-- `src/features/resume-matching`: pasted/PDF extraction, claim extraction, and evidence comparison
-- `src/features/job-matching`: transparent requirement-by-requirement matching
-- `src/services/observability`: structured logs without source, résumé, job, or secret contents
-- `src/app/api/analyze`: server-only streamed analysis endpoint
-- `src/types/analysis.ts`: stable result contract shared by backend and frontend
-
-## Security and evidence boundaries
-
-- Repository code is fetched as untrusted text and is never executed.
-- Only `https://github.com/owner/repository` URLs are accepted.
-- File counts, individual file sizes, total selected bytes, and AI prompt text are bounded.
-- Generated files, dependencies, binaries, lockfile contents, and build outputs are excluded.
-- AI prompts explicitly treat repository content as data, not instructions.
-- Repository files are JSON-quoted as `UNTRUSTED_REPOSITORY_DATA`; comments and README instructions have no authority.
-- AI output is runtime-validated, file references are filtered against the exact selected-file allowlist, and unsupported evidence strength is reduced or discarded.
-- PDFs are parsed server-side only, limited to 5 MB, checked by MIME type, extension, and file signature, and never persisted as files.
-- PDF JavaScript evaluation, remote worker fetching, and font rendering are disabled during text extraction.
-- Logs contain identifiers, counts, durations, provider/model names, and error types only. They do not contain source files, résumé/job text, or API keys.
-- A missing repository signal does not prove that a candidate lacks a claimed skill.
-
-## Evidence levels
-
-CodeProof never treats a package dependency or a single configuration file as strong evidence.
-
-| Level | Grounding rule |
-| --- | --- |
-| Strong Evidence | Meaningful implementation across at least three files and multiple areas, plus tests or multiple architectural boundaries. |
-| Good Evidence | At least two meaningful implementation files or repeated non-trivial use across modules. |
-| Partial Evidence | One meaningful implementation example or narrow test-backed usage. |
-| Limited Evidence | Manifest, dependency, configuration, documentation, or trivial usage signals only. |
-| Insufficient Evidence | No grounded implementation evidence remains after validation. |
-
-AI may select a lower level, but it cannot exceed the deterministic maximum derived from the selected files.
-
-## Replit import and deployment
-
-1. Push or import the `codex/core-intelligence-engine` branch from GitHub into a new Replit App.
-2. Confirm Replit uses Node.js 22 or newer and run `npm ci` if dependencies are not installed automatically.
-3. Open Secrets and add `GITHUB_TOKEN`, `OPENAI_API_KEY`, and optionally `OPENAI_MODEL`.
-4. Add a Replit PostgreSQL database. Replit supplies `DATABASE_URL`; no manual schema command is needed.
-5. Select Run. The checked-in `.replit` configuration starts preview with `npm run dev -- --hostname 0.0.0.0`.
-6. Verify the Preview URL, then choose an Autoscale or Reserved VM deployment. Do not choose Static because CodeProof has server API routes.
-7. Use build command `npm ci && npm run build` and run command `npm start -- --hostname 0.0.0.0`.
-8. Add the same GitHub/OpenAI secrets and the production database to the Publishing configuration before publishing.
-
-Replit published filesystems are not persistent. `DATABASE_URL` is therefore required if analysis cache entries must survive deployment restarts or republishing. The file cache is intended for local development only.
+- `src/services/github`: bounded public-archive download, ZIP safety validation, and file selection.
+- `src/features/repository-analysis`: static analysis, evidence scoring, patterns, strengths, complexity, caching, and orchestration.
+- `src/features/resume-matching`: PDF parsing, GitHub discovery, deterministic claim extraction, and evidence comparison.
+- `src/features/candidates`: SQLite candidate persistence and transparent evidence-index calculation.
+- `src/features/hiring-analytics`: Claude's explainable recruiter pipeline and hiring metrics.
+- `src/services/ai`: optional provider interface, strict schemas, injection boundaries, and evidence grounding.
+- `src/app`: the single Next.js recruiter application and server API.
 
 ## Current limitations
 
-- Public repositories only; private GitHub authentication is intentionally not implemented.
-- GitHub may truncate exceptionally large recursive trees; the result reports this explicitly.
-- Deterministic mode establishes repository signals but does not claim the same implementation-depth review as configured AI analysis.
-- AI-assisted extraction is more complete than the deterministic keyword fallback, but both report only claims visible in the provided text.
-- PDF OCR is not included. Image-only/scanned PDFs must be supplied as pasted text.
-- Cached results include extracted candidate claims and job requirements, but never the raw uploaded PDF or full input text. Configure production data retention accordingly.
+- Public GitHub repositories only.
+- Source archives do not include stars, issue counts, private repositories, or profile repository listings.
+- Profile-only CVs require manual public repository selection.
+- Scanned/image-only PDFs require pasted text because OCR is not included.
+- Archives beyond the safety limits are rejected instead of partially analyzed.
+- SQLite is local and not durable on an ephemeral deployment filesystem.

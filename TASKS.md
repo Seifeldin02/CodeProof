@@ -1,5 +1,18 @@
 # Active Tasks
 
+## Shared integration
+
+### CP-300 Recruiter-first unified demo
+Status: READY FOR REVIEW
+Branch: development
+
+Integrated:
+- Codex repository intelligence and CV matching
+- Claude candidate management and Hiring Insights
+- One Next.js recruiter application and navigation
+- Free public archive ingestion with no GitHub token
+- CV-first project discovery and persisted candidate reports
+
 ## Codex
 
 ### CP-101 Core Intelligence Engine
@@ -39,16 +52,11 @@ Do not modify:
 Status: IN REVIEW (pushed on claude/candidates-and-persistence)
 Branch: claude/candidates-and-persistence (stacked on claude/hiring-insights)
 
-Delivered:
-- Thin Node/Express + SQLite backend (server/*), seeded from the demo generator
-- Candidates list + detail (src/pages/CandidatesPage, CandidateDetailPage)
-- Recruiter-facing Repository Analysis view (src/pages/RepositoryAnalysisPage)
-- Insights persisted to the database (insights table) instead of ad-hoc text
-
-Integration seam for Codex:
-- repositories / repo_skills tables hold repository-analysis output
-- Codex's GitHub ingestion + AI verification should write these rows,
-  replacing the demo seed in server/db/repoSeed.ts
+Integrated into development:
+- SQLite candidate persistence now runs inside the shared Next.js server
+- Candidate list/detail and evidence reports are App Router pages
+- Hiring Insights derives from real stored candidate records
+- Automatic fake seeding was removed; the sample candidate is opt-in and labeled
 
 Do not modify:
 - GitHub ingestion internals
