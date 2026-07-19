@@ -25,9 +25,12 @@ import type {
 import { getDefaultCacheStore, type AnalysisCacheStore } from "./cache";
 import {
   buildDeterministicArchitecture,
+  buildComplexityIndicators,
   buildDeterministicQuestions,
   buildDeterministicSkills,
+  buildRepositoryStrengths,
   detectEvidenceGaps,
+  detectImplementationPatterns,
   detectTechnologies,
   inferProjectType,
 } from "./deterministic";
@@ -126,6 +129,12 @@ export async function analyzeRepository(
       message: "No supported text source files passed the selection limits. Metadata and language analysis are still available.",
     });
   }
+  if (repository.ingestionMethod === "public_archive") {
+    warnings.push({
+      code: "ARCHIVE_METADATA_LIMITED",
+      message: "Repository code was downloaded from the free public archive. Hosting metrics such as stars and open issues are not requested from GitHub's API.",
+    });
+  }
 
   onStage("detecting_technologies");
   const technologies = detectTechnologies(repository);
@@ -133,6 +142,9 @@ export async function analyzeRepository(
   onStage("selecting_files");
   let architecture: ArchitectureSummary = buildDeterministicArchitecture(repository, technologies, projectType);
   let skills: SkillEvidence[] = buildDeterministicSkills(repository, technologies);
+  const patterns = detectImplementationPatterns(repository);
+  const complexity = buildComplexityIndicators(repository, patterns);
+  const strengths = buildRepositoryStrengths(patterns, skills);
   let gaps: EvidenceGap[] = detectEvidenceGaps(repository);
   let interviewQuestions: InterviewQuestion[] = buildDeterministicQuestions(repository, technologies);
   logger.info("deterministic_analysis_completed", {
@@ -246,6 +258,9 @@ export async function analyzeRepository(
     technologies,
     projectType,
     architecture,
+    patterns,
+    complexity,
+    strengths,
     skills,
     gaps,
     resumeVerification,

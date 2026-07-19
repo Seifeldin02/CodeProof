@@ -1,7 +1,7 @@
 import type { GitHubTreeEntry } from "./types";
 
 export const FILE_LIMITS = {
-  maxTreeEntries: 100_000,
+  maxTreeEntries: 5_000,
   maxSelectedFiles: 32,
   maxFileBytes: 64_000,
   maxSelectedBytes: 600_000,

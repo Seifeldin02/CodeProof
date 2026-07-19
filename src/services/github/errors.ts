@@ -4,6 +4,7 @@ export type GitHubErrorCode =
   | "EMPTY_REPOSITORY"
   | "RATE_LIMITED"
   | "OVERSIZED_REPOSITORY"
+  | "INVALID_ARCHIVE"
   | "NETWORK_ERROR"
   | "GITHUB_ERROR";
 

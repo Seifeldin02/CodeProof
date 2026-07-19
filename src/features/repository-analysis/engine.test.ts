@@ -25,6 +25,7 @@ function fixture(commitSha = "commit-a"): IngestedRepository {
     treePaths: ["package.json", "src/service.ts", "src/api/route.ts", "tests/service.test.ts"],
     treeFileCount: 4,
     treeTruncated: false,
+    ingestionMethod: "provider",
     files: [
       { path: "package.json", size: packageContent.length, sha: "1", content: packageContent, truncated: false, selectionReason: "Project manifest" },
       { path: "src/service.ts", size: 900, sha: "2", content: "export class Service { async load() { return this.repository.findAll(); } }\n".repeat(12), truncated: false, selectionReason: "Service or domain logic" },

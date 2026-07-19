@@ -20,12 +20,12 @@ export interface RepositoryMetadata {
   description: string | null;
   defaultBranch: string;
   commitSha: string;
-  stars: number;
-  forks: number;
-  openIssues: number;
+  stars: number | null;
+  forks: number | null;
+  openIssues: number | null;
   license: string | null;
-  updatedAt: string;
-  isFork: boolean;
+  updatedAt: string | null;
+  isFork: boolean | null;
 }
 
 export interface TechnologySignal {
@@ -100,6 +100,40 @@ export interface EvidenceGap {
   checkedFiles: string[];
   origin: EvidenceOrigin;
   source: "Deterministic Fact" | "AI Interpretation";
+}
+
+export interface EngineeringPattern {
+  name: string;
+  category:
+    | "architecture"
+    | "api"
+    | "authentication"
+    | "database"
+    | "state-management"
+    | "testing"
+    | "error-handling"
+    | "observability";
+  summary: string;
+  files: string[];
+  source: "Deterministic Fact";
+}
+
+export interface ComplexityIndicators {
+  repositoryFiles: number;
+  selectedEvidenceFiles: number;
+  topLevelAreas: number;
+  languages: number;
+  architecturalBoundaries: number;
+  testFiles: number;
+  signals: string[];
+  source: "Deterministic Fact";
+}
+
+export interface RepositoryStrength {
+  title: string;
+  explanation: string;
+  files: string[];
+  source: "Deterministic Fact";
 }
 
 export type ResumeSupport =
@@ -211,6 +245,9 @@ export interface AnalysisResult {
   technologies: TechnologySignal[];
   projectType: ProjectType;
   architecture: ArchitectureSummary;
+  patterns: EngineeringPattern[];
+  complexity: ComplexityIndicators;
+  strengths: RepositoryStrength[];
   skills: SkillEvidence[];
   gaps: EvidenceGap[];
   resumeVerification: ResumeVerification | null;

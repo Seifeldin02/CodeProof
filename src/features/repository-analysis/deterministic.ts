@@ -1,9 +1,12 @@
 import type { IngestedRepository } from "@/services/github";
 import type {
   ArchitectureSummary,
+  ComplexityIndicators,
+  EngineeringPattern,
   EvidenceGap,
   InterviewQuestion,
   ProjectType,
+  RepositoryStrength,
   SkillEvidence,
   TechnologySignal,
 } from "@/types/analysis";
@@ -112,7 +115,7 @@ export function detectTechnologies(repository: IngestedRepository): TechnologySi
 
   for (const [language] of Object.entries(repository.languages).sort((a, b) => b[1] - a[1])) {
     if (LANGUAGE_NAMES[language]) {
-      detected.push({ name: LANGUAGE_NAMES[language], category: "language", evidence: ["GitHub language statistics"], source: "Deterministic Fact" });
+      detected.push({ name: LANGUAGE_NAMES[language], category: "language", evidence: ["Archive file-extension statistics"], source: "Deterministic Fact" });
     }
   }
 
@@ -236,6 +239,87 @@ export function detectEvidenceGaps(repository: IngestedRepository): EvidenceGap[
     origin: "deterministic" as const,
     source: "Deterministic Fact" as const,
   }));
+}
+
+interface PatternRule {
+  name: string;
+  category: EngineeringPattern["category"];
+  summary: string;
+  path?: RegExp;
+  content?: RegExp;
+}
+
+const PATTERN_RULES: PatternRule[] = [
+  { name: "Layered service boundaries", category: "architecture", summary: "Service, domain, controller, or repository layers separate application responsibilities.", path: /(^|\/)(services?|domain|controllers?|repositories|use-cases?)\//i },
+  { name: "HTTP/API boundary", category: "api", summary: "Request routes, handlers, or controllers expose an application boundary.", path: /(^|\/)(api|routes?|handlers?|controllers?|endpoints?)\//i, content: /\b(GET|POST|PUT|PATCH|DELETE)\b|\.get\(|\.post\(|route\s*\(/i },
+  { name: "Authentication or authorization", category: "authentication", summary: "Authentication, session, token, permission, or authorization logic is implemented.", path: /auth|security|permissions?|session|middleware/i, content: /authorization|authenticate|jwt|oauth|session|permission/i },
+  { name: "Database integration", category: "database", summary: "Database schemas, migrations, queries, or persistence adapters are present.", path: /schema|migrations?|database|repositories?|models?/i, content: /SELECT\s|INSERT\s|UPDATE\s|DELETE\s+FROM|PrismaClient|drizzle|mongoose|sqlalchemy/i },
+  { name: "Application state management", category: "state-management", summary: "Shared client or server state is managed through stores, reducers, contexts, or dedicated hooks.", path: /(^|\/)(stores?|state|hooks?)\//i, content: /createSlice|configureStore|useReducer|createContext|zustand|pinia/i },
+  { name: "Automated testing", category: "testing", summary: "Executable test specifications cover application behavior.", path: /(^|\/)(__tests__|tests?|spec|e2e)\/|\.(test|spec)\./i, content: /\b(describe|it|test)\s*\(|@Test\b|pytest/i },
+  { name: "Explicit error handling", category: "error-handling", summary: "Failure paths are handled through exceptions, typed errors, boundaries, or recovery branches.", content: /try\s*\{|catch\s*\(|except\s+|ErrorBoundary|throw\s+new\s+\w*Error/i },
+  { name: "Operational observability", category: "observability", summary: "Structured logging, tracing, metrics, or production monitoring signals are present.", content: /structured log|logger\.|opentelemetry|sentry|datadog|newrelic|metrics\./i },
+];
+
+export function detectImplementationPatterns(repository: IngestedRepository): EngineeringPattern[] {
+  const implementationFiles = repository.files.filter((file) =>
+    !/manifest|configuration|documentation/i.test(file.selectionReason) &&
+    !/\.(md|mdx|json|ya?ml|toml|xml)$/i.test(file.path) &&
+    file.content.replace(/\s/g, "").length >= 100,
+  );
+  return PATTERN_RULES.flatMap((rule) => {
+    const files = implementationFiles
+      .filter((file) => Boolean(rule.path?.test(file.path) || rule.content?.test(file.content)))
+      .map((file) => file.path)
+      .slice(0, 6);
+    return files.length ? [{ name: rule.name, category: rule.category, summary: rule.summary, files, source: "Deterministic Fact" as const }] : [];
+  });
+}
+
+export function buildComplexityIndicators(
+  repository: IngestedRepository,
+  patterns: EngineeringPattern[],
+): ComplexityIndicators {
+  const topLevelAreas = new Set(repository.treePaths.map((path) => path.split("/")[0]).filter(Boolean)).size;
+  const testFiles = repository.treePaths.filter((path) => /(^|\/)(__tests__|tests?|spec|e2e)\/|\.(test|spec)\./i.test(path)).length;
+  const boundaryFiles = repository.treePaths.filter((path) => /(^|\/)(api|routes?|controllers?|services?|domain|stores?|schema|migrations?)\//i.test(path)).length;
+  const signals: string[] = [];
+  if (repository.treeFileCount >= 250) signals.push("Large repository surface");
+  else if (repository.treeFileCount >= 80) signals.push("Moderate repository surface");
+  if (topLevelAreas >= 8) signals.push("Multiple top-level subsystems");
+  if (Object.keys(repository.languages).length >= 3) signals.push("Polyglot implementation");
+  if (boundaryFiles >= 6) signals.push("Repeated architectural boundaries");
+  if (testFiles >= 5) signals.push("Broad test footprint");
+  if (patterns.some((pattern) => pattern.category === "database") && patterns.some((pattern) => pattern.category === "api")) signals.push("API and persistence integration");
+  return {
+    repositoryFiles: repository.treeFileCount,
+    selectedEvidenceFiles: repository.files.length,
+    topLevelAreas,
+    languages: Object.keys(repository.languages).length,
+    architecturalBoundaries: boundaryFiles,
+    testFiles,
+    signals,
+    source: "Deterministic Fact",
+  };
+}
+
+export function buildRepositoryStrengths(
+  patterns: EngineeringPattern[],
+  skills: SkillEvidence[],
+): RepositoryStrength[] {
+  const strengths: RepositoryStrength[] = [];
+  const strongSkills = skills.filter((skill) => skill.level === "Strong Evidence" || skill.level === "Good Evidence");
+  for (const skill of strongSkills.slice(0, 3)) {
+    strengths.push({
+      title: `${skill.skill} implementation depth`,
+      explanation: `${skill.level} is backed by repeated meaningful implementation rather than a dependency declaration.`,
+      files: skill.evidence.map((item) => item.file).slice(0, 4),
+      source: "Deterministic Fact",
+    });
+  }
+  for (const pattern of patterns.filter((item) => ["testing", "authentication", "database", "architecture"].includes(item.category)).slice(0, Math.max(0, 4 - strengths.length))) {
+    strengths.push({ title: pattern.name, explanation: pattern.summary, files: pattern.files.slice(0, 4), source: "Deterministic Fact" });
+  }
+  return strengths;
 }
 
 export function buildDeterministicQuestions(

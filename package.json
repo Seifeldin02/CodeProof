@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.3.0"
+    "node": ">=22.5.0"
   },
   "scripts": {
     "dev": "next dev",
@@ -21,6 +21,7 @@
     "pg": "^8.22.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
+    "yauzl": "^3.4.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
@@ -28,8 +29,11 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/yauzl": "^3.4.0",
+    "autoprefixer": "^10.5.4",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.2.10",
+    "tailwindcss": "^3.4.19",
     "typescript": "^5.9.0",
     "vitest": "^4.0.0"
   },

@@ -1,12 +1,11 @@
-import type { RepositoryMetadata, SelectedFile } from "@/types/analysis";
+import { createHash } from "node:crypto";
+import type { Readable } from "node:stream";
+import yauzl, { type Entry, type ZipFile } from "yauzl";
 import { logger } from "@/services/observability/logger";
+import type { RepositoryMetadata, SelectedFile } from "@/types/analysis";
 import { GitHubServiceError } from "./errors";
 import { exceedsTreeLimit, FILE_LIMITS, selectFileCandidates } from "./file-selection";
-import type {
-  GitHubCommitResponse,
-  GitHubRepositoryResponse,
-  GitHubTreeResponse,
-} from "./types";
+import type { GitHubTreeEntry } from "./types";
 
 export interface ParsedGitHubUrl {
   owner: string;
@@ -21,9 +20,28 @@ export interface IngestedRepository {
   treePaths: string[];
   treeFileCount: number;
   treeTruncated: boolean;
+  ingestionMethod: "public_archive" | "provider";
 }
 
+/** Optional repository providers can implement this contract without changing the analysis engine. */
+export interface RepositoryProvider {
+  ingest(repositoryUrl: string): Promise<IngestedRepository>;
+}
+
+export const ARCHIVE_LIMITS = {
+  downloadTimeoutMs: 20_000,
+  maxCompressedBytes: 20 * 1024 * 1024,
+  maxDeclaredUncompressedBytes: 80 * 1024 * 1024,
+} as const;
+
 type FetchLike = typeof fetch;
+
+const LANGUAGE_BY_EXTENSION: Record<string, string> = {
+  ts: "TypeScript", tsx: "TypeScript", js: "JavaScript", jsx: "JavaScript", mjs: "JavaScript", cjs: "JavaScript",
+  py: "Python", rb: "Ruby", php: "PHP", java: "Java", kt: "Kotlin", kts: "Kotlin", go: "Go", rs: "Rust",
+  cs: "C#", fs: "F#", fsx: "F#", swift: "Swift", dart: "Dart", vue: "Vue", svelte: "Svelte",
+  sql: "SQL", sh: "Shell", ps1: "PowerShell", html: "HTML", css: "CSS", scss: "SCSS", less: "Less",
+};
 
 export function parseGitHubRepositoryUrl(input: string): ParsedGitHubUrl {
   let url: URL;
@@ -43,160 +61,223 @@ export function parseGitHubRepositoryUrl(input: string): ParsedGitHubUrl {
   }
 
   const repository = parts[1].replace(/\.git$/i, "");
-  if (!repository) {
-    throw new GitHubServiceError("INVALID_URL", "The GitHub repository name is missing.", 400);
-  }
-
+  if (!repository) throw new GitHubServiceError("INVALID_URL", "The GitHub repository name is missing.", 400);
   return { owner: parts[0], repository, canonicalUrl: `https://github.com/${parts[0]}/${repository}` };
 }
 
-export class GitHubClient {
-  constructor(
-    private readonly token = process.env.GITHUB_TOKEN,
-    private readonly fetcher: FetchLike = fetch,
-  ) {}
+function archiveUrl(parsed: ParsedGitHubUrl): string {
+  return `https://codeload.github.com/${encodeURIComponent(parsed.owner)}/${encodeURIComponent(parsed.repository)}/zip/HEAD`;
+}
 
-  private async request<T>(path: string): Promise<T> {
-    let response: Response;
-    try {
-      response = await this.fetcher(`https://api.github.com${path}`, {
-        headers: {
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-          "User-Agent": "CodeProof/0.1",
-          ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
-        },
-        signal: AbortSignal.timeout(20_000),
+async function boundedDownload(response: Response): Promise<Buffer> {
+  const declared = Number(response.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > ARCHIVE_LIMITS.maxCompressedBytes) {
+    throw new GitHubServiceError("OVERSIZED_REPOSITORY", "Repository archive exceeds the 20 MB download limit.", 413);
+  }
+  if (!response.body) throw new GitHubServiceError("NETWORK_ERROR", "Repository archive returned no content.", 502);
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > ARCHIVE_LIMITS.maxCompressedBytes) {
+        await reader.cancel();
+        throw new GitHubServiceError("OVERSIZED_REPOSITORY", "Repository archive exceeds the 20 MB download limit.", 413);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)), received);
+}
+
+function openZip(buffer: Buffer): Promise<ZipFile> {
+  return new Promise((resolve, reject) => {
+    yauzl.fromBuffer(buffer, { lazyEntries: true, autoClose: false, decodeStrings: true, validateEntrySizes: true }, (error, zip) => {
+      if (error || !zip) reject(error ?? new Error("Archive could not be opened."));
+      else resolve(zip);
+    });
+  });
+}
+
+function safeRelativePath(fileName: string): string | null {
+  const normalized = fileName.replace(/\\/g, "/");
+  if (normalized.startsWith("/") || normalized.includes("../") || normalized.includes("\0")) return null;
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length < 2) return null;
+  return parts.slice(1).join("/");
+}
+
+function isSymbolicLink(entry: Entry): boolean {
+  const mode = (entry.externalFileAttributes >>> 16) & 0xffff;
+  return (mode & 0o170000) === 0o120000;
+}
+
+async function indexArchive(zip: ZipFile): Promise<Array<{ entry: Entry; path: string }>> {
+  return new Promise((resolve, reject) => {
+    const entries: Array<{ entry: Entry; path: string }> = [];
+    let declaredBytes = 0;
+    const fail = (error: Error): void => {
+      zip.close();
+      reject(error);
+    };
+    zip.on("error", fail);
+    zip.on("entry", (entry: Entry) => {
+      if (entries.length >= FILE_LIMITS.maxTreeEntries) {
+        fail(new GitHubServiceError("OVERSIZED_REPOSITORY", `Repository contains more than ${FILE_LIMITS.maxTreeEntries.toLocaleString()} files.`, 413));
+        return;
+      }
+      const path = safeRelativePath(entry.fileName);
+      if (path && !entry.fileName.endsWith("/") && !isSymbolicLink(entry)) {
+        declaredBytes += entry.uncompressedSize;
+        if (declaredBytes > ARCHIVE_LIMITS.maxDeclaredUncompressedBytes) {
+          fail(new GitHubServiceError("OVERSIZED_REPOSITORY", "Repository expands beyond the 80 MB safety limit.", 413));
+          return;
+        }
+        entries.push({ entry, path });
+      }
+      zip.readEntry();
+    });
+    zip.on("end", () => resolve(entries));
+    zip.readEntry();
+  });
+}
+
+function readEntry(zip: ZipFile, entry: Entry): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    zip.openReadStream(entry, (error, stream) => {
+      if (error || !stream) {
+        reject(error ?? new Error("Archive entry could not be read."));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      let bytes = 0;
+      (stream as Readable).on("data", (chunk: Buffer) => {
+        bytes += chunk.length;
+        if (bytes > FILE_LIMITS.maxFileBytes) {
+          stream.destroy(new Error("Archive entry exceeds the per-file limit."));
+          return;
+        }
+        chunks.push(Buffer.from(chunk));
       });
-    } catch (error) {
-      throw new GitHubServiceError(
-        "NETWORK_ERROR",
-        error instanceof Error ? `GitHub request failed: ${error.message}` : "GitHub request failed.",
-        502,
-      );
-    }
+      stream.on("error", reject);
+      stream.on("end", () => resolve(Buffer.concat(chunks, bytes)));
+    });
+  });
+}
 
-    if (response.ok) return (await response.json()) as T;
-
-    const remaining = response.headers.get("x-ratelimit-remaining");
-    const retryAfter = response.headers.get("retry-after");
-    if (response.status === 429 || (response.status === 403 && (remaining === "0" || retryAfter))) {
-      throw new GitHubServiceError(
-        "RATE_LIMITED",
-        "GitHub API rate limit reached. Add GITHUB_TOKEN or retry after the reset time.",
-        429,
-        retryAfter ?? response.headers.get("x-ratelimit-reset") ?? undefined,
-      );
-    }
-    if (response.status === 404) {
-      throw new GitHubServiceError(
-        "NOT_FOUND_OR_PRIVATE",
-        "Repository not found or it is not publicly accessible.",
-        404,
-      );
-    }
-    if (response.status === 409) {
-      throw new GitHubServiceError("EMPTY_REPOSITORY", "The repository is empty.", 422);
-    }
-    throw new GitHubServiceError("GITHUB_ERROR", `GitHub returned HTTP ${response.status}.`, 502);
+function detectLanguages(entries: Array<{ entry: Entry; path: string }>): Record<string, number> {
+  const totals = new Map<string, number>();
+  for (const { entry, path } of entries) {
+    const extension = path.toLowerCase().split(".").pop() ?? "";
+    const language = LANGUAGE_BY_EXTENSION[extension];
+    if (language) totals.set(language, (totals.get(language) ?? 0) + entry.uncompressedSize);
   }
+  return Object.fromEntries([...totals.entries()].sort((a, b) => b[1] - a[1]));
+}
 
-  private async fetchRawFile(owner: string, repository: string, commitSha: string, path: string): Promise<string | null> {
-    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-    let response: Response;
-    try {
-      response = await this.fetcher(
-        `https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/${commitSha}/${encodedPath}`,
-        { signal: AbortSignal.timeout(20_000) },
-      );
-    } catch {
-      return null;
-    }
-    if (!response.ok) return null;
-    return response.text();
-  }
+/**
+ * Free public-repository provider. Downloads a bounded GitHub source archive,
+ * indexes it as data, reads only selected text files, and never executes code.
+ */
+export class GitHubClient implements RepositoryProvider {
+  constructor(private readonly fetcher: FetchLike = fetch) {}
 
   async ingest(repositoryUrl: string): Promise<IngestedRepository> {
     const startedAt = Date.now();
     const parsed = parseGitHubRepositoryUrl(repositoryUrl);
-    logger.info("github_fetch_started", { owner: parsed.owner, repository: parsed.repository });
-    const base = `/repos/${parsed.owner}/${parsed.repository}`;
-    const repository = await this.request<GitHubRepositoryResponse>(base);
-    if (repository.private) {
-      throw new GitHubServiceError("NOT_FOUND_OR_PRIVATE", "Private repositories are not supported.", 404);
-    }
+    logger.info("repository_archive_download_started", { owner: parsed.owner, repository: parsed.repository });
 
-    const commit = await this.request<GitHubCommitResponse>(
-      `${base}/commits/${encodeURIComponent(repository.default_branch)}`,
-    );
-    const [tree, languages] = await Promise.all([
-      this.request<GitHubTreeResponse>(`${base}/git/trees/${commit.commit.tree.sha}?recursive=1`),
-      this.request<Record<string, number>>(`${base}/languages`),
-    ]);
-    const treeFiles = tree.tree.filter((entry) => entry.type === "blob");
-    if (treeFiles.length === 0) {
-      throw new GitHubServiceError("EMPTY_REPOSITORY", "The repository contains no files.", 422);
+    let response: Response;
+    try {
+      response = await this.fetcher(archiveUrl(parsed), {
+        headers: { "User-Agent": "CodeProof/1.0" },
+        redirect: "follow",
+        signal: AbortSignal.timeout(ARCHIVE_LIMITS.downloadTimeoutMs),
+      });
+    } catch (error) {
+      throw new GitHubServiceError("NETWORK_ERROR", error instanceof Error ? "Repository download timed out or failed." : "Repository download failed.", 502);
     }
-    if (exceedsTreeLimit(tree.tree.length)) {
-      throw new GitHubServiceError(
-        "OVERSIZED_REPOSITORY",
-        `Repository tree exceeds the ${FILE_LIMITS.maxTreeEntries.toLocaleString()} entry safety limit.`,
-        413,
-      );
-    }
+    if (response.status === 404) throw new GitHubServiceError("NOT_FOUND_OR_PRIVATE", "Repository was not found or is not publicly downloadable.", 404);
+    if (!response.ok) throw new GitHubServiceError("GITHUB_ERROR", `Repository archive returned HTTP ${response.status}.`, 502);
 
-    const candidates = selectFileCandidates(treeFiles);
-    const files: SelectedFile[] = [];
-    for (let index = 0; index < candidates.length; index += 5) {
-      const batch = candidates.slice(index, index + 5);
-      const contents = await Promise.all(batch.map((candidate) =>
-        this.fetchRawFile(parsed.owner, parsed.repository, commit.sha, candidate.path),
-      ));
-      batch.forEach((candidate, batchIndex) => {
-        const decoded = contents[batchIndex];
-        if (decoded === null) return;
-        if (decoded.includes("\u0000")) return;
+    const archive = await boundedDownload(response);
+    let zip: ZipFile | null = null;
+    try {
+      zip = await openZip(archive);
+      const indexed = await indexArchive(zip);
+      if (indexed.length === 0) throw new GitHubServiceError("EMPTY_REPOSITORY", "The repository archive contains no files.", 422);
+      if (exceedsTreeLimit(indexed.length)) throw new GitHubServiceError("OVERSIZED_REPOSITORY", "Repository contains too many files.", 413);
+
+      const byPath = new Map(indexed.map((item) => [item.path, item.entry]));
+      const treeEntries: GitHubTreeEntry[] = indexed.map(({ entry, path }) => ({
+        path,
+        mode: "100644",
+        type: "blob",
+        sha: entry.crc32.toString(16),
+        size: entry.uncompressedSize,
+        url: "",
+      }));
+      const files: SelectedFile[] = [];
+      for (const candidate of selectFileCandidates(treeEntries)) {
+        const entry = byPath.get(candidate.path);
+        if (!entry) continue;
+        const bytes = await readEntry(zip, entry);
+        if (bytes.includes(0)) continue;
+        const decoded = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
         const content = decoded.slice(0, FILE_LIMITS.maxPromptCharsPerFile);
         files.push({
           path: candidate.path,
-          size: candidate.size ?? decoded.length,
-          sha: candidate.sha,
+          size: entry.uncompressedSize,
+          sha: createHash("sha256").update(bytes).digest("hex"),
           content,
           truncated: decoded.length > content.length,
           selectionReason: candidate.reason,
         });
-      });
-    }
+      }
 
-    const result: IngestedRepository = {
-      metadata: {
+      const result: IngestedRepository = {
+        metadata: {
+          owner: parsed.owner,
+          name: parsed.repository,
+          url: parsed.canonicalUrl,
+          description: null,
+          defaultBranch: "HEAD",
+          commitSha: createHash("sha256").update(archive).digest("hex"),
+          stars: null,
+          forks: null,
+          openIssues: null,
+          license: null,
+          updatedAt: response.headers.get("last-modified"),
+          isFork: null,
+        },
+        languages: detectLanguages(indexed),
+        files,
+        treePaths: indexed.map((item) => item.path),
+        treeFileCount: indexed.length,
+        treeTruncated: false,
+        ingestionMethod: "public_archive",
+      };
+      logger.info("repository_archive_download_completed", {
         owner: parsed.owner,
-        name: repository.name,
-        url: repository.html_url,
-        description: repository.description,
-        defaultBranch: repository.default_branch,
-        commitSha: commit.sha,
-        stars: repository.stargazers_count,
-        forks: repository.forks_count,
-        openIssues: repository.open_issues_count,
-        license: repository.license?.spdx_id ?? null,
-        updatedAt: repository.updated_at,
-        isFork: repository.fork,
-      },
-      languages,
-      files,
-      treePaths: treeFiles.map((entry) => entry.path),
-      treeFileCount: treeFiles.length,
-      treeTruncated: tree.truncated,
-    };
-    logger.info("github_fetch_completed", {
-      owner: parsed.owner,
-      repository: parsed.repository,
-      durationMs: Date.now() - startedAt,
-      treeFileCount: result.treeFileCount,
-      selectedFileCount: result.files.length,
-      selectedBytes: result.files.reduce((total, file) => total + file.content.length, 0),
-    });
-    return result;
+        repository: parsed.repository,
+        durationMs: Date.now() - startedAt,
+        archiveBytes: archive.length,
+        treeFileCount: result.treeFileCount,
+        selectedFileCount: result.files.length,
+        selectedBytes: result.files.reduce((total, file) => total + file.content.length, 0),
+      });
+      return result;
+    } catch (error) {
+      if (error instanceof GitHubServiceError) throw error;
+      throw new GitHubServiceError("INVALID_ARCHIVE", "Repository archive could not be read safely.", 422);
+    } finally {
+      zip?.close();
+    }
   }
 }

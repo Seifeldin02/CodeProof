@@ -72,6 +72,9 @@ export interface CandidateRecord {
   furthestStage: PipelineStage;
   /** Ordered progression from 'applied' up to `furthestStage`. */
   stageHistory: StageEvent[];
+  repositoryCount?: number;
+  verifiedClaimCount?: number;
+  isDemo?: boolean;
 }
 
 /* ----------------------------- Analytics outputs ----------------------------- */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { IngestedRepository } from "@/services/github";
-import { detectTechnologies, inferProjectType } from "./deterministic";
+import { detectImplementationPatterns, detectTechnologies, inferProjectType } from "./deterministic";
 
 const repository: IngestedRepository = {
   metadata: {
@@ -10,7 +10,8 @@ const repository: IngestedRepository = {
   languages: { TypeScript: 10_000, CSS: 1000 },
   treePaths: ["package.json", "pnpm-lock.yaml", "app/page.tsx", "app/api/users/route.ts", "prisma/schema.prisma", ".github/workflows/test.yml"],
   treeFileCount: 6,
-  treeTruncated: false,
+    treeTruncated: false,
+    ingestionMethod: "provider",
   files: [
     { path: "package.json", size: 200, sha: "1", truncated: false, selectionReason: "Project manifest", content: JSON.stringify({ dependencies: { next: "16", react: "19", zustand: "5", "@prisma/client": "6" }, devDependencies: { vitest: "4" } }) },
     { path: "app/api/users/route.ts", size: 100, sha: "2", truncated: false, selectionReason: "API boundary", content: "export async function GET() { return Response.json([]) }" },
@@ -46,5 +47,18 @@ describe("deterministic repository analysis", () => {
       treeFileCount: 3,
     };
     expect(inferProjectType(monorepo, detectTechnologies(monorepo))).toBe("Monorepo");
+  });
+
+  it("does not treat documentation mentions as implementation patterns", () => {
+    const patterns = detectImplementationPatterns({
+      ...repository,
+      files: [
+        { path: ".github/security.md", size: 500, sha: "doc", truncated: false, selectionReason: "Authentication or security logic", content: "Report authentication and session security problems here.".repeat(8) },
+        { path: "tests/api.test.ts", size: 500, sha: "test", truncated: false, selectionReason: "Test implementation", content: "describe('api', () => { test('returns data', () => expect(true).toBe(true)); });".repeat(8) },
+      ],
+    });
+    expect(patterns.map((pattern) => pattern.name)).toContain("Automated testing");
+    expect(patterns.map((pattern) => pattern.name)).not.toContain("Authentication or authorization");
+    expect(patterns[0]).not.toHaveProperty("path");
   });
 });
