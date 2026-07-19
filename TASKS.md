@@ -19,7 +19,7 @@ Do not modify:
 ## Claude
 
 ### CP-201 Hiring Insights Dashboard
-Status: IN PROGRESS
+Status: IN REVIEW (pushed on claude/hiring-insights)
 Branch: claude/hiring-insights
 
 Files expected:
