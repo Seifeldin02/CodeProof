@@ -2,14 +2,17 @@
 
 ## Codex
 
-### CP-101 GitHub Repository Ingestion
-Status: IN PROGRESS
-Branch: codex/github-ingestion
+### CP-101 Core Intelligence Engine
+Status: READY FOR REVIEW
+Branch: codex/core-intelligence-engine
 
 Files expected:
 - src/services/github/*
 - src/features/repository-analysis/*
-- server/api/repository/*
+- src/services/ai/*
+- src/features/resume-matching/*
+- src/features/job-matching/*
+- src/app/api/analyze/*
 
 Do not modify:
 - hiring analytics
