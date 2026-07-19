@@ -9,9 +9,11 @@ import SourceDonut from '../components/analytics/SourceDonut';
 import SourceQualityTable from '../components/analytics/SourceQualityTable';
 import SkillsVsOutcome from '../components/analytics/SkillsVsOutcome';
 import DerivedInsights from '../components/analytics/DerivedInsights';
+import { LoadingBlock, ErrorBlock } from '../components/ui/StateBlock';
 import { CheckCircleIcon, ClockIcon, TrendingUpIcon, UsersIcon } from '../components/ui/icons';
 import { formatDays, formatPercent } from '../lib/format';
-import { mockCandidates } from '../features/hiring-analytics/mock/mockHiringData';
+import { useApi } from '../lib/useApi';
+import { api } from '../lib/api';
 import {
   availableRoles,
   computeFunnel,
@@ -21,15 +23,17 @@ import {
   computeSummary,
   computeTimeInStage,
   computeTimeToHireTrend,
-  deriveInsights,
   filterByRole,
 } from '../features/hiring-analytics/analytics';
 
 export default function HiringInsightsPage() {
   const [role, setRole] = useState<string>('all');
+  const candidatesState = useApi(() => api.candidates(), []);
+  const insightsState = useApi(() => api.insights(), []);
 
-  const roles = useMemo(() => availableRoles(mockCandidates), []);
-  const candidates = useMemo(() => filterByRole(mockCandidates, role), [role]);
+  const all = useMemo(() => candidatesState.data ?? [], [candidatesState.data]);
+  const roles = useMemo(() => availableRoles(all), [all]);
+  const candidates = useMemo(() => filterByRole(all, role), [all, role]);
 
   const summary = useMemo(() => computeSummary(candidates), [candidates]);
   const funnel = useMemo(() => computeFunnel(candidates), [candidates]);
@@ -38,7 +42,9 @@ export default function HiringInsightsPage() {
   const timeInStage = useMemo(() => computeTimeInStage(candidates), [candidates]);
   const sources = useMemo(() => computeSourceMetrics(candidates), [candidates]);
   const skillBands = useMemo(() => computeSkillBands(candidates), [candidates]);
-  const insights = useMemo(() => deriveInsights(candidates), [candidates]);
+
+  if (candidatesState.loading) return <LoadingBlock label="Loading pipeline…" />;
+  if (candidatesState.error) return <ErrorBlock message={candidatesState.error} />;
 
   return (
     <div>
@@ -105,8 +111,12 @@ export default function HiringInsightsPage() {
         >
           <HiringFunnel data={funnel} />
         </Card>
-        <Card title="Insights" subtitle="Rule-based signals derived from this pipeline">
-          <DerivedInsights items={insights} />
+        <Card title="Insights" subtitle="Persisted signals from your pipeline">
+          {insightsState.loading ? (
+            <LoadingBlock label="Loading insights…" />
+          ) : (
+            <DerivedInsights items={insightsState.data ?? []} />
+          )}
         </Card>
 
         <Card
