@@ -1,0 +1,7 @@
+language = "javascript"
+entrypoint = "package.json"
+run = "npm run dev -- --hostname 0.0.0.0"
+
+[deployment]
+build = "npm ci && npm run build"
+run = "npm start -- --hostname 0.0.0.0"
