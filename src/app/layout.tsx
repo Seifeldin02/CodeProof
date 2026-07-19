@@ -1,20 +1,26 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Manrope } from "next/font/google";
+import { IBM_Plex_Mono, Manrope, Noto_Kufi_Arabic } from "next/font/google";
 import AppShell from "@/components/layout/AppShell";
+import LocaleProvider from "@/components/i18n/LocaleProvider";
+import { getI18n } from "@/i18n/server";
 import "./globals.css";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans" });
 const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-mono" });
+const arabic = Noto_Kufi_Arabic({ subsets: ["arabic"], variable: "--font-arabic" });
 
-export const metadata: Metadata = {
-  title: "CodeProof | Evidence-based hiring intelligence",
-  description: "Turn candidate CVs and public code into recruiter-ready evidence.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await getI18n();
+  return locale === "ar"
+    ? { title: "CodeProof | ذكاء توظيف قائم على الأدلة", description: "حوّل السير الذاتية والكود العام إلى أدلة جاهزة لمسؤول التوظيف." }
+    : { title: "CodeProof | Evidence-based hiring intelligence", description: "Turn candidate CVs and public code into recruiter-ready evidence." };
+}
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const { locale } = await getI18n();
   return (
-    <html lang="en">
-      <body className={`${manrope.variable} ${mono.variable}`}><AppShell>{children}</AppShell></body>
+    <html lang={locale} dir={locale === "ar" ? "rtl" : "ltr"} suppressHydrationWarning>
+      <body className={`${manrope.variable} ${mono.variable} ${arabic.variable}`}><LocaleProvider initialLocale={locale}><AppShell>{children}</AppShell></LocaleProvider></body>
     </html>
   );
 }

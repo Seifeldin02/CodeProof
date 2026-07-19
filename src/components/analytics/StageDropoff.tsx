@@ -1,6 +1,10 @@
+'use client';
+
+import { useI18n } from '@/components/i18n/LocaleProvider';
 import { type StageDropOffMetric, STAGE_LABELS } from '../../features/hiring-analytics/types';
 
 export default function StageDropoff({ data }: { data: StageDropOffMetric[] }) {
+  const { t } = useI18n();
   const worst = Math.max(0, ...data.map((d) => d.dropRate));
 
   return (
@@ -11,14 +15,14 @@ export default function StageDropoff({ data }: { data: StageDropOffMetric[] }) {
           <div key={d.fromStage}>
             <div className="mb-1.5 flex items-center justify-between text-xs">
               <span className="font-medium text-slate-600">
-                {STAGE_LABELS[d.fromStage]} <span className="text-slate-300">→</span>{' '}
-                {STAGE_LABELS[d.toStage]}
+                {t(STAGE_LABELS[d.fromStage])} <span className="directional-icon inline-block text-slate-300">→</span>{' '}
+                {t(STAGE_LABELS[d.toStage])}
               </span>
               <span className="tnum text-slate-400">
                 <span className={isWorst ? 'font-semibold text-rose-600' : 'font-semibold text-slate-700'}>
                   {d.dropRate}%
                 </span>{' '}
-                · {d.dropped} exited
+                · {d.dropped} {t('exited')}
               </span>
             </div>
             <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">

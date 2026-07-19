@@ -1,6 +1,10 @@
+'use client';
+
+import { useI18n } from '@/components/i18n/LocaleProvider';
 import type { SkillBandOutcome } from '../../features/hiring-analytics/types';
 
 export default function SkillsVsOutcome({ data }: { data: SkillBandOutcome[] }) {
+  const { t } = useI18n();
   const maxRate = Math.max(1, ...data.map((d) => d.hireRate));
 
   return (
@@ -14,7 +18,7 @@ export default function SkillsVsOutcome({ data }: { data: SkillBandOutcome[] }) 
               <div
                 className={`chart-column w-full max-w-[64px] rounded-t-lg ${isTop ? 'bg-brand-600' : 'bg-brand-300'}`}
                 style={{ height: `${Math.max((d.hireRate / maxRate) * 100, 2)}%` }}
-                title={`${d.hired} hired of ${d.candidates}`}
+                title={t('{hired} hired of {count}', { hired: d.hired, count: d.candidates })}
               />
             </div>
           );
@@ -31,7 +35,7 @@ export default function SkillsVsOutcome({ data }: { data: SkillBandOutcome[] }) 
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-        Observed hire rate by weighted evidence-index band. Sample sizes are shown; this chart does not imply causation.
+        {t('Observed hire rate by weighted evidence-index band. Sample sizes are shown; this chart does not imply causation.')}
       </p>
     </div>
   );

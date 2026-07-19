@@ -1,3 +1,7 @@
+'use client';
+
+import { useI18n } from '@/components/i18n/LocaleProvider';
+import { localizeAnalysisText } from '@/i18n/translations';
 import type { DerivedInsight } from '../../features/hiring-analytics/types';
 
 const TONE_DOT: Record<DerivedInsight['tone'], string> = {
@@ -7,8 +11,9 @@ const TONE_DOT: Record<DerivedInsight['tone'], string> = {
 };
 
 export default function DerivedInsights({ items }: { items: DerivedInsight[] }) {
+  const { locale, t } = useI18n();
   if (items.length === 0) {
-    return <p className="text-sm text-slate-400">Not enough pipeline data to surface signals yet.</p>;
+    return <p className="text-sm text-slate-400">{t('Not enough pipeline data to surface signals yet.')}</p>;
   }
 
   return (
@@ -16,7 +21,7 @@ export default function DerivedInsights({ items }: { items: DerivedInsight[] }) 
       {items.map((it) => (
         <li key={it.id} className="flex gap-3">
           <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TONE_DOT[it.tone]}`} />
-          <p className="text-sm leading-relaxed text-slate-600">{it.text}</p>
+          <p className="text-sm leading-relaxed text-slate-600">{localizeAnalysisText(locale, it.text)}</p>
         </li>
       ))}
     </ul>

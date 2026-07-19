@@ -94,6 +94,21 @@ textarea { min-height: 170px; resize: vertical; padding: 14px; line-height: 1.5;
 
 /* Unified recruiter workspace motion and depth. */
 body { min-height: 100vh; background: #f3f5f2; }
+html[dir="rtl"] body { font-family: var(--font-arabic), var(--font-sans), sans-serif; }
+.tech-ltr, code, [data-tech="true"] { direction: ltr; unicode-bidi: isolate; text-align: left; }
+.directional-icon { display: inline-block; }
+html[dir="rtl"] .directional-icon { transform: scaleX(-1); }
+html[dir="rtl"] .workspace-sidebar { border-right-width: 0; border-left: 1px solid rgba(255,255,255,.1); box-shadow: -18px 0 50px rgba(15,23,42,.08); }
+html[dir="rtl"] .workspace-sidebar [class*="left-0"] { left: auto; right: 0; }
+html[dir="rtl"] .workspace-sidebar a:hover { transform: translateX(-2px); }
+html[dir="rtl"] [class*="tracking-["] { letter-spacing: 0; }
+html[dir="rtl"] .route-enter { transform-origin: right top; }
+@media print {
+  .no-print, .workspace-sidebar, header[role="banner"] { display: none !important; }
+  main { padding: 0 !important; }
+  body { background: white !important; }
+  .print-report { box-shadow: none !important; border: 0 !important; }
+}
 ::selection { color: #07130e; background: #b9ff6b; }
 :focus-visible { outline: 2px solid #2d8c60; outline-offset: 3px; }
 
