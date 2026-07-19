@@ -17,9 +17,9 @@ export default function HiringFunnel({ data }: { data: FunnelStageMetric[] }) {
             <span className="w-28 shrink-0 text-sm font-medium text-slate-600">
               {STAGE_LABELS[d.stage]}
             </span>
-            <div className="h-8 flex-1 overflow-hidden rounded-md bg-slate-100">
+            <div className="h-8 flex-1 overflow-hidden rounded-lg bg-slate-100">
               <div
-                className="h-full rounded-md bg-brand-600 transition-[width] duration-500"
+                className="chart-bar h-full rounded-lg bg-brand-600"
                 style={{ width: `${Math.max(d.shareOfTop, 2)}%` }}
               />
             </div>

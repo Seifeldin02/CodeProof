@@ -106,3 +106,14 @@ export function ShieldCheckIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function CompareIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M8 6h13M3 6h1M16 18H3M21 18h-1" />
+      <circle cx="6" cy="6" r="2" />
+      <circle cx="18" cy="18" r="2" />
+      <path d="M5 11h14" />
+    </svg>
+  );
+}

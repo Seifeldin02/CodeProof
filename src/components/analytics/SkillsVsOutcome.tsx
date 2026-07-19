@@ -12,7 +12,7 @@ export default function SkillsVsOutcome({ data }: { data: SkillBandOutcome[] }) 
             <div key={d.band} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
               <span className="tnum text-xs font-semibold text-slate-700">{d.hireRate}%</span>
               <div
-                className={`w-full max-w-[64px] rounded-t-md ${isTop ? 'bg-brand-600' : 'bg-brand-300'}`}
+                className={`chart-column w-full max-w-[64px] rounded-t-lg ${isTop ? 'bg-brand-600' : 'bg-brand-300'}`}
                 style={{ height: `${Math.max((d.hireRate / maxRate) * 100, 2)}%` }}
                 title={`${d.hired} hired of ${d.candidates}`}
               />
