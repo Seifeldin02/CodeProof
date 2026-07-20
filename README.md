@@ -26,7 +26,7 @@ The recruiter workspace includes a persistent English/Arabic switch, global RTL 
 - A dependency or config-only signal cannot become Good or Strong Evidence.
 - Every implementation claim and interview prompt retains exact source-file references.
 - Missing evidence is reported as a gap, never as proof that a candidate lacks a skill.
-- Uploading is the data-creating action, so `CODEPROOF_ACCESS_CODE` gates it on any public deployment. Reading stays open by default for demo purposes; a deployment holding real candidate data must also set `CODEPROOF_PROTECT_ALL=true`, otherwise every stored dossier is readable by anyone with the URL.
+- Uploading is the data-creating action, so it always requires an authenticated workspace account. Reading stays open by default for demo purposes; a deployment holding real candidate data must also set `CODEPROOF_PROTECT_ALL=true`, otherwise every stored dossier is readable by anyone with the URL.
 
 ## Evidence method
 

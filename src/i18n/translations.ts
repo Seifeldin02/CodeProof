@@ -202,6 +202,7 @@ const ar: Record<string, string> = {
   "Evidence index": "مؤشر الأدلة",
   "Status": "الحالة",
   "CV claims grounded count": "{count} من ادعاءات السيرة مدعومة",
+  "{count} CV claims grounded": "{count} من ادعاءات السيرة مدعومة",
   "Demo": "تجريبي",
   "In progress": "قيد المعالجة",
   "Hired": "تم التوظيف",

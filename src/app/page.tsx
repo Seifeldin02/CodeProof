@@ -49,10 +49,10 @@ export default async function DashboardPage() {
           <div className="relative rounded-2xl border border-white/10 bg-white/[.035] p-4 shadow-2xl backdrop-blur sm:p-5">
             <div className="mb-5 flex items-center justify-between"><span className="text-[10px] font-semibold uppercase tracking-[.16em] text-slate-500">{t("Evidence pipeline")}</span><span className="flex items-center gap-2 text-[10px] text-lime-300"><i className="live-dot" /> {t("Ready")}</span></div>
             <div className="relative space-y-2.5">
-              <span className="absolute bottom-5 start-[19px] top-5 w-px bg-gradient-to-b from-lime-300/70 via-brand-500/50 to-white/10" />
+              <span aria-hidden="true" className="absolute bottom-5 start-[31px] top-5 w-px bg-gradient-to-b from-lime-300/70 via-brand-500/50 to-white/10" />
               {flow.map(([label, copy, detail], index) => (
                 <div key={label} className="relative flex items-center gap-4 rounded-xl border border-white/[.07] bg-black/10 p-3 transition duration-300 hover:translate-x-1 hover:border-white/15 hover:bg-white/[.035]">
-                  <span className={`evidence-node relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-lg font-mono text-[9px] font-semibold ${index === 2 ? "bg-lime-300 text-slate-950" : "bg-white/[.08] text-slate-300"}`}>{label}</span>
+                  <span className={`evidence-node relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-lg font-mono text-[9px] font-semibold ${index === 2 ? "bg-lime-300 text-slate-950" : "bg-[#202825] text-slate-300"}`}>{label}</span>
                   <div><strong className="block text-xs text-white">{copy}</strong><span className="mt-1 block text-[10px] text-slate-500">{detail}</span></div>
                   <span className="ms-auto font-mono text-[10px] text-slate-600">0{index + 1}</span>
                 </div>
@@ -80,7 +80,7 @@ export default async function DashboardPage() {
         </Card>
       ) : (
         <div className="grid gap-5 xl:grid-cols-[1.45fr_.55fr]">
-          <Card title={t("Recent candidates")} subtitle={t("Newest CodeProof evidence dossiers")} action={<Link href="/candidates" className="text-xs font-semibold text-brand-700 hover:text-brand-500">{t("View all")} <span className="directional-icon">→</span></Link>}><CandidatesTable candidates={candidates.slice(0, 6)} /></Card>
+          <Card title={t("Recent candidates")} subtitle={t("Newest CodeProof evidence dossiers")} bodyClassName="!p-0" action={<Link href="/candidates" className="whitespace-nowrap text-xs font-semibold text-brand-700 hover:text-brand-500">{t("View all")} <span className="directional-icon">→</span></Link>}><CandidatesTable candidates={candidates.slice(0, 6)} /></Card>
           <Card title={t("Pipeline movement")} subtitle={t(realCandidates.length ? "Real candidate stages" : "Demo candidate stages")}><HiringFunnel data={computeFunnel(operatingCandidates)} /></Card>
         </div>
       )}

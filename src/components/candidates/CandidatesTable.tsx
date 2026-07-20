@@ -24,13 +24,14 @@ export default function CandidatesTable({ candidates }: { candidates: CandidateR
     </div>
 
     <div className="hidden overflow-x-auto overscroll-x-contain md:block" tabIndex={0} role="region" aria-label={t("Candidates")}>
-      <table className="w-full min-w-[700px] text-sm">
+      <table className="w-full min-w-[760px] table-fixed text-sm">
+        <colgroup><col className="w-[30%]" /><col className="w-[18%]" /><col className="w-[10%]" /><col className="w-[16%]" /><col className="w-[13%]" /><col className="w-[13%]" /></colgroup>
         <thead><tr className="border-b border-slate-100 text-start text-[10px] font-semibold uppercase tracking-[.12em] text-slate-400">
           <th className="px-4 py-3">{t("Candidate")}</th><th className="px-4 py-3">{t("Role")}</th><th className="px-4 py-3">{t("Repositories")}</th><th className="px-4 py-3">{t("Pipeline stage")}</th><th className="px-4 py-3 text-end">{t("Evidence index")}</th><th className="px-4 py-3 text-end">{t("Status")}</th>
         </tr></thead>
         <tbody>{candidates.map((candidate) => <tr key={candidate.id} className="group border-b border-slate-50 transition-colors last:border-0 hover:bg-brand-50/50">
-          <td className="px-4 py-4"><div className="flex items-center gap-3"><CandidateInitials name={candidate.name} /><div><div className="flex items-center gap-2"><Link href={`/candidates/${candidate.id}`} className="font-semibold text-slate-900 hover:text-brand-700">{candidate.name}</Link>{candidate.isDemo && <Badge tone="warning">{t("Demo")}</Badge>}</div><span className="mt-1 block text-xs text-slate-400">{t("CV claims grounded count", { count: candidate.verifiedClaimCount ?? 0 })}</span></div></div></td>
-          <td className="px-4 py-4 text-slate-600">{t(candidate.role)}</td><td className="tnum px-4 py-4 text-slate-600">{candidate.repositoryCount ?? 0}</td><td className="px-4 py-4 text-slate-600">{t(STAGE_LABELS[candidate.furthestStage])}</td><td className="px-4 py-4 text-end"><VerifiedScoreChip score={candidate.verifiedSkillScore} /></td><td className="px-4 py-4 text-end"><OutcomeBadge outcome={candidate.outcome} /></td>
+          <td className="px-4 py-4"><div className="flex items-center gap-3"><CandidateInitials name={candidate.name} /><div className="min-w-0"><div className="flex min-w-0 items-center gap-2"><Link href={`/candidates/${candidate.id}`} className="line-clamp-2 font-semibold leading-5 text-slate-900 hover:text-brand-700">{candidate.name}</Link>{candidate.isDemo && <Badge tone="warning">{t("Demo")}</Badge>}</div><span className="mt-1 block text-xs text-slate-400">{t("{count} CV claims grounded", { count: candidate.verifiedClaimCount ?? 0 })}</span></div></div></td>
+          <td className="px-4 py-4 text-slate-600">{t(candidate.role)}</td><td className="tnum px-4 py-4 text-slate-600">{candidate.repositoryCount ?? 0}</td><td className="px-4 py-4 text-slate-600">{t(STAGE_LABELS[candidate.furthestStage])}</td><td className="px-4 py-4 text-end"><VerifiedScoreChip score={candidate.verifiedSkillScore} /></td><td className="whitespace-nowrap px-4 py-4 text-end"><OutcomeBadge outcome={candidate.outcome} /></td>
         </tr>)}</tbody>
       </table>
     </div>

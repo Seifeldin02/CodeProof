@@ -95,7 +95,7 @@ These are tracked honestly rather than hidden:
 - **No candidate deletion.** Candidate records expose read routes only. Storing CV-derived data on real people without a delete path is a GDPR/right-to-erasure problem. Add delete + export before processing real applicants.
 - **Single-role accounts.** Every account has identical access; there is no per-recruiter permission model and no audit trail of who viewed a dossier.
 - **No rate limiting.** Uploading triggers outbound archive downloads. Authenticated abuse or a shared account can still generate load.
-- **No security headers.** CSP, HSTS, `X-Frame-Options` and `X-Content-Type-Options` are not yet configured.
+- **Content Security Policy.** Baseline HSTS, framing, MIME-sniffing, referrer, and permissions headers are configured; a strict CSP remains a production-hardening follow-up.
 
 Suitable today for a **demo or internal pilot with the gate on**. Not yet
 suitable for storing real applicant data at scale.
