@@ -89,6 +89,106 @@ describe("public archive errors", () => {
     expect(result.files.map((file) => file.path)).toEqual(["package.json", "src/index.ts"]);
     expect(result.metadata.stars).toBeNull();
   });
+
+  it("accepts a transport above the former 20 MB ceiling when analyzable content is bounded", async () => {
+    const archive = storedZip({
+      "project-main/pom.xml": "<project><artifactId>safe</artifactId></project>",
+      "project-main/src/main/java/app/Main.java": "package app; public class Main { public static void main(String[] args) {} }",
+    });
+    const fetcher = vi.fn(async () => new Response(archive, {
+      status: 200,
+      headers: { "content-length": String(21 * 1024 * 1024) },
+    })) as unknown as typeof fetch;
+
+    const result = await new GitHubClient(fetcher).ingest("https://github.com/example/project");
+    expect(result.languages.Java).toBeGreaterThan(0);
+    expect(result.treePaths).toContain("src/main/java/app/Main.java");
+  });
+
+  it("filters generated Maven output before source tree and expansion limits", async () => {
+    const files = Object.fromEntries([
+      ...Array.from({ length: FILE_LIMITS.maxTreeEntries + 200 }, (_, index) => [
+        `eco-main/target/classes/generated-${index}.class`,
+        "compiled-output",
+      ]),
+      ["eco-main/pom.xml", "<project><artifactId>eco</artifactId></project>"],
+      ["eco-main/src/main/java/app/UserDAO.java", "package app; public class UserDAO { public void find() {} }"],
+    ]);
+    const archive = storedZip(files);
+    const fetcher = vi.fn(async () => new Response(archive, { status: 200 })) as unknown as typeof fetch;
+
+    const result = await new GitHubClient(fetcher).ingest("https://github.com/example/eco");
+    expect(result.treePaths).toEqual(["pom.xml", "src/main/java/app/UserDAO.java"]);
+    expect(result.treeFileCount).toBe(2);
+  });
+
+  it.each<{ label: string; files: Record<string, string>; language: string; selected: string }>([
+    {
+      label: "Java/Maven",
+      files: {
+        "project-main/pom.xml": "<project><artifactId>api</artifactId></project>",
+        "project-main/src/main/java/app/ApiController.java": "package app; public class ApiController { public void list() {} }",
+      },
+      language: "Java",
+      selected: "pom.xml",
+    },
+    {
+      label: "JavaScript/TypeScript",
+      files: {
+        "project-main/package.json": JSON.stringify({ scripts: { test: "vitest" } }),
+        "project-main/src/server.ts": "export function createServer() { return { ok: true }; }",
+      },
+      language: "TypeScript",
+      selected: "package.json",
+    },
+    {
+      label: "Python",
+      files: {
+        "project-main/pyproject.toml": "[project]\nname='worker'",
+        "project-main/src/worker.py": "def process_job(job):\n    return job\n",
+      },
+      language: "Python",
+      selected: "pyproject.toml",
+    },
+    {
+      label: "monorepo",
+      files: {
+        "project-main/apps/web/package.json": JSON.stringify({ dependencies: { react: "19" } }),
+        "project-main/apps/web/src/App.tsx": "export function App() { return <main />; }",
+        "project-main/services/api/pyproject.toml": "[project]\nname='api'",
+        "project-main/services/api/main.py": "def main():\n    return True\n",
+      },
+      language: "TypeScript",
+      selected: "apps/web/package.json",
+    },
+  ])("ingests $label repository layouts", async ({ files, language, selected }) => {
+    const archive = storedZip(files);
+    const fetcher = vi.fn(async () => new Response(archive, { status: 200 })) as unknown as typeof fetch;
+    const result = await new GitHubClient(fetcher).ingest("https://github.com/example/project");
+    expect(result.languages[language]).toBeGreaterThan(0);
+    expect(result.files.map((file) => file.path)).toContain(selected);
+  });
+
+  it("rejects an empty repository archive with an explicit reason", async () => {
+    const archive = storedZip({ "project-main/": "" });
+    const fetcher = vi.fn(async () => new Response(archive, { status: 200 })) as unknown as typeof fetch;
+    await expect(new GitHubClient(fetcher).ingest("https://github.com/example/empty")).rejects.toMatchObject({ code: "EMPTY_REPOSITORY" });
+  });
+
+  it("rejects genuinely oversized analyzable trees", async () => {
+    const files = Object.fromEntries(Array.from({ length: FILE_LIMITS.maxTreeEntries + 1 }, (_, index) => [
+      `project-main/src/module-${index}.ts`,
+      `export const value${index} = ${index};`,
+    ]));
+    const archive = storedZip(files);
+    const fetcher = vi.fn(async () => new Response(archive, { status: 200 })) as unknown as typeof fetch;
+    await expect(new GitHubClient(fetcher).ingest("https://github.com/example/huge")).rejects.toMatchObject({ code: "OVERSIZED_REPOSITORY" });
+  });
+
+  it("rejects malformed ZIP data", async () => {
+    const fetcher = vi.fn(async () => new Response("not-a-zip", { status: 200 })) as unknown as typeof fetch;
+    await expect(new GitHubClient(fetcher).ingest("https://github.com/example/broken")).rejects.toMatchObject({ code: "INVALID_ARCHIVE" });
+  });
 });
 
 describe("selectFileCandidates", () => {

@@ -19,7 +19,7 @@ The recruiter workspace includes a persistent English/Arabic switch, global RTL 
 
 - Repository code is downloaded as an untrusted ZIP archive and is never executed.
 - Only public `https://github.com/owner/repository` URLs are accepted.
-- Archive download is capped at 20 MB, declared expansion at 80 MB, and the tree at 5,000 files.
+- Archive transport is capped at 96 MB and 25,000 raw ZIP entries. Generated/build paths are never decompressed and do not consume the stricter 80 MB / 5,000-file analyzable-source budgets.
 - Generated output, dependencies, binaries, lockfile contents, and oversized files are excluded.
 - At most 32 bounded text files and 600 KB of selected evidence are inspected.
 - PDF input is capped at 5 MB, parsed server-side, and never written as an uploaded file.

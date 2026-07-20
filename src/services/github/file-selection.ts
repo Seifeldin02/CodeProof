@@ -29,7 +29,7 @@ const SOURCE_EXTENSIONS = /\.(ts|tsx|js|jsx|mjs|cjs|py|rb|php|java|kt|kts|go|rs|
 const EXTENSIONLESS_TEXT_NAMES = /(^|\/)(dockerfile|makefile|procfile|gemfile|rakefile)$/i;
 
 const priorityRules: Array<[RegExp, number, string]> = [
-  [/^(package\.json|pyproject\.toml|requirements.*\.txt|pom\.xml|build\.gradle(?:\.kts)?|composer\.json|Cargo\.toml|go\.mod|.*\.csproj)$/i, 100, "Project manifest"],
+  [/(^|\/)(package\.json|pyproject\.toml|requirements.*\.txt|pom\.xml|build\.gradle(?:\.kts)?|composer\.json|Cargo\.toml|go\.mod|[^/]+\.csproj)$/i, 100, "Project manifest"],
   [/(^|\/)(schema\.prisma|.*schema.*\.(sql|graphql|ts)|migrations?\/)/i, 94, "Database schema or migration"],
   [/(^|\/)(dockerfile|docker-compose.*|\.github\/workflows\/|vercel\.json|netlify\.toml|terraform\/|.*\.tf$)/i, 92, "Infrastructure or deployment configuration"],
   [/(^|\/)(next\.config|vite\.config|webpack\.config|tsconfig|eslint\.config|tailwind\.config|nuxt\.config|angular\.json)/i, 88, "Framework or build configuration"],
@@ -53,14 +53,20 @@ export function exceedsTreeLimit(entryCount: number): boolean {
   return entryCount > FILE_LIMITS.maxTreeEntries;
 }
 
-function isExcluded(path: string, size: number): boolean {
+/**
+ * Classifies archive entries before they consume the analyzable tree/byte
+ * budgets. These paths are never opened or decompressed by the ingestion path.
+ */
+export function isEarlyExcludedArchivePath(path: string): boolean {
   const segments = path.toLowerCase().split("/");
+  return EXCLUDED_NAMES.test(path) || BINARY_EXTENSIONS.test(path) || segments.some((segment) => EXCLUDED_SEGMENTS.has(segment));
+}
+
+function isExcluded(path: string, size: number): boolean {
   return (
     size <= 0 ||
     size > FILE_LIMITS.maxFileBytes ||
-    EXCLUDED_NAMES.test(path) ||
-    BINARY_EXTENSIONS.test(path) ||
-    segments.some((segment) => EXCLUDED_SEGMENTS.has(segment)) ||
+    isEarlyExcludedArchivePath(path) ||
     (!SOURCE_EXTENSIONS.test(path) && !EXTENSIONLESS_TEXT_NAMES.test(path))
   );
 }

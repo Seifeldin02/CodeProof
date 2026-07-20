@@ -253,7 +253,7 @@ const PATTERN_RULES: PatternRule[] = [
   { name: "Layered service boundaries", category: "architecture", summary: "Service, domain, controller, or repository layers separate application responsibilities.", path: /(^|\/)(services?|domain|controllers?|repositories|use-cases?)\//i },
   { name: "HTTP/API boundary", category: "api", summary: "Request routes, handlers, or controllers expose an application boundary.", path: /(^|\/)(api|routes?|handlers?|controllers?|endpoints?)\//i, content: /\b(GET|POST|PUT|PATCH|DELETE)\b|\.get\(|\.post\(|route\s*\(/i },
   { name: "Authentication or authorization", category: "authentication", summary: "Authentication, session, token, permission, or authorization logic is implemented.", path: /auth|security|permissions?|session|middleware/i, content: /authorization|authenticate|jwt|oauth|session|permission/i },
-  { name: "Database integration", category: "database", summary: "Database schemas, migrations, queries, or persistence adapters are present.", path: /schema|migrations?|database|repositories?|models?/i, content: /SELECT\s|INSERT\s|UPDATE\s|DELETE\s+FROM|PrismaClient|drizzle|mongoose|sqlalchemy/i },
+  { name: "Database integration", category: "database", summary: "Database schemas, migrations, queries, or persistence adapters are present.", path: /schema|migrations?|database|repositories?|models?|dao/i, content: /SELECT\s|INSERT\s|UPDATE\s|DELETE\s+FROM|PrismaClient|drizzle|mongoose|sqlalchemy|DriverManager|getConnection\s*\(|PreparedStatement/i },
   { name: "Application state management", category: "state-management", summary: "Shared client or server state is managed through stores, reducers, contexts, or dedicated hooks.", path: /(^|\/)(stores?|state|hooks?)\//i, content: /createSlice|configureStore|useReducer|createContext|zustand|pinia/i },
   { name: "Automated testing", category: "testing", summary: "Executable test specifications cover application behavior.", path: /(^|\/)(__tests__|tests?|spec|e2e)\/|\.(test|spec)\./i, content: /\b(describe|it|test)\s*\(|@Test\b|pytest/i },
   { name: "Explicit error handling", category: "error-handling", summary: "Failure paths are handled through exceptions, typed errors, boundaries, or recovery branches.", content: /try\s*\{|catch\s*\(|except\s+|ErrorBoundary|throw\s+new\s+\w*Error/i },
@@ -332,15 +332,35 @@ export function buildDeterministicQuestions(
   const add = (question: InterviewQuestion): void => {
     if (!questions.some((existing) => existing.question === question.question)) questions.push(question);
   };
+  const symbolFor = (path: string): string | null => {
+    const content = repository.files.find((file) => file.path === path)?.content;
+    if (!content) return null;
+    const scannable = content
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "")
+      .replace(/^\s*#.*$/gm, "");
+    const patterns = [
+      /^\s*(?:public\s+|private\s+|protected\s+|abstract\s+|final\s+|export\s+)*(?:class|interface|record|enum)\s+([A-Za-z_$][\w$]*)/m,
+      /^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/m,
+      /^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\(/m,
+      /^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/m,
+      /^\s*(?:public|private|protected|static|final|synchronized|async|virtual|override|internal|extern|\s)+\s*[A-Za-z_$][\w$<>,.?\[\]]*\s+([A-Za-z_$][\w$]*)\s*\([^;{}]*\)\s*\{/m,
+    ];
+    return patterns.map((pattern) => scannable.match(pattern)?.[1]).find(Boolean) ?? null;
+  };
+  const subject = (path: string): string => {
+    const symbol = symbolFor(path);
+    return symbol ? `${symbol} in ${path}` : path;
+  };
   const patternPrompts: Record<EngineeringPattern["category"], (path: string) => string> = {
-    architecture: (path) => `Use ${path} to explain where this responsibility sits in the system. Which dependency direction does it enforce, and what would break if this boundary moved?`,
-    api: (path) => `Trace one request through ${path}. Where are inputs validated, responses shaped, and failure cases converted into a stable API contract?`,
-    authentication: (path) => `Walk through the trust boundary implemented in ${path}. Which identity or permission assumptions are made, and how would you test a rejected request?`,
-    database: (path) => `Explain the persistence decision visible in ${path}. How are data integrity, query failure, and schema evolution handled by the surrounding design?`,
-    "state-management": (path) => `Use ${path} to explain the state lifecycle: who owns it, which code may change it, and how stale or invalid state is prevented.`,
-    testing: (path) => `Pick a behavior covered in ${path}. What regression does the test protect against, and which important failure path is still missing?`,
-    "error-handling": (path) => `Trace an error path in ${path} from failure to caller-visible behavior. What is recovered, logged, retried, or deliberately allowed to fail?`,
-    observability: (path) => `Use ${path} to explain what production failure would be visible to the team. Which diagnostic context is captured, and what remains opaque?`,
+    architecture: (path) => `Use ${subject(path)} to explain where this responsibility sits in the system. Which dependency direction does it enforce, and what would break if this boundary moved?`,
+    api: (path) => `Trace one request through ${subject(path)}. Where are inputs validated, responses shaped, and failure cases converted into a stable API contract?`,
+    authentication: (path) => `Walk through the trust boundary implemented by ${subject(path)}. Which identity or permission assumptions are made, and how would you test a rejected request?`,
+    database: (path) => `${subject(path)} contains repository-backed persistence logic. How would you handle connection pooling, transaction boundaries, and query failures around this implementation?`,
+    "state-management": (path) => `Use ${subject(path)} to explain the state lifecycle: who owns it, which code may change it, and how stale or invalid state is prevented.`,
+    testing: (path) => `Pick a behavior covered by ${subject(path)}. What regression does the test protect against, and which important failure path is still missing?`,
+    "error-handling": (path) => `Trace an error path in ${subject(path)} from failure to caller-visible behavior. What is recovered, logged, retried, or deliberately allowed to fail?`,
+    observability: (path) => `Use ${subject(path)} to explain what production failure would be visible to the team. Which diagnostic context is captured, and what remains opaque?`,
   };
 
   for (const pattern of patterns) {
@@ -351,7 +371,7 @@ export function buildDeterministicQuestions(
       relatedSkill: pattern.name,
       difficulty: ["authentication", "database", "architecture", "observability"].includes(pattern.category) ? "Advanced" : "Intermediate",
       files: pattern.files.slice(0, 2),
-      relevance: `${pattern.summary} The cited files are the repository evidence for this prompt.`,
+      relevance: `Why ask this: ${pattern.summary} ${symbolFor(path) ? `The concrete symbol ${symbolFor(path)} and the cited files triggered this prompt.` : "The cited implementation files triggered this prompt."}`,
       origin: "deterministic",
       source: "Deterministic Fact",
     });
@@ -364,7 +384,7 @@ export function buildDeterministicQuestions(
       relatedSkill: "Software architecture",
       difficulty: "Advanced",
       files: architecture?.boundaries.slice(0, 3) ?? [boundary],
-      relevance: "The prompt uses boundary files identified by deterministic path analysis.",
+      relevance: "Why ask this: the prompt uses boundary files identified by deterministic path analysis.",
       origin: "deterministic",
       source: "Deterministic Fact",
     });
@@ -376,11 +396,11 @@ export function buildDeterministicQuestions(
     const evidence = implementationEvidence.find((file) => !questions.some((question) => question.files.includes(file.path))) ?? implementationEvidence[0];
     if (!evidence) continue;
     add({
-      question: `${technology.name} appears in ${evidence.path}. Show the implementation decision it supports here, then compare it with one reasonable alternative for this codebase.`,
+      question: `${technology.name} appears in ${subject(evidence.path)}. Show the implementation decision it supports here, then compare it with one reasonable alternative for this codebase.`,
       relatedSkill: technology.name,
       difficulty: "Intermediate",
       files: [evidence.path],
-      relevance: `Grounded in meaningful ${technology.name} usage selected from the repository, not the dependency list alone.`,
+      relevance: `Why ask this: grounded in meaningful ${technology.name} usage selected from the cited implementation file, not the dependency list alone.`,
       origin: "deterministic",
       source: "Deterministic Fact",
     });
@@ -395,11 +415,11 @@ export function buildDeterministicQuestions(
     if (questions.length >= 6) break;
     if (questions.some((question) => question.files.includes(file.path))) continue;
     add({
-      question: `Walk through the responsibility of ${file.path}. Which edge case or scaling pressure would make you change this implementation first?`,
+      question: `Walk through the responsibility of ${subject(file.path)}. Which edge case or scaling pressure would make you change this implementation first?`,
       relatedSkill: "Implementation reasoning",
       difficulty: questions.length < 2 ? "Foundational" : "Intermediate",
       files: [file.path],
-      relevance: `Grounded in a selected ${file.selectionReason.toLowerCase()}.`,
+      relevance: `Why ask this: grounded in the cited ${file.selectionReason.toLowerCase()} selected from the repository.`,
       origin: "deterministic",
       source: "Deterministic Fact",
     });

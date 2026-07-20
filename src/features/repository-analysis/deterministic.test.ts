@@ -71,6 +71,30 @@ describe("deterministic repository analysis", () => {
     expect(questions.length).toBeGreaterThan(0);
     expect(questions.every((question) => question.files.every((path) => repository.files.some((file) => file.path === path)))).toBe(true);
     expect(questions.some((question) => question.question.includes("app/api/users/route.ts"))).toBe(true);
-    expect(questions.some((question) => question.relevance.includes("dependency list alone"))).toBe(true);
+    expect(questions.some((question) => question.question.includes("GET in app/api/users/route.ts"))).toBe(true);
+    expect(questions.every((question) => question.relevance.startsWith("Why ask this:"))).toBe(true);
+  });
+
+  it("grounds persistence questions in real detected classes without inventing symbols", () => {
+    const javaRepository: IngestedRepository = {
+      ...repository,
+      languages: { Java: 4_000 },
+      treePaths: ["src/main/java/data/UserDAO.java"],
+      treeFileCount: 1,
+      files: [{
+        path: "src/main/java/data/UserDAO.java",
+        size: 600,
+        sha: "dao",
+        truncated: false,
+        selectionReason: "Database implementation",
+        content: "public class UserDAO { public User find(int id) { Connection c = DriverManager.getConnection(url); return null; } }".repeat(3),
+      }],
+    };
+    const questions = buildDeterministicQuestions(javaRepository, detectTechnologies(javaRepository));
+    const databaseQuestion = questions.find((question) => question.relatedSkill === "Database integration");
+    expect(databaseQuestion?.question).toContain("UserDAO in src/main/java/data/UserDAO.java");
+    expect(databaseQuestion?.question).toContain("connection pooling");
+    expect(databaseQuestion?.files).toEqual(["src/main/java/data/UserDAO.java"]);
+    expect(questions.map((question) => question.question).join(" ")).not.toContain("UserRepository");
   });
 });

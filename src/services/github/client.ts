@@ -4,7 +4,7 @@ import yauzl, { type Entry, type ZipFile } from "yauzl";
 import { logger } from "@/services/observability/logger";
 import type { RepositoryMetadata, SelectedFile } from "@/types/analysis";
 import { GitHubServiceError } from "./errors";
-import { exceedsTreeLimit, FILE_LIMITS, selectFileCandidates } from "./file-selection";
+import { exceedsTreeLimit, FILE_LIMITS, isEarlyExcludedArchivePath, selectFileCandidates } from "./file-selection";
 import type { GitHubTreeEntry } from "./types";
 
 export interface ParsedGitHubUrl {
@@ -30,7 +30,11 @@ export interface RepositoryProvider {
 
 export const ARCHIVE_LIMITS = {
   downloadTimeoutMs: 20_000,
-  maxCompressedBytes: 20 * 1024 * 1024,
+  // The full ZIP must be received before its central directory can be read;
+  // codeload.github.com does not honor byte ranges. This is a transport-only
+  // ceiling. Generated entries are filtered before the stricter source limits.
+  maxCompressedBytes: 96 * 1024 * 1024,
+  maxArchiveEntries: 25_000,
   maxDeclaredUncompressedBytes: 80 * 1024 * 1024,
 } as const;
 
@@ -72,7 +76,7 @@ function archiveUrl(parsed: ParsedGitHubUrl): string {
 async function boundedDownload(response: Response): Promise<Buffer> {
   const declared = Number(response.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > ARCHIVE_LIMITS.maxCompressedBytes) {
-    throw new GitHubServiceError("OVERSIZED_REPOSITORY", "Repository archive exceeds the 20 MB download limit.", 413);
+    throw new GitHubServiceError("OVERSIZED_REPOSITORY", "Repository archive exceeds the 96 MB transport limit.", 413);
   }
   if (!response.body) throw new GitHubServiceError("NETWORK_ERROR", "Repository archive returned no content.", 502);
 
@@ -86,7 +90,7 @@ async function boundedDownload(response: Response): Promise<Buffer> {
       received += value.byteLength;
       if (received > ARCHIVE_LIMITS.maxCompressedBytes) {
         await reader.cancel();
-        throw new GitHubServiceError("OVERSIZED_REPOSITORY", "Repository archive exceeds the 20 MB download limit.", 413);
+        throw new GitHubServiceError("OVERSIZED_REPOSITORY", "Repository archive exceeds the 96 MB transport limit.", 413);
       }
       chunks.push(value);
     }
@@ -122,25 +126,33 @@ async function indexArchive(zip: ZipFile): Promise<Array<{ entry: Entry; path: s
   return new Promise((resolve, reject) => {
     const entries: Array<{ entry: Entry; path: string }> = [];
     let declaredBytes = 0;
+    let archiveEntries = 0;
     const fail = (error: Error): void => {
       zip.close();
       reject(error);
     };
     zip.on("error", fail);
     zip.on("entry", (entry: Entry) => {
+      archiveEntries += 1;
+      if (archiveEntries > ARCHIVE_LIMITS.maxArchiveEntries) {
+        fail(new GitHubServiceError("OVERSIZED_REPOSITORY", `Repository archive contains more than ${ARCHIVE_LIMITS.maxArchiveEntries.toLocaleString()} entries.`, 413));
+        return;
+      }
+      const path = safeRelativePath(entry.fileName);
+      if (!path || entry.fileName.endsWith("/") || isSymbolicLink(entry) || isEarlyExcludedArchivePath(path)) {
+        zip.readEntry();
+        return;
+      }
       if (entries.length >= FILE_LIMITS.maxTreeEntries) {
         fail(new GitHubServiceError("OVERSIZED_REPOSITORY", `Repository contains more than ${FILE_LIMITS.maxTreeEntries.toLocaleString()} files.`, 413));
         return;
       }
-      const path = safeRelativePath(entry.fileName);
-      if (path && !entry.fileName.endsWith("/") && !isSymbolicLink(entry)) {
-        declaredBytes += entry.uncompressedSize;
-        if (declaredBytes > ARCHIVE_LIMITS.maxDeclaredUncompressedBytes) {
-          fail(new GitHubServiceError("OVERSIZED_REPOSITORY", "Repository expands beyond the 80 MB safety limit.", 413));
-          return;
-        }
-        entries.push({ entry, path });
+      declaredBytes += entry.uncompressedSize;
+      if (declaredBytes > ARCHIVE_LIMITS.maxDeclaredUncompressedBytes) {
+        fail(new GitHubServiceError("OVERSIZED_REPOSITORY", "Analyzable repository content expands beyond the 80 MB safety limit.", 413));
+        return;
       }
+      entries.push({ entry, path });
       zip.readEntry();
     });
     zip.on("end", () => resolve(entries));
