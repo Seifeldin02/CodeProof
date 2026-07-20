@@ -26,6 +26,7 @@ The recruiter workspace includes a persistent English/Arabic switch, global RTL 
 - A dependency or config-only signal cannot become Good or Strong Evidence.
 - Every implementation claim and interview prompt retains exact source-file references.
 - Missing evidence is reported as a gap, never as proof that a candidate lacks a skill.
+- Candidate records are unauthenticated by default for local use. A public deployment must set `CODEPROOF_ACCESS_CODE`, otherwise every stored candidate dossier is readable by anyone with the URL.
 
 ## Evidence method
 
@@ -56,6 +57,7 @@ Optional configuration is documented in `.env.example`:
 - `DATABASE_URL` enables PostgreSQL analysis caching.
 - `CODEPROOF_CACHE_DIR` changes the local analysis-cache directory.
 - `CODEPROOF_DB_PATH` changes the local SQLite candidate-database path.
+- `CODEPROOF_ACCESS_CODE` puts the whole workspace behind HTTP Basic auth. Set it on any public deployment so candidate dossiers are not world-readable; `/api/health` stays open for monitoring. Unset, the local demo is unchanged. Only enable behind HTTPS.
 
 ## Verification
 
