@@ -57,8 +57,22 @@ Optional configuration is documented in `.env.example`:
 - `DATABASE_URL` enables PostgreSQL analysis caching.
 - `CODEPROOF_CACHE_DIR` changes the local analysis-cache directory.
 - `CODEPROOF_DB_PATH` changes the local SQLite candidate-database path.
-- `CODEPROOF_ACCESS_CODE` requires HTTP Basic auth to upload. The `/analyze` page and every mutating request are protected; browsing stays open so a public demo still works. `/api/health` always stays open for monitoring. Unset, the local demo is unchanged. Only enable behind HTTPS.
-- `CODEPROOF_PROTECT_ALL=true` additionally requires the access code to *read* candidate records. Set this on any deployment holding real candidate data.
+- `CODEPROOF_SESSION_SECRET` signs session cookies. Required in production.
+- `CODEPROOF_PROTECT_ALL=true` additionally requires sign-in to *read* candidate records. Set this on any deployment holding real candidate data.
+- `CODEPROOF_ALLOW_SIGNUP=true` keeps registration open for teammates.
+
+## Accounts
+
+Uploading a CV creates candidate records, so it requires an account; browsing
+the workspace stays open. Passwords are hashed with scrypt and sessions are
+HttpOnly signed cookies — no third-party auth service, so the zero-paid-API
+contract still holds.
+
+The first visitor to `/signin` claims the workspace, then registration closes
+automatically. **Claim that account immediately after deploying, before sharing
+the URL.**
+
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for production setup.
 
 ## Verification
 

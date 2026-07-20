@@ -1,3 +1,4 @@
+import { denyUnlessSignedIn } from "@/features/auth/guard";
 import { analyzeRepository } from "@/features/repository-analysis/engine";
 import { discoverCandidateLinks } from "@/features/resume-matching/discovery";
 import { extractPdfResumeText, PdfResumeError, PDF_RESUME_MAX_BYTES } from "@/features/resume-matching/pdf";
@@ -39,6 +40,9 @@ function repositories(form: FormData): string[] {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const denied = await denyUnlessSignedIn();
+  if (denied) return denied;
+
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > PDF_RESUME_MAX_BYTES + 512 * 1024) {
     return Response.json({ error: { code: "REQUEST_TOO_LARGE", message: "Candidate analysis requests must be smaller than 5.5 MB." } }, { status: 413 });
