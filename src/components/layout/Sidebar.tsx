@@ -10,7 +10,7 @@ export default function Sidebar() {
   const pathname = usePathname() ?? "";
   const { t } = useI18n();
   return (
-    <aside className="workspace-sidebar no-print relative z-20 hidden w-64 shrink-0 flex-col border-r border-white/10 bg-[#0b1210] text-white shadow-[18px_0_50px_rgba(15,23,42,.08)] lg:flex">
+    <aside className="workspace-sidebar no-print fixed inset-y-0 start-0 z-40 hidden h-dvh w-64 flex-col overflow-y-auto overscroll-contain border-r border-white/10 bg-[#0b1210] text-white shadow-[18px_0_50px_rgba(15,23,42,.08)] lg:flex">
       <div className="flex h-20 items-center border-b border-white/10 px-5"><BrandMark /></div>
       <nav className="flex-1 space-y-1 px-3 py-5">
         <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{t("Recruiting workspace")}</p>

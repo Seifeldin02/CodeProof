@@ -6,10 +6,10 @@ import AmbientCanvas from "./AmbientCanvas";
 
 export default function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="relative flex min-h-screen overflow-hidden bg-[#f3f5f2]">
+    <div className="relative flex min-h-screen overflow-x-clip bg-[#f3f5f2]">
       <AmbientCanvas />
       <Sidebar />
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col">
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col lg:ms-64">
         <Topbar />
         <MobileNav />
         <main className="flex-1 pb-20 lg:pb-0">

@@ -1,5 +1,7 @@
-import Link from "next/link";
 import CandidateComparison, { type ComparisonCandidate } from "@/components/candidates/CandidateComparison";
+import EmptyState from "@/components/ui/EmptyState";
+import PageHeader from "@/components/ui/PageHeader";
+import { SearchCodeIcon } from "@/components/ui/icons";
 import { getCandidateStore } from "@/features/candidates/store";
 import type { EvidenceLevel } from "@/types/analysis";
 import { getI18n } from "@/i18n/server";
@@ -34,5 +36,5 @@ export default async function CompareCandidatesPage() {
     };
   });
 
-  return <div className="space-y-6"><header><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-brand-700">{t("Decision workspace")}</p><h1 className="mt-2 text-3xl font-semibold tracking-[-.045em] text-slate-950 sm:text-4xl">{t("Compare candidate evidence")}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{t("Line up verified implementation depth, grounded CV claims, repository coverage, and evidence gaps without turning the result into a black-box ranking.")}</p></header>{candidates.length ? <CandidateComparison candidates={candidates} /> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white/75 px-6 py-16 text-center"><h2 className="text-lg font-semibold text-slate-900">{t("Comparison needs candidate dossiers")}</h2><p className="mt-2 text-sm text-slate-500">{t("Complete at least one repository analysis to populate this workspace.")}</p><Link href="/analyze" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white">{t("Analyze a candidate")}</Link></div>}</div>;
+  return <div className="space-y-6"><PageHeader eyebrow={t("Decision workspace")} title={t("Compare candidate evidence")} description={t("Line up verified implementation depth, grounded CV claims, repository coverage, and evidence gaps without turning the result into a black-box ranking.")} />{candidates.length ? <CandidateComparison candidates={candidates} /> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white/75"><EmptyState icon={SearchCodeIcon} title={t("Comparison needs candidate dossiers")} description={t("Complete at least one repository analysis to populate this workspace.")} actionLabel={t("Analyze a candidate")} actionHref="/analyze" /></div>}</div>;
 }

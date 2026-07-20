@@ -9,7 +9,7 @@ export default function StageDropoff({ data }: { data: StageDropOffMetric[] }) {
 
   return (
     <div className="space-y-3.5">
-      {data.map((d) => {
+      {data.map((d, index) => {
         const isWorst = d.dropRate === worst && d.dropped > 0;
         return (
           <div key={d.fromStage}>
@@ -25,10 +25,10 @@ export default function StageDropoff({ data }: { data: StageDropOffMetric[] }) {
                 · {d.dropped} {t('exited')}
               </span>
             </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-2.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label={`${t(STAGE_LABELS[d.fromStage])} ${d.dropRate}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={d.dropRate}>
               <div
                 className={`chart-bar h-full rounded-full ${isWorst ? 'bg-rose-500' : 'bg-amber-400'}`}
-                style={{ width: `${Math.max(d.dropRate, 1)}%` }}
+                style={{ width: `${Math.max(d.dropRate, 1)}%`, animationDelay: `${index * 70}ms` }}
               />
             </div>
           </div>

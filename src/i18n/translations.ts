@@ -452,6 +452,12 @@ const ar: Record<string, string> = {
   "Analyzing…": "جارٍ التحليل…",
   "Removing…": "جارٍ الإزالة…",
   "Why ask this?": "لماذا يُطرح هذا السؤال؟",
+  "View exact source evidence": "عرض دليل المصدر الدقيق",
+  "{stage}: {count} candidates reached, {share}% of top": "{stage}: وصل {count} مرشحًا، بنسبة {share}% من أعلى مرحلة",
+  "Use gaps as interview probes, not conclusions about candidate ability.": "استخدم فجوات الأدلة كمحاور للمقابلة، لا كاستنتاجات حول قدرة المرشح.",
+  "Each prompt is tied to implementation evidence and includes a recruiter-friendly reason to ask.": "يرتبط كل سؤال بدليل تنفيذي ويتضمن سبباً واضحاً لمسؤول التوظيف لطرحه.",
+  "Open dossier": "فتح الملف",
+  "Stage": "المرحلة",
 };
 
 export type TranslationValues = Record<string, string | number>;
@@ -594,6 +600,7 @@ export function localizeAnalysisText(locale: Locale, text: string): string {
     [/^Why ask this: (.+) The cited implementation files triggered this prompt\.$/, (_all, summary) => `لماذا يُطرح هذا السؤال؟ ${localizeAnalysisText(locale, summary)} ملفات التنفيذ المذكورة هي سبب هذا السؤال.`],
     [/^Why ask this: grounded in meaningful (.+) usage selected from the cited implementation file, not the dependency list alone\.$/, (_all, technology) => `لماذا يُطرح هذا السؤال؟ لأنه يستند إلى استخدام فعلي لـ ${technology} في ملف التنفيذ المذكور، لا إلى قائمة الاعتمادات وحدها.`],
     [/^Why ask this: grounded in the cited (.+) selected from the repository\.$/, (_all, reason) => `لماذا يُطرح هذا السؤال؟ لأنه يستند إلى ${localizeAnalysisText(locale, reason)} مذكور ومحدد من المستودع.`],
+    [/^Why ask this: the prompt uses boundary files identified by deterministic path analysis\.$/, () => "لماذا يُطرح هذا السؤال؟ لأنه يستخدم ملفات الحدود التي حددها التحليل الحتمي لمسارات المستودع."],
   ];
   for (const [pattern, replacement] of replacements) {
     const match = text.match(pattern);

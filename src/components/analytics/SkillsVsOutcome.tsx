@@ -10,15 +10,17 @@ export default function SkillsVsOutcome({ data }: { data: SkillBandOutcome[] }) 
   return (
     <div>
       <div className="flex h-44 items-end gap-4">
-        {data.map((d) => {
+        {data.map((d, index) => {
           const isTop = d.min === 80;
           return (
             <div key={d.band} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
               <span className="tnum text-xs font-semibold text-slate-700">{d.hireRate}%</span>
               <div
                 className={`chart-column w-full max-w-[64px] rounded-t-lg ${isTop ? 'bg-brand-600' : 'bg-brand-300'}`}
-                style={{ height: `${Math.max((d.hireRate / maxRate) * 100, 2)}%` }}
+                style={{ height: `${Math.max((d.hireRate / maxRate) * 100, 2)}%`, animationDelay: `${index * 70}ms` }}
                 title={t('{hired} hired of {count}', { hired: d.hired, count: d.candidates })}
+                role="img"
+                aria-label={`${d.band}: ${t('{hired} hired of {count}', { hired: d.hired, count: d.candidates })}`}
               />
             </div>
           );
