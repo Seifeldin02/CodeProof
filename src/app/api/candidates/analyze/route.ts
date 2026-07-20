@@ -1,3 +1,4 @@
+import { getRequirementsStore, toJobDescriptionText } from "@/features/requirements/store";
 import { denyUnlessSignedIn } from "@/features/auth/guard";
 import { analyzeRepository } from "@/features/repository-analysis/engine";
 import { discoverCandidateLinks } from "@/features/resume-matching/discovery";
@@ -56,12 +57,16 @@ export async function POST(request: Request): Promise<Response> {
     if (!resumeText) return Response.json({ error: { code: "CV_REQUIRED", message: "Upload a CV PDF or paste CV text." } }, { status: 400 });
 
     const discovered = discoverCandidateLinks(resumeText);
+    // Fall back to the saved company requirements so every candidate is
+    // evaluated against the same bar without the recruiter re-typing it.
+    const savedRequirements = toJobDescriptionText(getRequirementsStore().list());
+    const jobDescription = text(form, "jobDescription") || savedRequirements;
     const parsed = inputSchema.parse({
       candidateName: text(form, "candidateName") || discovered.candidateName || "Unnamed candidate",
       role: text(form, "role") || discovered.suggestedRole,
       repositoryUrls: repositories(form),
       resumeText,
-      ...(text(form, "jobDescription") ? { jobDescription: text(form, "jobDescription") } : {}),
+      ...(jobDescription ? { jobDescription } : {}),
       isDemo: text(form, "isDemo") === "true",
     });
 
