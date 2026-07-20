@@ -5,8 +5,8 @@
 Every task is subject to `docs/HARD_REQUIREMENTS.md`. Codex and Claude must read it before work begins. A feature may not be marked complete if it breaks bilingual RTL, mobile responsiveness, the zero-paid-API workflow, exact evidence grounding, accessibility basics, or Replit readiness.
 
 ### CP-400 Kanz hard requirements
-Status: READY FOR BROWSER QA
-Branch: development
+Status: BROWSER QA COMPLETE — awaiting Replit deployment access
+Branch: development (QA pass on claude/four-mode-qa)
 
 Required completion evidence:
 - English and Arabic recruiter UI with persistent language preference
@@ -24,8 +24,25 @@ Completed locally:
 - Replit build/run configuration and `/api/health`
 - Lint, typecheck, 45 tests, and production build
 
+Four-mode browser QA (completed on claude/four-mode-qa):
+- Executed across desktop 1280 and mobile 375 x English LTR and Arabic RTL, on
+  `/`, `/analyze`, `/candidates`, `/candidates/[id]`, `/candidates/[id]/projects/[analysisId]`,
+  `/candidates/[id]/share`, `/compare`, `/insights`, `/about`, in both empty and populated states
+- Zero viewport-level horizontal overflow in all four modes
+- `lang`/`dir` correct on the root document; RTL global; directional icons mirror
+- One `h1` per route, no heading-level skips, `main`/`nav`/`banner` landmarks present
+- Full recruiter workflow re-verified end-to-end with no paid API: sample CV ->
+  GitHub discovery -> `sindresorhus/is` archive -> persisted candidate (`isDemo: true`)
+- Method note: assertions are DOM/layout/accessibility measurements; the sandbox
+  screenshot capture was unavailable, so pixel-level aesthetic review is not claimed
+
+Defects found and fixed:
+- CV paste textarea on `/analyze` had no accessible name (screen-reader gap on the
+  primary entry point) — added translated `aria-label` (EN + AR)
+- Candidate detail header links were 16 px tall on mobile, below touch-target
+  guidance — now 44 px in both locales
+
 Open release gates:
-- Four-mode visual QA is pending because no browser runtime was available in the verification environment
 - Public Replit URL deployment and live workflow verification require deployment access
 
 ## Shared integration
