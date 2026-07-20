@@ -450,7 +450,6 @@ const ar: Record<string, string> = {
   "Skipped by user": "تخطاه المستخدم",
   "Retry": "إعادة المحاولة",
   "Analyzing…": "جارٍ التحليل…",
-  "Remove": "إزالة",
   "Removing…": "جارٍ الإزالة…",
   "Why ask this?": "لماذا يُطرح هذا السؤال؟",
 };
