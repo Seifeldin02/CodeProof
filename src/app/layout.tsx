@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const { locale } = await getI18n();
   return (
-    <html lang={locale} dir={locale === "ar" ? "rtl" : "ltr"} suppressHydrationWarning>
+    <html lang={locale} dir={locale === "ar" ? "rtl" : "ltr"} data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className={`${manrope.variable} ${mono.variable} ${arabic.variable}`}><LocaleProvider initialLocale={locale}><AppShell>{children}</AppShell></LocaleProvider></body>
     </html>
   );

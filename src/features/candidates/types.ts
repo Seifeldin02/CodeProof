@@ -16,9 +16,24 @@ export interface CandidateRepositoryAnalysis {
 
 export interface CandidateDetail extends CandidateRecord {
   analyses: CandidateRepositoryAnalysis[];
+  repositoryOutcomes: CandidateRepositoryOutcome[];
 }
 
 export interface RepositoryFailure {
   repositoryUrl: string;
+  code: string;
   message: string;
+}
+
+export type RepositoryOutcomeStatus = "analyzed" | "failed";
+
+export interface CandidateRepositoryOutcome {
+  id: string;
+  candidateId: string;
+  repositoryUrl: string;
+  repositoryName: string;
+  status: RepositoryOutcomeStatus;
+  code: string | null;
+  message: string | null;
+  updatedAt: string;
 }

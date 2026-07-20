@@ -9,6 +9,7 @@ import { useI18n } from "@/components/i18n/LocaleProvider";
 import { localizeAnalysisText } from "@/i18n/translations";
 
 interface ApiError { error?: { message?: string } }
+type RepositoryUiStatus = { status: "analyzing" | "analyzed" | "failed" | "skipped"; message?: string };
 
 const SAMPLE_CV = `Demo Candidate
 Full-Stack Engineer
@@ -49,6 +50,7 @@ export default function AnalyzeCandidateWorkflow() {
   const [isDemo, setIsDemo] = useState(false);
   const [busy, setBusy] = useState<"discover" | "analyze" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [repositoryStatus, setRepositoryStatus] = useState<Record<string, RepositoryUiStatus>>({});
 
   async function runDiscovery(textOverride?: string): Promise<void> {
     setBusy("discover"); setError(null);
@@ -64,6 +66,7 @@ export default function AnalyzeCandidateWorkflow() {
       setRole(payload.discovery.suggestedRole);
       setRepositories(payload.discovery.repositories);
       setSelected(new Set(payload.discovery.repositories.slice(0, 3).map((repository) => repository.url)));
+      setRepositoryStatus({});
     } catch (caught) { setError(caught instanceof Error ? caught.message : "CV discovery failed."); }
     finally { setBusy(null); }
   }
@@ -88,12 +91,14 @@ export default function AnalyzeCandidateWorkflow() {
       else if (next.size < 3) next.add(url);
       return next;
     });
+    setRepositoryStatus((current) => { const next = { ...current }; delete next[url]; return next; });
   }
 
   async function analyze(): Promise<void> {
     if (!candidateName.trim()) { setError(t("Confirm the candidate name before analyzing.")); return; }
     if (selected.size === 0) { setError(t("Select at least one public repository.")); return; }
     setBusy("analyze"); setError(null);
+    setRepositoryStatus(Object.fromEntries(repositories.map((repository) => [repository.url, { status: selected.has(repository.url) ? "analyzing" : "skipped" }])));
     try {
       const form = new FormData();
       form.set("candidateName", candidateName);
@@ -104,7 +109,11 @@ export default function AnalyzeCandidateWorkflow() {
       form.set("isDemo", String(isDemo));
       if (resumeFile) form.set("resumeFile", resumeFile);
       const response = await fetch("/api/candidates/analyze", { method: "POST", body: form });
-      const payload = await response.json() as { candidate?: { id: string }; failedRepositories?: Array<{ message: string }> } & ApiError;
+      const payload = await response.json() as { candidate?: { id: string }; failedRepositories?: Array<{ repositoryUrl: string; message: string }> } & ApiError;
+      const failures = new Map((payload.failedRepositories ?? []).map((failure) => [failure.repositoryUrl, failure.message]));
+      setRepositoryStatus(Object.fromEntries(repositories.map((repository) => [repository.url, selected.has(repository.url)
+        ? failures.has(repository.url) ? { status: "failed", message: failures.get(repository.url) } : { status: "analyzed" }
+        : { status: "skipped" }])))
       if (!response.ok || !payload.candidate) throw new Error(payload.error?.message ?? payload.failedRepositories?.[0]?.message ?? "Candidate analysis failed.");
       router.push(`/candidates/${payload.candidate.id}`);
       router.refresh();
@@ -130,7 +139,7 @@ export default function AnalyzeCandidateWorkflow() {
         </div> : <div className="mt-6 space-y-6">
           <div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-600">{t("Candidate name")}<input value={candidateName} onChange={(event) => setCandidateName(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-brand-500" /></label><label className="text-xs font-semibold text-slate-600">{t("Target role")}<select value={role} onChange={(event) => setRole(event.target.value as Role)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500">{ROLES.map((item) => <option key={item} value={item}>{t(item)}</option>)}</select></label></div>
           {discovery.profiles.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" /><strong className="text-sm text-amber-900">{t("GitHub profile detected")}</strong></div><p className="mt-2 text-xs leading-5 text-amber-800"><bdi dir="ltr">{discovery.profiles.map((profile) => profile.url).join(", ")}</bdi>. {t("Free archive scanning cannot list profile projects, so paste the repository URLs you want to inspect.")}</p></div>}
-          <div><div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-slate-900">{t("Selected repositories")}</h3><span className="text-xs text-slate-400">{t("{count}/3 selected", { count: selected.size })}</span></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{repositories.map((repository) => <button type="button" key={repository.url} onClick={() => toggleRepository(repository.url)} className={`interactive-card flex min-h-16 w-full items-center gap-3 rounded-xl border p-4 text-start transition ${selected.has(repository.url) ? "border-brand-300 bg-brand-50 ring-2 ring-brand-100" : "border-slate-200 bg-white hover:border-brand-200"}`}><span className={`grid h-6 w-6 place-items-center rounded-md border text-xs ${selected.has(repository.url) ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 text-slate-400"}`}>{selected.has(repository.url) ? "✓" : "+"}</span><span className="min-w-0"><strong className="tech-ltr block truncate text-sm text-slate-900">{repository.owner}/{repository.repository}</strong><small className="text-slate-400">{t("Public source archive")}</small></span></button>)}</div>
+          <div><div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-slate-900">{t("Selected repositories")}</h3><span className="text-xs text-slate-400">{t("{count}/3 selected", { count: selected.size })}</span></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{repositories.map((repository) => { const outcome = repositoryStatus[repository.url]; return <div key={repository.url}><button type="button" disabled={busy === "analyze"} onClick={() => toggleRepository(repository.url)} className={`interactive-card flex min-h-16 w-full items-center gap-3 rounded-xl border p-4 text-start transition ${selected.has(repository.url) ? "border-brand-300 bg-brand-50 ring-2 ring-brand-100" : "border-slate-200 bg-white hover:border-brand-200"}`}><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border text-xs ${selected.has(repository.url) ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 text-slate-400"}`}>{outcome?.status === "analyzing" ? <i className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" /> : selected.has(repository.url) ? "✓" : "+"}</span><span className="min-w-0 flex-1"><strong className="tech-ltr block truncate text-sm text-slate-900">{repository.owner}/{repository.repository}</strong><small className={outcome?.status === "failed" ? "text-rose-600" : outcome?.status === "analyzed" ? "text-emerald-600" : "text-slate-400"}>{t(outcome?.status === "analyzing" ? "Analyzing" : outcome?.status === "analyzed" ? "Analyzed successfully" : outcome?.status === "failed" ? "Failed" : outcome?.status === "skipped" ? "Skipped by user" : "Public source archive")}</small></span></button>{outcome?.status === "failed" && outcome.message && <p role="alert" className="mt-1 px-2 text-[10px] leading-4 text-rose-700">{localizeAnalysisText(locale, outcome.message)}</p>}</div>; })}</div>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row"><input dir="ltr" value={manualRepository} onChange={(event) => setManualRepository(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addManualRepository(); } }} placeholder="https://github.com/owner/repository" className="h-12 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 text-left text-sm outline-none focus:border-brand-500" /><button type="button" onClick={addManualRepository} className="min-h-12 rounded-lg border border-slate-200 px-5 text-sm font-semibold text-slate-700">{t("Add")}</button></div>
           </div>
           <label className="block text-xs font-semibold text-slate-600">{t("Job description")} <span className="font-normal text-slate-400">{t("optional")}</span><textarea value={jobDescription} onChange={(event) => setJobDescription(event.target.value)} className="mt-2 min-h-28 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal leading-6 outline-none focus:border-brand-500" placeholder={t("Paste requirements to include evidence matching…")} /></label>
@@ -141,7 +150,7 @@ export default function AnalyzeCandidateWorkflow() {
 
       <aside className="space-y-4">
         <div className="hero-grid rounded-2xl bg-slate-950 p-6 text-white"><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-lime-300">{t("What CodeProof inspects")}</p><ul className="mt-5 space-y-4 text-sm">{[["Languages and tools","Extensions, manifests and real imports."],["Architecture patterns","Routes, services, state, auth and persistence boundaries."],["Implementation depth","Repeated meaningful usage with exact file citations."],["Quality signals","Tests, error handling, observability and deployment evidence."]].map(([title, copy], index) => <li key={title} className="flex gap-3 border-b border-white/10 pb-4 last:border-0 last:pb-0"><span className="font-mono text-[10px] text-lime-300">0{index + 1}</span><span><strong className="block">{t(title)}</strong><span className="mt-1 block text-xs leading-5 text-slate-400">{t(copy)}</span></span></li>)}</ul></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-6"><h3 className="text-sm font-semibold text-slate-900">{t("Free by default")}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{t("Public repositories are downloaded through GitHub source archives. The core flow does not use GitHub REST, a token, or an AI key.")}</p><dl className="mt-5 grid grid-cols-2 gap-3 text-xs"><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Archive cap")}</dt><dd className="tech-ltr mt-1 font-semibold text-slate-800">20 MB</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("File cap")}</dt><dd className="mt-1 font-semibold text-slate-800">5,000</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Execution")}</dt><dd className="mt-1 font-semibold text-slate-800">{t("Never")}</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Evidence")}</dt><dd className="mt-1 font-semibold text-slate-800">{t("File-backed")}</dd></div></dl></div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6"><h3 className="text-sm font-semibold text-slate-900">{t("Free by default")}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{t("Public repositories are downloaded through GitHub source archives. The core flow does not use GitHub REST, a token, or an AI key.")}</p><dl className="mt-5 grid grid-cols-2 gap-3 text-xs"><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Transport cap")}</dt><dd className="tech-ltr mt-1 font-semibold text-slate-800">96 MB</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Analyzable file cap")}</dt><dd className="mt-1 font-semibold text-slate-800">5,000</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Execution")}</dt><dd className="mt-1 font-semibold text-slate-800">{t("Never")}</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Evidence")}</dt><dd className="mt-1 font-semibold text-slate-800">{t("File-backed")}</dd></div></dl></div>
       </aside>
       </div>
     </div>
