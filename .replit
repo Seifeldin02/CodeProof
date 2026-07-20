@@ -1,5 +1,6 @@
 language = "javascript"
 entrypoint = "package.json"
+modules = ["nodejs-22"]
 run = "npm run dev -- --hostname 0.0.0.0"
 
 [deployment]
