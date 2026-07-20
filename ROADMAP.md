@@ -9,8 +9,9 @@
 - [x] Recruiter-first CV-to-evidence workflow
 - [x] Exact source-file grounding and no fabricated claims
 - [x] Full English and Arabic UI with global RTL
-- [ ] Mobile verification in English LTR and Arabic RTL
-- [ ] Accessibility and professional-branding review
+- [x] Mobile verification in English LTR and Arabic RTL
+- [x] Accessibility review (landmarks, headings, labels, focus-visible, reduced motion, touch targets)
+- [ ] Professional-branding visual pass (needs a pixel-level review; sandbox screenshots unavailable)
 
 ## Phase 1 — Foundation
 [x] Landing page
@@ -89,4 +90,4 @@ Owner: Shared
 - [x] Recruiter report export/share view
 - [x] Employer-facing product explanation
 - [ ] Public Replit deployment (build/run configuration and `/api/health` are complete; live URL verification remains external)
-- [ ] Four-mode browser QA: desktop/mobile × English/Arabic
+- [x] Four-mode browser QA: desktop/mobile × English/Arabic (layout, RTL, and accessibility assertions across all recruiter routes, empty and populated)

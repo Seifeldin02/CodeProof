@@ -94,6 +94,7 @@ const ar: Record<string, string> = {
   "Choose a text-based PDF": "اختر ملف PDF نصياً",
   "Maximum 5 MB. Files are parsed server-side and never executed.": "الحد الأقصى 5 ميجابايت. تتم القراءة على الخادم ولا يتم تشغيل الملفات.",
   "or paste CV text": "أو ألصق نص السيرة",
+  "Paste CV text": "ألصق نص السيرة",
   "Candidate name, experience, GitHub links, projects…": "اسم المرشح، الخبرة، روابط GitHub، المشاريع…",
   "Detect candidate projects": "اكتشف مشاريع المرشح",
   "Reading CV…": "جارٍ قراءة السيرة…",
