@@ -55,7 +55,7 @@ export function requiresAuth(pathname: string, method: string, protectAll: boole
   return pathname === "/analyze" || pathname.startsWith("/analyze/");
 }
 
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
   const accessCode = process.env.CODEPROOF_ACCESS_CODE?.trim();
   if (!accessCode) return NextResponse.next();
 

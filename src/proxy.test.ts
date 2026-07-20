@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { middleware } from "./middleware";
+import { proxy } from "./proxy";
 
 function request(path: string, options: { method?: string; accessCode?: string } = {}): NextRequest {
   const headers = new Headers();
@@ -20,8 +20,8 @@ afterEach(() => {
 
 describe("access gate: disabled by default", () => {
   it("is a no-op when no access code is configured", () => {
-    expect(middleware(request("/analyze")).status).toBe(200);
-    expect(middleware(request("/api/cv/discover", { method: "POST" })).status).toBe(200);
+    expect(proxy(request("/analyze")).status).toBe(200);
+    expect(proxy(request("/api/cv/discover", { method: "POST" })).status).toBe(200);
   });
 });
 
@@ -30,15 +30,15 @@ describe("access gate: protects the upload path", () => {
 
   it("keeps browsing open so a public demo still works", () => {
     process.env.CODEPROOF_ACCESS_CODE = code;
-    expect(middleware(request("/")).status).toBe(200);
-    expect(middleware(request("/candidates")).status).toBe(200);
-    expect(middleware(request("/insights")).status).toBe(200);
-    expect(middleware(request("/api/candidates")).status).toBe(200);
+    expect(proxy(request("/")).status).toBe(200);
+    expect(proxy(request("/candidates")).status).toBe(200);
+    expect(proxy(request("/insights")).status).toBe(200);
+    expect(proxy(request("/api/candidates")).status).toBe(200);
   });
 
   it("challenges the upload page so credentials exist before it posts", () => {
     process.env.CODEPROOF_ACCESS_CODE = code;
-    const response = middleware(request("/analyze"));
+    const response = proxy(request("/analyze"));
     expect(response.status).toBe(401);
     expect(response.headers.get("WWW-Authenticate")).toContain("Basic");
   });
@@ -46,24 +46,24 @@ describe("access gate: protects the upload path", () => {
   it("challenges every mutating request", () => {
     process.env.CODEPROOF_ACCESS_CODE = code;
     for (const path of ["/api/cv/discover", "/api/candidates/analyze", "/api/analyze"]) {
-      expect(middleware(request(path, { method: "POST" })).status).toBe(401);
+      expect(proxy(request(path, { method: "POST" })).status).toBe(401);
     }
   });
 
   it("rejects an incorrect access code", () => {
     process.env.CODEPROOF_ACCESS_CODE = code;
-    expect(middleware(request("/api/cv/discover", { method: "POST", accessCode: "wrong" })).status).toBe(401);
+    expect(proxy(request("/api/cv/discover", { method: "POST", accessCode: "wrong" })).status).toBe(401);
   });
 
   it("admits the correct access code for uploads and the upload page", () => {
     process.env.CODEPROOF_ACCESS_CODE = code;
-    expect(middleware(request("/analyze", { accessCode: code })).status).toBe(200);
-    expect(middleware(request("/api/cv/discover", { method: "POST", accessCode: code })).status).toBe(200);
+    expect(proxy(request("/analyze", { accessCode: code })).status).toBe(200);
+    expect(proxy(request("/api/cv/discover", { method: "POST", accessCode: code })).status).toBe(200);
   });
 
   it("keeps /api/health reachable so the Replit health check still passes", () => {
     process.env.CODEPROOF_ACCESS_CODE = code;
-    expect(middleware(request("/api/health")).status).toBe(200);
+    expect(proxy(request("/api/health")).status).toBe(200);
   });
 });
 
@@ -73,14 +73,14 @@ describe("access gate: full lockdown", () => {
   it("also closes read access when CODEPROOF_PROTECT_ALL is enabled", () => {
     process.env.CODEPROOF_ACCESS_CODE = code;
     process.env.CODEPROOF_PROTECT_ALL = "true";
-    expect(middleware(request("/candidates")).status).toBe(401);
-    expect(middleware(request("/api/candidates")).status).toBe(401);
-    expect(middleware(request("/api/candidates", { accessCode: code })).status).toBe(200);
+    expect(proxy(request("/candidates")).status).toBe(401);
+    expect(proxy(request("/api/candidates")).status).toBe(401);
+    expect(proxy(request("/api/candidates", { accessCode: code })).status).toBe(200);
   });
 
   it("still exempts the deployment health check", () => {
     process.env.CODEPROOF_ACCESS_CODE = code;
     process.env.CODEPROOF_PROTECT_ALL = "true";
-    expect(middleware(request("/api/health")).status).toBe(200);
+    expect(proxy(request("/api/health")).status).toBe(200);
   });
 });
