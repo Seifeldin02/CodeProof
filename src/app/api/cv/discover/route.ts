@@ -1,3 +1,4 @@
+import { denyUnlessSignedIn } from "@/features/auth/guard";
 import { discoverCandidateLinks } from "@/features/resume-matching/discovery";
 import { extractPdfResumeText, PdfResumeError, PDF_RESUME_MAX_BYTES } from "@/features/resume-matching/pdf";
 import { z } from "zod";
@@ -7,6 +8,9 @@ export const runtime = "nodejs";
 const jsonSchema = z.object({ resumeText: z.string().trim().min(1).max(50_000) }).strict();
 
 export async function POST(request: Request): Promise<Response> {
+  const denied = await denyUnlessSignedIn();
+  if (denied) return denied;
+
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > PDF_RESUME_MAX_BYTES + 256 * 1024) {
     return Response.json({ error: { code: "REQUEST_TOO_LARGE", message: "CV requests must be smaller than 5.25 MB." } }, { status: 413 });
