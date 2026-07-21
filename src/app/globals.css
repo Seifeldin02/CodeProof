@@ -119,7 +119,10 @@ html[dir="rtl"] .route-enter { transform-origin: right top; }
 .ambient-orb-two { bottom: -22rem; left: 20%; background: #70d3a1; transform: translate3d(calc(var(--pointer-x) * -.6), calc(var(--pointer-y) * -.6), 0); }
 .ambient-particle { position: absolute; left: var(--particle-left); top: var(--particle-top); width: var(--particle-size); height: var(--particle-size); border-radius: 999px; background: rgba(30,112,76,.38); box-shadow: 0 0 0 5px rgba(30,112,76,.035); animation: particle-float 8s ease-in-out var(--particle-delay) infinite alternate; }
 
-.route-enter { animation: route-enter .55s cubic-bezier(.2,.8,.2,1) both; }
+.route-enter { animation: route-enter .28s cubic-bezier(.2,.8,.2,1) both; }
+/* Fixed, so it reserves no layout space; scales from the centre so it is
+   direction-neutral in LTR and RTL. */
+.route-loading-bar { position: fixed; inset-inline: 0; top: 0; z-index: 60; height: 2px; transform-origin: center; background: linear-gradient(90deg, transparent, var(--green), transparent); animation: route-progress 1.1s ease-in-out infinite; }
 .surface-card, .metric-card { transition: border-color .3s ease, box-shadow .3s ease, transform .3s cubic-bezier(.2,.8,.2,1); }
 .metric-card { position: relative; overflow: hidden; }
 .metric-card::after { content: ""; position: absolute; inset: auto -20% -80% 30%; height: 120%; border-radius: 50%; background: radial-gradient(circle, rgba(185,255,107,.13), transparent 65%); opacity: 0; transition: opacity .3s; }
@@ -143,23 +146,22 @@ html[dir="rtl"] .chart-bar { transform-origin: right; }
 .empty-state { position: relative; isolation: isolate; }
 .empty-state::before { content: ""; position: absolute; z-index: -1; inset: 12% 8%; border-radius: 999px; background: radial-gradient(circle, rgba(185,255,107,.11), transparent 67%); }
 .report-surface { content-visibility: auto; contain-intrinsic-size: 900px; }
-.skeleton-surface { position: relative; overflow: hidden; }
-.skeleton-surface::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.48), transparent); animation: skeleton-sweep 1.6s ease-in-out infinite; }
-.skeleton-line { position: absolute; border-radius: 999px; background: #e2e8f0; }
 
 @media (hover: hover) and (pointer: fine) {
   .surface-card:hover, .metric-card:hover { border-color: rgba(78,170,121,.32); box-shadow: 0 2px 3px rgba(15,23,42,.04), 0 20px 45px rgba(15,23,42,.075); transform: translateY(-2px); }
   .interactive-card:hover { transform: perspective(900px) rotateX(1deg) rotateY(-1.5deg) translateY(-4px); box-shadow: 0 24px 54px rgba(15,23,42,.12); }
 }
 
-@keyframes route-enter { from { opacity: 0; transform: translateY(8px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+/* No blur: it forces an expensive repaint on every navigation and creates a
+   containing block that clips sticky/fixed descendants mid-transition. */
+@keyframes route-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes route-progress { 0%, 100% { transform: scaleX(.12); opacity: .55; } 50% { transform: scaleX(1); opacity: 1; } }
 @keyframes chart-grow-x { from { transform: scaleX(0); opacity: .45; } to { transform: scaleX(1); opacity: 1; } }
 @keyframes chart-grow-y { from { transform: scaleY(0); opacity: .45; } to { transform: scaleY(1); opacity: 1; } }
 @keyframes ring-reveal { from { stroke-dashoffset: 100; } }
 @keyframes particle-float { to { translate: 10px -18px; opacity: .25; } }
 @keyframes live-pulse { 70% { box-shadow: 0 0 0 7px rgba(185,255,107,0); } 100% { box-shadow: 0 0 0 0 rgba(185,255,107,0); } }
 @keyframes node-pulse { 70%, 100% { transform: scale(1.35); opacity: 0; } }
-@keyframes skeleton-sweep { to { transform: translateX(100%); } }
 
 @media (max-width: 640px) {
   .ambient-particle { display: none; }
@@ -171,4 +173,5 @@ html[dir="rtl"] .chart-bar { transform-origin: right; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .interactive-card:hover, .surface-card:hover, .metric-card:hover { transform: none; }
+  .route-loading-bar { transform: scaleX(1); opacity: .6; }
 }
