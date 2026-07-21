@@ -21,15 +21,15 @@ describe("candidate evidence persistence", () => {
     expect(calculateEvidenceIndex([result([])])).toBe(0);
   });
 
-  it("starts with an empty candidate database", () => {
+  it("starts with an empty candidate database", async () => {
     const store = new CandidateStore(":memory:");
-    expect(store.listCandidates()).toEqual([]);
+    expect(await store.listCandidates("owner-a")).toEqual([]);
     store.db.close();
   });
 
-  it("persists every selected repository outcome and supports failed retry/removal", () => {
+  it("persists account-scoped repository outcomes and supports pipeline updates", async () => {
     const store = new CandidateStore(":memory:");
-    const created = store.createCandidate({
+    const created = await store.createCandidate("owner-a", {
       name: "Candidate",
       role: "Backend Engineer",
       results: [result(["Good Evidence"])],
@@ -39,18 +39,29 @@ describe("candidate evidence persistence", () => {
     expect(created.repositoryOutcomes.map((outcome) => outcome.status).sort()).toEqual(["analyzed", "failed"]);
     expect(created.repositoryOutcomes.find((outcome) => outcome.status === "failed")).toMatchObject({ code: "MALFORMED_ARCHIVE", message: "The repository archive is malformed." });
 
-    const retried = store.recordRepositorySuccess(created.id, result(["Strong Evidence"], "https://github.com/example/broken"));
+    expect(await store.getCandidate("owner-b", created.id)).toBeNull();
+    expect(await store.listCandidates("owner-b")).toEqual([]);
+
+    const retried = await store.recordRepositorySuccess("owner-a", created.id, result(["Strong Evidence"], "https://github.com/example/broken"));
     expect(retried?.repositoryOutcomes.every((outcome) => outcome.status === "analyzed")).toBe(true);
     expect(retried?.analyses).toHaveLength(2);
 
-    const another = store.createCandidate({
+    const another = await store.createCandidate("owner-b", {
       name: "Another Candidate",
       role: "Backend Engineer",
       results: [result(["Limited Evidence"])],
       failures: [{ repositoryUrl: "https://github.com/example/remove-me", code: "EMPTY_REPOSITORY", message: "The repository is empty." }],
     });
-    expect(store.removeFailedRepository(another.id, "https://github.com/example/remove-me")).toBe(true);
-    expect(store.getCandidate(another.id)?.repositoryOutcomes).toHaveLength(1);
+    expect(await store.removeFailedRepository("owner-a", another.id, "https://github.com/example/remove-me")).toBe(false);
+    expect(await store.removeFailedRepository("owner-b", another.id, "https://github.com/example/remove-me")).toBe(true);
+    expect((await store.getCandidate("owner-b", another.id))?.repositoryOutcomes).toHaveLength(1);
+
+    const hired = await store.updatePipeline("owner-a", created.id, "hired", "in_progress");
+    expect(hired).toMatchObject({ furthestStage: "hired", outcome: "hired" });
+    expect(hired?.stageHistory.map((event) => event.stage)).toEqual(["applied", "screening", "code_review", "interview", "offer", "hired"]);
+    expect(await store.deleteCandidate("owner-b", created.id)).toBe(false);
+    expect(await store.deleteCandidate("owner-a", created.id)).toBe(true);
+    expect(await store.getCandidate("owner-a", created.id)).toBeNull();
     store.db.close();
   });
 });

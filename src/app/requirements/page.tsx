@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
 import RequirementsForm from "@/components/requirements/RequirementsForm";
 import PageHeader from "@/components/ui/PageHeader";
-import { getCurrentUser } from "@/features/auth/session";
+import { requirePageUser } from "@/features/auth/page-guard";
 import { getRequirementsStore } from "@/features/requirements/store";
 import { getI18n } from "@/i18n/server";
 
@@ -9,10 +8,8 @@ export const dynamic = "force-dynamic";
 
 export default async function RequirementsPage() {
   // Requirements define the hiring bar, so editing them needs an account.
-  if (!(await getCurrentUser())) redirect("/signin?next=/requirements");
-
-  const { t } = await getI18n();
-  const requirements = getRequirementsStore().list();
+  const [{ t }, user] = await Promise.all([getI18n(), requirePageUser("/requirements")]);
+  const requirements = await getRequirementsStore().list(user.id);
 
   return (
     <div className="space-y-6">

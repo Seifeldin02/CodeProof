@@ -6,13 +6,15 @@ import { getCandidateStore } from "@/features/candidates/store";
 import { getI18n } from "@/i18n/server";
 import { localizeAnalysisText } from "@/i18n/translations";
 import type { EvidenceLevel } from "@/types/analysis";
+import { requirePageUser } from "@/features/auth/page-guard";
 
 export const dynamic = "force-dynamic";
 const WEIGHT: Record<EvidenceLevel, number> = { "Strong Evidence": 4, "Good Evidence": 3, "Partial Evidence": 2, "Limited Evidence": 1, "Insufficient Evidence": 0 };
 
 export default async function CandidateSharePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const candidate = getCandidateStore().getCandidate(id);
+  const user = await requirePageUser(`/candidates/${id}/share`);
+  const candidate = await getCandidateStore().getCandidate(user.id, id);
   if (!candidate) notFound();
   const { locale, t } = await getI18n();
   const skills = new Map<string, { skill: string; level: EvidenceLevel; files: string[] }>();

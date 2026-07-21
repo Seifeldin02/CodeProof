@@ -1,4 +1,4 @@
-import { denyUnlessSignedIn } from "@/features/auth/guard";
+import { denyCrossOrigin, denyUnlessSignedIn } from "@/features/auth/guard";
 import { discoverCandidateLinks } from "@/features/resume-matching/discovery";
 import { extractPdfResumeText, PdfResumeError, PDF_RESUME_MAX_BYTES } from "@/features/resume-matching/pdf";
 import { z } from "zod";
@@ -8,6 +8,8 @@ export const runtime = "nodejs";
 const jsonSchema = z.object({ resumeText: z.string().trim().min(1).max(50_000) }).strict();
 
 export async function POST(request: Request): Promise<Response> {
+  const crossOrigin = denyCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
   const denied = await denyUnlessSignedIn();
   if (denied) return denied;
 

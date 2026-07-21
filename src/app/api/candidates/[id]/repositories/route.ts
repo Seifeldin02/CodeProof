@@ -1,4 +1,4 @@
-import { denyUnlessSignedIn } from "@/features/auth/guard";
+import { authenticateRequest, denyCrossOrigin } from "@/features/auth/guard";
 import { getCandidateStore } from "@/features/candidates/store";
 import { analyzeRepository } from "@/features/repository-analysis/engine";
 import { GitHubServiceError, parseGitHubRepositoryUrl } from "@/services/github";
@@ -13,18 +13,20 @@ async function repositoryUrl(request: Request): Promise<string> {
 }
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }): Promise<Response> {
-  const denied = await denyUnlessSignedIn();
-  if (denied) return denied;
+  const crossOrigin = denyCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
+  const user = await authenticateRequest();
+  if (user instanceof Response) return user;
   const { id } = await context.params;
   const store = getCandidateStore();
-  const candidate = store.getCandidate(id);
+  const candidate = await store.getCandidate(user.id, id);
   if (!candidate) return Response.json({ error: { code: "NOT_FOUND", message: "Candidate not found." } }, { status: 404 });
   try {
     const url = await repositoryUrl(request);
     const outcome = candidate.repositoryOutcomes.find((item) => item.repositoryUrl === url && item.status === "failed");
     if (!outcome) return Response.json({ error: { code: "NOT_RETRYABLE", message: "Only a failed repository can be retried." } }, { status: 409 });
     const result = await analyzeRepository({ repositoryUrl: url });
-    const updated = store.recordRepositorySuccess(id, result);
+    const updated = await store.recordRepositorySuccess(user.id, id, result);
     return Response.json({ candidate: updated }, { status: 200 });
   } catch (error) {
     if (error instanceof GitHubServiceError) {
@@ -35,14 +37,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }): Promise<Response> {
-  const denied = await denyUnlessSignedIn();
-  if (denied) return denied;
+  const crossOrigin = denyCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
+  const user = await authenticateRequest();
+  if (user instanceof Response) return user;
   const { id } = await context.params;
   const store = getCandidateStore();
-  if (!store.getCandidate(id)) return Response.json({ error: { code: "NOT_FOUND", message: "Candidate not found." } }, { status: 404 });
+  if (!(await store.getCandidate(user.id, id))) return Response.json({ error: { code: "NOT_FOUND", message: "Candidate not found." } }, { status: 404 });
   try {
     const url = await repositoryUrl(request);
-    if (!store.removeFailedRepository(id, url)) {
+    if (!(await store.removeFailedRepository(user.id, id, url))) {
       return Response.json({ error: { code: "NOT_REMOVABLE", message: "Only a failed repository can be removed." } }, { status: 409 });
     }
     return new Response(null, { status: 204 });

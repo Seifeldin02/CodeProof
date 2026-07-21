@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { denyUnlessSignedIn } from "@/features/auth/guard";
+import { authenticateRequest, denyCrossOrigin } from "@/features/auth/guard";
 import {
   getRequirementsStore,
   isCategory,
@@ -15,13 +15,17 @@ const MAX_REQUIREMENTS = 40;
 const MAX_LENGTH = 200;
 
 export async function GET(): Promise<Response> {
-  return NextResponse.json({ requirements: getRequirementsStore().list() });
+  const user = await authenticateRequest();
+  if (user instanceof Response) return user;
+  return NextResponse.json({ requirements: await getRequirementsStore().list(user.id) });
 }
 
 export async function PUT(request: Request): Promise<Response> {
   // Requirements define the hiring bar, so changing them needs an account.
-  const denied = await denyUnlessSignedIn();
-  if (denied) return denied;
+  const crossOrigin = denyCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
+  const user = await authenticateRequest();
+  if (user instanceof Response) return user;
 
   let incoming: unknown;
   try {
@@ -55,5 +59,5 @@ export async function PUT(request: Request): Promise<Response> {
     cleaned.push({ id: typeof entry.id === "string" && entry.id ? entry.id : randomUUID(), requirement, importance, category });
   }
 
-  return NextResponse.json({ requirements: getRequirementsStore().replaceAll(cleaned) });
+  return NextResponse.json({ requirements: await getRequirementsStore().replaceAll(user.id, cleaned) });
 }

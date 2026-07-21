@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { GET } from "./route";
 
 /**
@@ -8,6 +8,11 @@ import { GET } from "./route";
  * deployment monitoring, so the shape is pinned here.
  */
 describe("GET /api/health", () => {
+  afterEach(() => {
+    delete process.env.VERCEL;
+    delete process.env.DATABASE_URL;
+    delete process.env.POSTGRES_URL;
+  });
   it("reports the documented healthy deployment contract", async () => {
     const response = GET();
     expect(response.status).toBe(200);
@@ -17,5 +22,12 @@ describe("GET /api/health", () => {
     expect(body.paidApisRequired).toBe(false);
     expect(typeof body.engineVersion).toBe("string");
     expect(Number.isNaN(Date.parse(body.timestamp))).toBe(false);
+  });
+
+  it("surfaces a Vercel deployment without durable account storage", async () => {
+    process.env.VERCEL = "1";
+    const response = GET();
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ status: "degraded", durablePersistence: false });
   });
 });

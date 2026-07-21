@@ -1,22 +1,16 @@
 # Deploying CodeProof
 
-How to put CodeProof on a real URL, and what must be true before real candidate
-CVs go through it.
-
 Read this together with [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md).
 
----
-
-## 1. Environment variables
+## Environment variables
 
 | Variable | When | Purpose |
 | --- | --- | --- |
-| `CODEPROOF_SESSION_SECRET` | **Required in production** | Signs session cookies. Without it each instance generates its own key, so sessions break across restarts and across multiple instances. |
-| `CODEPROOF_DB_PATH` | **Required in production** | Points SQLite at a persistent volume. The default (`.data/codeproof.db`) is wiped on redeploy. |
-| `CODEPROOF_PROTECT_ALL` | Required if storing **real** candidates | `true` also requires sign-in to read candidate records. Without it, stored dossiers are readable by anyone with the URL. |
-| `CODEPROOF_ALLOW_SIGNUP` | Optional | `true` keeps registration open for teammates. Left unset, registration closes after the first account claims the workspace. |
-| `OPENAI_API_KEY`, `OPENAI_MODEL` | Optional | Enables the optional grounded AI provider. The core flow works without it. |
-| `DATABASE_URL` | Optional | PostgreSQL analysis cache. |
+| `CODEPROOF_SESSION_SECRET` | **Required in production** | Signs session cookies consistently across instances. |
+| `DATABASE_URL` or `POSTGRES_URL` | **Required on Vercel and other ephemeral hosts** | Durable account-scoped users, candidates, requirements, and analysis cache. |
+| `CODEPROOF_DB_PATH` | Optional local/container | Changes the SQLite file used when PostgreSQL is absent. Use only on a persistent volume in production. |
+| `CODEPROOF_ALLOW_SIGNUP` | Optional | Registration is public by default. Set `false` only for a closed pilot. |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | Optional | Enables the grounded AI provider. The deterministic core remains free. |
 
 Generate a session secret:
 
@@ -24,30 +18,31 @@ Generate a session secret:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Never commit these. Set them in your host's secret manager.
+Never commit secrets. Store them in the hosting platform's secret manager.
 
-## 2. First run
+## Accounts and privacy boundary
 
-The first visitor to `/signin` creates the owner account, then registration
-closes automatically. **Claim that account yourself immediately after deploying**,
-before sharing the URL — otherwise the first stranger to find it becomes the owner.
+Visitors land on sign-in/account creation before seeing recruiter features. All
+candidate, report, requirement, and analytics queries are scoped by the signed-in
+user ID. Hiring Insights is derived only from that account's candidate records.
 
-## 3. Deploy on Replit
+Passwords use salted scrypt hashes. Sessions use signed Secure, HttpOnly,
+SameSite cookies in production. State-changing endpoints reject cross-origin
+browser requests, and private API responses are marked `no-store`.
 
-1. Import the repository.
-2. Confirm Node.js 22.5 or newer, then `npm ci`.
-3. Add the environment variables above as Replit Secrets.
-4. Use an **Autoscale** or **Reserved VM** deployment — CodeProof has server routes and cannot run as a static site.
-5. Build: `npm ci && npm run build`
-6. Run: `npm start -- --hostname 0.0.0.0`
-7. Health check: `/api/health` — a healthy instance returns `status: "ok"` and `paidApisRequired: false`.
+## Vercel
 
-Replit's published filesystem is **not durable**: SQLite records and the
-filesystem cache survive a live session but reset on restart or republish.
-Point `CODEPROOF_DB_PATH` at a mounted persistent volume, or move to Postgres,
-before treating any data as retained.
+1. Import the repository and select the `development` branch while testing.
+2. Connect a PostgreSQL provider/integration. Expose `DATABASE_URL` or `POSTGRES_URL` to Production and Preview.
+3. Set a random `CODEPROOF_SESSION_SECRET` in Production and Preview.
+4. Build with `npm run build`; use the standard Next.js output.
+5. Verify `/api/health`, registration, sign-in, candidate creation, sign-out, and sign-in again.
 
-## 4. Deploy on a generic Node host
+Do not point `CODEPROOF_DB_PATH` at `/tmp` on Vercel. Each function has isolated,
+disposable filesystem state, which causes registrations and sessions to appear
+to vanish between requests.
+
+## Replit or a generic Node host
 
 ```bash
 npm ci
@@ -55,47 +50,33 @@ npm run build
 npm start -- --hostname 0.0.0.0 --port ${PORT:-3000}
 ```
 
-Requirements: Node.js 22.5+, a writable persistent path for `CODEPROOF_DB_PATH`,
-and TLS terminated in front of the app. Session cookies are marked `Secure` in
-production, so **the app must be served over HTTPS or sign-in will not work**.
+Use Node.js 22.5 or newer and HTTPS. Replit's published filesystem is not
+durable; configure PostgreSQL or treat SQLite data as disposable.
 
-Vercel note: the serverless filesystem is ephemeral and read-only, so SQLite
-will not persist there. Use a long-lived container host, or migrate the store to
-Postgres first.
+## Pre-launch checklist
 
-## 5. Pre-launch checklist
-
-- [ ] `CODEPROOF_SESSION_SECRET` set to a random 32-byte value
-- [ ] `CODEPROOF_DB_PATH` on persistent storage
-- [ ] Owner account claimed before the URL is shared
-- [ ] `CODEPROOF_PROTECT_ALL=true` if any real candidate data will be stored
-- [ ] HTTPS enforced
+- [ ] `CODEPROOF_SESSION_SECRET` is a random 32-byte value
+- [ ] `DATABASE_URL` or `POSTGRES_URL` is configured on an ephemeral host
+- [ ] HTTPS is enforced
 - [ ] `npm run verify` passes
-- [ ] `npm audit` reviewed
-- [ ] `/api/health` wired to the platform health check
+- [ ] `npm audit` is reviewed
+- [ ] `/api/health` responds successfully
+- [ ] Two test accounts cannot read or modify each other's candidate IDs
+- [ ] Sign-out removes access to all recruiter routes and APIs
 
-## 6. Verify after deploying
+## Live verification
 
 ```bash
-curl -s https://YOUR_URL/api/health           # {"status":"ok",...,"paidApisRequired":false}
-curl -s -o /dev/null -w '%{http_code}\n' \
-  -X POST https://YOUR_URL/api/cv/discover     # 401 before sign-in
+curl -s https://YOUR_URL/api/health
+curl -s -o /dev/null -w '%{http_code}\n' https://YOUR_URL/api/candidates
 ```
 
-Then in a browser: open `/analyze` signed out and confirm it redirects to
-`/signin`; sign in; upload a CV; confirm the dossier is created and cites real
-source files. A deployment is not "done" until that full path has run on the
-live URL.
+The second request must return `401` without a session. Then test in a browser:
+create an account, upload a CV, analyze a public repository, update the candidate
+stage, confirm Hiring Insights changes, sign out, and sign back in.
 
-## 7. Known gaps before real production use
+## Remaining production considerations
 
-These are tracked honestly rather than hidden:
-
-- **Durability.** SQLite on an ephemeral filesystem loses data on redeploy. Needs a Postgres-backed candidate store.
-- **No candidate deletion.** Candidate records expose read routes only. Storing CV-derived data on real people without a delete path is a GDPR/right-to-erasure problem. Add delete + export before processing real applicants.
-- **Single-role accounts.** Every account has identical access; there is no per-recruiter permission model and no audit trail of who viewed a dossier.
-- **No rate limiting.** Uploading triggers outbound archive downloads. Authenticated abuse or a shared account can still generate load.
-- **Content Security Policy.** Baseline HSTS, framing, MIME-sniffing, referrer, and permissions headers are configured; a strict CSP remains a production-hardening follow-up.
-
-Suitable today for a **demo or internal pilot with the gate on**. Not yet
-suitable for storing real applicant data at scale.
+- Retention periods and account-level data export/deletion should be reviewed against the applicable privacy policy before processing applicants at scale.
+- Every account currently has recruiter permissions; team organizations and role-based access are not implemented.
+- Authentication has a per-instance limiter. High-traffic production should add a shared edge rate limiter.

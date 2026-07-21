@@ -2,18 +2,23 @@ import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypt
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-
-/**
- * Recruiter accounts for CodeProof.
- *
- * Passwords are hashed with scrypt from `node:crypto`, so authentication adds
- * no dependency and no paid service, keeping the zero-paid-API contract intact.
- */
+import type { Pool } from "pg";
+import { getPostgresPool } from "@/features/persistence/postgres";
 
 export interface AuthUser {
   id: string;
   email: string;
   createdAt: string;
+}
+
+export interface AuthUserWithPassword extends AuthUser {
+  passwordHash: string;
+}
+
+export interface AuthPersistence {
+  findByEmail(email: string): Promise<AuthUserWithPassword | null>;
+  findById(id: string): Promise<AuthUser | null>;
+  createUser(email: string, password: string): Promise<AuthUser>;
 }
 
 interface UserRow {
@@ -39,7 +44,8 @@ export function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(derived, expectedBytes);
 }
 
-export class AuthStore {
+/** SQLite persistence for zero-configuration local development and tests. */
+export class AuthStore implements AuthPersistence {
   readonly db: DatabaseSync;
 
   constructor(databasePath = process.env.CODEPROOF_DB_PATH ?? path.join(process.cwd(), ".data", "codeproof.db")) {
@@ -52,73 +58,91 @@ export class AuthStore {
         password_hash TEXT NOT NULL,
         created_at    TEXT NOT NULL
       );
-      CREATE TABLE IF NOT EXISTS auth_settings (
-        key   TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      );
     `);
   }
 
-  userCount(): number {
-    return (this.db.prepare("SELECT COUNT(*) AS total FROM users").get() as { total: number }).total;
-  }
-
-  findByEmail(email: string): (AuthUser & { passwordHash: string }) | null {
+  async findByEmail(email: string): Promise<AuthUserWithPassword | null> {
     const row = this.db.prepare("SELECT * FROM users WHERE email = ?").get(email.trim().toLowerCase()) as UserRow | undefined;
-    if (!row) return null;
-    return { id: row.id, email: row.email, createdAt: row.created_at, passwordHash: row.password_hash };
+    return row ? mapUserWithPassword(row) : null;
   }
 
-  findById(id: string): AuthUser | null {
+  async findById(id: string): Promise<AuthUser | null> {
     const row = this.db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRow | undefined;
-    return row ? { id: row.id, email: row.email, createdAt: row.created_at } : null;
+    return row ? mapUser(row) : null;
   }
 
-  createUser(email: string, password: string): AuthUser {
-    const user: AuthUser = {
-      id: randomUUID(),
-      email: email.trim().toLowerCase(),
-      createdAt: new Date().toISOString(),
-    };
-    this.db
-      .prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
+  async createUser(email: string, password: string): Promise<AuthUser> {
+    const user: AuthUser = { id: randomUUID(), email: email.trim().toLowerCase(), createdAt: new Date().toISOString() };
+    this.db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
       .run(user.id, user.email, hashPassword(password), user.createdAt);
     return user;
   }
+}
 
-  /**
-   * Session signing key. `CODEPROOF_SESSION_SECRET` wins so multi-instance
-   * deployments share one key; otherwise a per-install random value is
-   * persisted, which keeps local development zero-configuration.
-   */
-  sessionSecret(): string {
-    const fromEnvironment = process.env.CODEPROOF_SESSION_SECRET?.trim();
-    if (fromEnvironment) return fromEnvironment;
+class PostgresAuthStore implements AuthPersistence {
+  private initialized: Promise<void> | null = null;
 
-    const row = this.db.prepare("SELECT value FROM auth_settings WHERE key = 'session_secret'").get() as
-      | { value: string }
-      | undefined;
-    if (row) return row.value;
+  constructor(private readonly pool: Pool) {}
 
-    const generated = randomBytes(32).toString("hex");
-    this.db.prepare("INSERT INTO auth_settings (key, value) VALUES ('session_secret', ?)").run(generated);
-    return generated;
+  private initialize(): Promise<void> {
+    this.initialized ??= this.pool.query(`
+      CREATE TABLE IF NOT EXISTS codeproof_users (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL
+      )
+    `).then(() => undefined);
+    return this.initialized;
+  }
+
+  async findByEmail(email: string): Promise<AuthUserWithPassword | null> {
+    await this.initialize();
+    const result = await this.pool.query<UserRow>(
+      "SELECT id, email, password_hash, created_at::text FROM codeproof_users WHERE email = $1",
+      [email.trim().toLowerCase()],
+    );
+    return result.rows[0] ? mapUserWithPassword(result.rows[0]) : null;
+  }
+
+  async findById(id: string): Promise<AuthUser | null> {
+    await this.initialize();
+    const result = await this.pool.query<UserRow>(
+      "SELECT id, email, password_hash, created_at::text FROM codeproof_users WHERE id = $1",
+      [id],
+    );
+    return result.rows[0] ? mapUser(result.rows[0]) : null;
+  }
+
+  async createUser(email: string, password: string): Promise<AuthUser> {
+    await this.initialize();
+    const user: AuthUser = { id: randomUUID(), email: email.trim().toLowerCase(), createdAt: new Date().toISOString() };
+    await this.pool.query(
+      "INSERT INTO codeproof_users (id, email, password_hash, created_at) VALUES ($1, $2, $3, $4)",
+      [user.id, user.email, hashPassword(password), user.createdAt],
+    );
+    return user;
   }
 }
 
-let cached: AuthStore | null = null;
+function mapUser(row: UserRow): AuthUser {
+  return { id: row.id, email: row.email, createdAt: new Date(row.created_at).toISOString() };
+}
 
-export function getAuthStore(): AuthStore {
-  cached ??= new AuthStore();
+function mapUserWithPassword(row: UserRow): AuthUserWithPassword {
+  return { ...mapUser(row), passwordHash: row.password_hash };
+}
+
+let cached: AuthPersistence | null = null;
+
+export function getAuthStore(): AuthPersistence {
+  if (cached) return cached;
+  const pool = getPostgresPool();
+  cached = pool ? new PostgresAuthStore(pool) : new AuthStore();
   return cached;
 }
 
-/**
- * Registration is open only until the first account claims the workspace, so a
- * fresh public deployment cannot be taken over by a stranger. Set
- * `CODEPROOF_ALLOW_SIGNUP=true` to keep it open for teammates.
- */
-export function signupAllowed(store = getAuthStore()): boolean {
-  if (process.env.CODEPROOF_ALLOW_SIGNUP?.trim().toLowerCase() === "true") return true;
-  return store.userCount() === 0;
+/** Public CodeProof accounts are open by default; operators can explicitly close registration. */
+export function signupAllowed(): boolean {
+  return process.env.CODEPROOF_ALLOW_SIGNUP?.trim().toLowerCase() !== "false";
 }

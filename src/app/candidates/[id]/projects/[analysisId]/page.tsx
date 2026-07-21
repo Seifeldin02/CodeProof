@@ -4,12 +4,14 @@ import CandidateEvidenceReport from "@/components/candidate-evidence-report";
 import Badge from "@/components/ui/Badge";
 import { getCandidateStore } from "@/features/candidates/store";
 import { getI18n } from "@/i18n/server";
+import { requirePageUser } from "@/features/auth/page-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function CandidateProjectPage({ params }: { params: Promise<{ id: string; analysisId: string }> }) {
   const { id, analysisId } = await params;
-  const candidate = getCandidateStore().getCandidate(id);
+  const user = await requirePageUser(`/candidates/${id}/projects/${analysisId}`);
+  const candidate = await getCandidateStore().getCandidate(user.id, id);
   const analysis = candidate?.analyses.find((item) => item.id === analysisId);
   if (!candidate || !analysis) notFound();
   const { locale, t } = await getI18n();

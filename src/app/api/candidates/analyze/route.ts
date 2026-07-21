@@ -1,5 +1,5 @@
 import { getRequirementsStore, toJobDescriptionText } from "@/features/requirements/store";
-import { denyUnlessSignedIn } from "@/features/auth/guard";
+import { authenticateRequest, denyCrossOrigin } from "@/features/auth/guard";
 import { analyzeRepository } from "@/features/repository-analysis/engine";
 import { discoverCandidateLinks } from "@/features/resume-matching/discovery";
 import { extractPdfResumeText, PdfResumeError, PDF_RESUME_MAX_BYTES } from "@/features/resume-matching/pdf";
@@ -41,8 +41,10 @@ function repositories(form: FormData): string[] {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const denied = await denyUnlessSignedIn();
-  if (denied) return denied;
+  const crossOrigin = denyCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
+  const user = await authenticateRequest();
+  if (user instanceof Response) return user;
 
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > PDF_RESUME_MAX_BYTES + 512 * 1024) {
@@ -59,7 +61,7 @@ export async function POST(request: Request): Promise<Response> {
     const discovered = discoverCandidateLinks(resumeText);
     // Fall back to the saved company requirements so every candidate is
     // evaluated against the same bar without the recruiter re-typing it.
-    const savedRequirements = toJobDescriptionText(getRequirementsStore().list());
+    const savedRequirements = toJobDescriptionText(await getRequirementsStore().list(user.id));
     const jobDescription = text(form, "jobDescription") || savedRequirements;
     const parsed = inputSchema.parse({
       candidateName: text(form, "candidateName") || discovered.candidateName || "Unnamed candidate",
@@ -86,7 +88,7 @@ export async function POST(request: Request): Promise<Response> {
     if (results.length === 0) {
       return Response.json({ error: { code: "NO_REPOSITORIES_ANALYZED", message: "None of the selected repositories could be analyzed." }, failedRepositories }, { status: 422 });
     }
-    const candidate = getCandidateStore().createCandidate({ name: parsed.candidateName, role: parsed.role, results, failures: failedRepositories, isDemo: parsed.isDemo });
+    const candidate = await getCandidateStore().createCandidate(user.id, { name: parsed.candidateName, role: parsed.role, results, failures: failedRepositories, isDemo: parsed.isDemo });
     return Response.json({ candidate, failedRepositories }, { status: 201 });
   } catch (error) {
     if (error instanceof PdfResumeError || error instanceof GitHubServiceError) {

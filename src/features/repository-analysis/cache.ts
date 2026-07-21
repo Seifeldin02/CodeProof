@@ -3,6 +3,7 @@ import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:
 import path from "node:path";
 import { Pool } from "pg";
 import { logger } from "@/services/observability/logger";
+import { getPostgresPool } from "@/features/persistence/postgres";
 import type { AnalysisResult } from "@/types/analysis";
 
 const MAX_CACHE_ENTRIES = 50;
@@ -141,8 +142,9 @@ let defaultStore: AnalysisCacheStore | null = null;
 
 export function getDefaultCacheStore(): AnalysisCacheStore {
   if (defaultStore) return defaultStore;
-  if (process.env.DATABASE_URL) {
-    defaultStore = new PostgresAnalysisCache(new Pool({ connectionString: process.env.DATABASE_URL, max: 3 }));
+  const pool = getPostgresPool();
+  if (pool) {
+    defaultStore = new PostgresAnalysisCache(pool);
   } else {
     defaultStore = new FileAnalysisCache();
   }

@@ -8,18 +8,22 @@ import { CheckCircleIcon, GitBranchIcon, SearchCodeIcon, UsersIcon } from "@/com
 import { computeFunnel } from "@/features/hiring-analytics/analytics";
 import { getCandidateStore } from "@/features/candidates/store";
 import { getI18n } from "@/i18n/server";
+import { getCurrentUser } from "@/features/auth/session";
+import AuthLanding from "@/components/auth/AuthLanding";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const { t } = await getI18n();
+  const user = await getCurrentUser();
+  if (!user) return <AuthLanding t={t} />;
   const flow = [
     ["CV", t("Local text extraction"), t("PDF or pasted text")],
     ["CODE", t("Bounded archive scan"), t("No code execution")],
     ["PROOF", t("File-backed evidence"), t("Exact source references")],
     ["DECIDE", t("Recruiter review"), t("Compare and interview")],
   ] as const;
-  const candidates = getCandidateStore().listCandidates();
+  const candidates = await getCandidateStore().listCandidates(user.id);
   const realCandidates = candidates.filter((candidate) => !candidate.isDemo);
   const demoCandidates = candidates.filter((candidate) => candidate.isDemo);
   const operatingCandidates = realCandidates.length ? realCandidates : candidates;

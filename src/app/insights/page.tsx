@@ -13,18 +13,19 @@ import { CheckCircleIcon, ClockIcon, SearchCodeIcon, TrendingUpIcon, UsersIcon }
 import { computeFunnel, computeSkillBands, computeSourceMetrics, computeStageDropOff, computeSummary, deriveInsights } from "@/features/hiring-analytics/analytics";
 import { getCandidateStore } from "@/features/candidates/store";
 import { getI18n } from "@/i18n/server";
+import { requirePageUser } from "@/features/auth/page-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function HiringInsightsPage() {
-  const { t } = await getI18n();
-  const candidates = getCandidateStore().listCandidates();
+  const [{ t }, user] = await Promise.all([getI18n(), requirePageUser("/insights")]);
+  const candidates = await getCandidateStore().listCandidates(user.id);
   const realCandidates = candidates.filter((candidate) => !candidate.isDemo);
   const demoCandidates = candidates.filter((candidate) => candidate.isDemo);
   const activeCandidates = realCandidates.length ? realCandidates : demoCandidates;
   const summary = computeSummary(activeCandidates);
   const store = getCandidateStore();
-  const details = activeCandidates.map((candidate) => store.getCandidate(candidate.id)).filter((candidate) => candidate !== null);
+  const details = (await Promise.all(activeCandidates.map((candidate) => store.getCandidate(user.id, candidate.id)))).filter((candidate) => candidate !== null);
   const patternCounts = new Map<string, number>();
   for (const detail of details) for (const analysis of detail.analyses) for (const category of new Set(analysis.result.patterns.map((pattern) => pattern.category))) patternCounts.set(category, (patternCounts.get(category) ?? 0) + 1);
   const coverage: EvidenceCoverageData = {

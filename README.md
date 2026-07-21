@@ -26,7 +26,7 @@ The recruiter workspace includes a persistent English/Arabic switch, global RTL 
 - A dependency or config-only signal cannot become Good or Strong Evidence.
 - Every implementation claim and interview prompt retains exact source-file references.
 - Missing evidence is reported as a gap, never as proof that a candidate lacks a skill.
-- Uploading is the data-creating action, so it always requires an authenticated workspace account. Reading stays open by default for demo purposes; a deployment holding real candidate data must also set `CODEPROOF_PROTECT_ALL=true`, otherwise every stored dossier is readable by anyone with the URL.
+- Every candidate, report, company requirement, and hiring metric is private to the authenticated recruiter account that created it. Product routes and data APIs require sign-in.
 
 ## Evidence method
 
@@ -54,23 +54,18 @@ Open `http://localhost:3000`. No environment file is required.
 Optional configuration is documented in `.env.example`:
 
 - `OPENAI_API_KEY` and `OPENAI_MODEL` enable the optional grounded AI provider.
-- `DATABASE_URL` enables PostgreSQL analysis caching.
+- `DATABASE_URL` (or Vercel's `POSTGRES_URL`) enables durable PostgreSQL accounts, candidates, requirements, and analysis caching. It is required on Vercel.
 - `CODEPROOF_CACHE_DIR` changes the local analysis-cache directory.
 - `CODEPROOF_DB_PATH` changes the local SQLite candidate-database path.
 - `CODEPROOF_SESSION_SECRET` signs session cookies. Required in production.
-- `CODEPROOF_PROTECT_ALL=true` additionally requires sign-in to *read* candidate records. Set this on any deployment holding real candidate data.
-- `CODEPROOF_ALLOW_SIGNUP=true` keeps registration open for teammates.
+- `CODEPROOF_ALLOW_SIGNUP=false` closes public registration for a private pilot. Registration is open by default.
 
 ## Accounts
 
-Uploading a CV creates candidate records, so it requires an account; browsing
-the workspace stays open. Passwords are hashed with scrypt and sessions are
-HttpOnly signed cookies — no third-party auth service, so the zero-paid-API
-contract still holds.
-
-The first visitor to `/signin` claims the workspace, then registration closes
-automatically. **Claim that account immediately after deploying, before sharing
-the URL.**
+The public landing page supports sign-in and account creation. Each recruiter
+gets an isolated candidate workspace and account-derived Hiring Insights.
+Passwords are hashed with scrypt and sessions use Secure, HttpOnly, signed
+cookies. No third-party authentication service or paid API is required.
 
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for production setup.
 
@@ -92,7 +87,7 @@ npm audit
 7. Run with `npm start -- --hostname 0.0.0.0`.
 8. Configure the deployment health check to request `/api/health`; a healthy instance returns `status: "ok"` and `paidApisRequired: false`.
 
-Replit's published filesystem is not durable. SQLite candidate records and filesystem cache entries work during a live demo session but reset after deployment restarts or republishing. A durable candidate-store adapter remains a production follow-up.
+Replit's published filesystem is not durable. Configure `DATABASE_URL` for durable accounts and recruiter data, or use SQLite only for a disposable local/demo session.
 
 The checked-in Replit configuration is deployment-ready, but a public demo is not claimed until its live URL has been exercised through the full recruiter flow.
 
@@ -101,7 +96,7 @@ The checked-in Replit configuration is deployment-ready, but a public demo is no
 - `src/services/github`: bounded public-archive download, ZIP safety validation, and file selection.
 - `src/features/repository-analysis`: static analysis, evidence scoring, patterns, strengths, complexity, caching, and orchestration.
 - `src/features/resume-matching`: PDF parsing, GitHub discovery, deterministic claim extraction, and evidence comparison.
-- `src/features/candidates`: SQLite candidate persistence and transparent evidence-index calculation.
+- `src/features/candidates`: account-scoped SQLite/PostgreSQL persistence and transparent evidence-index calculation.
 - `src/features/hiring-analytics`: Claude's explainable recruiter pipeline and hiring metrics.
 - `src/services/ai`: optional provider interface, strict schemas, injection boundaries, and evidence grounding.
 - `src/app`: the single Next.js recruiter application and server API.
@@ -113,4 +108,4 @@ The checked-in Replit configuration is deployment-ready, but a public demo is no
 - Profile-only CVs require manual public repository selection.
 - Scanned/image-only PDFs require pasted text because OCR is not included.
 - Archives beyond the safety limits are rejected instead of partially analyzed.
-- SQLite is local and not durable on an ephemeral deployment filesystem.
+- SQLite is local-only; ephemeral deployments require `DATABASE_URL` or `POSTGRES_URL`.

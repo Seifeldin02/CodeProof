@@ -3,6 +3,7 @@ import { IBM_Plex_Mono, Manrope, Noto_Kufi_Arabic } from "next/font/google";
 import AppShell from "@/components/layout/AppShell";
 import LocaleProvider from "@/components/i18n/LocaleProvider";
 import { getI18n } from "@/i18n/server";
+import { getCurrentUser } from "@/features/auth/session";
 import "./globals.css";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans" });
@@ -17,10 +18,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const { locale } = await getI18n();
+  const [{ locale }, user] = await Promise.all([getI18n(), getCurrentUser()]);
   return (
     <html lang={locale} dir={locale === "ar" ? "rtl" : "ltr"} data-scroll-behavior="smooth" suppressHydrationWarning>
-      <body className={`${manrope.variable} ${mono.variable} ${arabic.variable}`}><LocaleProvider initialLocale={locale}><AppShell>{children}</AppShell></LocaleProvider></body>
+      <body className={`${manrope.variable} ${mono.variable} ${arabic.variable}`}><LocaleProvider initialLocale={locale}><AppShell user={user}>{children}</AppShell></LocaleProvider></body>
     </html>
   );
 }

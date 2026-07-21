@@ -29,13 +29,13 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         </span>
 
         <h1 className="mt-4 text-xl font-semibold tracking-[-.02em] text-slate-950">
-          {t(canRegister ? "Set up CodeProof" : "Sign in to upload")}
+          {t(canRegister ? "Sign in or create your account" : "Sign in to continue")}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-slate-500">
           {t(
             canRegister
-              ? "Create the first account to claim this workspace. Later visitors will need an account from you."
-              : "Uploading a CV creates candidate records, so it needs an account. Browsing the workspace stays open.",
+              ? "Your candidates, reports, requirements, and hiring analytics stay isolated to your account."
+              : "Sign in to access your private recruiter workspace.",
           )}
         </p>
 

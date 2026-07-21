@@ -1,4 +1,4 @@
-import { denyUnlessSignedIn } from "@/features/auth/guard";
+import { denyCrossOrigin, denyUnlessSignedIn } from "@/features/auth/guard";
 import { analyzeRepository } from "@/features/repository-analysis/engine";
 import { extractPdfResumeText, PdfResumeError, PDF_RESUME_MAX_BYTES } from "@/features/resume-matching/pdf";
 import { GitHubServiceError } from "@/services/github";
@@ -78,6 +78,8 @@ export async function parseAnalysisRequest(request: Request): Promise<AnalysisIn
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const crossOrigin = denyCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
   const denied = await denyUnlessSignedIn();
   if (denied) return denied;
 

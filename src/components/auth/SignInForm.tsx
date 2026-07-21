@@ -10,8 +10,9 @@ const ERROR_COPY: Record<string, string> = {
   INVALID_CREDENTIALS: "Incorrect email or password.",
   REGISTRATION_CLOSED: "This workspace already has an owner. Ask them for an account.",
   INVALID_EMAIL: "Enter a valid email address.",
-  WEAK_PASSWORD: "Use at least 10 characters.",
+  WEAK_PASSWORD: "Use at least 12 characters.",
   EMAIL_TAKEN: "That email already has an account.",
+  RATE_LIMITED: "Too many attempts. Try again later.",
 };
 
 export default function SignInForm({ canRegister, nextPath }: { canRegister: boolean; nextPath: string }) {
@@ -78,12 +79,12 @@ export default function SignInForm({ canRegister, nextPath }: { canRegister: boo
           dir="ltr"
           autoComplete={registering ? "new-password" : "current-password"}
           required
-          minLength={registering ? 10 : undefined}
+          minLength={registering ? 12 : undefined}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           className="mt-2 h-12 w-full rounded-lg border border-slate-200 px-3 text-start text-sm outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-50"
         />
-        {registering && <p className="mt-1.5 text-[11px] text-slate-400">{t("Use at least 10 characters.")}</p>}
+        {registering && <p className="mt-1.5 text-[11px] text-slate-400">{t("Use at least 12 characters.")}</p>}
       </div>
 
       {error && (
@@ -109,7 +110,7 @@ export default function SignInForm({ canRegister, nextPath }: { canRegister: boo
           onClick={() => { setMode(registering ? "signin" : "register"); setError(null); }}
           className="min-h-11 w-full text-xs font-semibold text-slate-500 hover:text-brand-700"
         >
-          {t(registering ? "I already have an account" : "Create the first account instead")}
+          {t(registering ? "I already have an account" : "Create an account instead")}
         </button>
       )}
     </form>

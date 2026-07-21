@@ -5,6 +5,7 @@ process.env.CODEPROOF_SESSION_SECRET = "test-secret-value";
 import { afterEach, describe, expect, it } from "vitest";
 import { AuthStore, hashPassword, signupAllowed, verifyPassword } from "./store";
 import { createSessionToken, readSessionToken, SESSION_MAX_AGE_SECONDS } from "./session";
+import { denyCrossOrigin } from "./guard";
 
 afterEach(() => {
   delete process.env.CODEPROOF_ALLOW_SIGNUP;
@@ -55,24 +56,36 @@ describe("session tokens", () => {
 });
 
 describe("account store", () => {
-  it("creates a user that can then authenticate", () => {
+  it("creates a user that can then authenticate", async () => {
     const store = new AuthStore(":memory:");
-    const created = store.createUser("Recruiter@Example.com ", "a-long-password");
+    const created = await store.createUser("Recruiter@Example.com ", "a-long-password");
     expect(created.email).toBe("recruiter@example.com");
 
-    const found = store.findByEmail("recruiter@example.com");
+    const found = await store.findByEmail("recruiter@example.com");
     expect(found?.id).toBe(created.id);
     expect(verifyPassword("a-long-password", found!.passwordHash)).toBe(true);
   });
 
-  it("closes registration once the workspace has an owner", () => {
-    const store = new AuthStore(":memory:");
-    expect(signupAllowed(store)).toBe(true);
+  it("keeps public registration open unless an operator explicitly closes it", () => {
+    expect(signupAllowed()).toBe(true);
+    process.env.CODEPROOF_ALLOW_SIGNUP = "false";
+    expect(signupAllowed()).toBe(false);
+  });
+});
 
-    store.createUser("owner@example.com", "a-long-password");
-    expect(signupAllowed(store)).toBe(false);
+describe("mutation origin protection", () => {
+  it("accepts the app origin and rejects a foreign origin", () => {
+    const local = new Request("http://localhost:3000/api/auth/login", { headers: { origin: "http://localhost:3000" } });
+    expect(denyCrossOrigin(local)).toBeNull();
 
-    process.env.CODEPROOF_ALLOW_SIGNUP = "true";
-    expect(signupAllowed(store)).toBe(true);
+    const foreign = new Request("https://codeproof.example/api/auth/login", { headers: { origin: "https://attacker.example" } });
+    expect(denyCrossOrigin(foreign)?.status).toBe(403);
+  });
+
+  it("uses the forwarded host behind a deployment proxy", () => {
+    const request = new Request("http://localhost:3000/api/auth/login", {
+      headers: { origin: "https://codeproof.example", "x-forwarded-host": "codeproof.example" },
+    });
+    expect(denyCrossOrigin(request)).toBeNull();
   });
 });
