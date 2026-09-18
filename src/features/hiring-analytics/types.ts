@@ -75,6 +75,12 @@ export interface CandidateRecord {
   repositoryCount?: number;
   verifiedClaimCount?: number;
   isDemo?: boolean;
+  /**
+   * When the recruiter confirmed they opened the cited evidence for this
+   * candidate (ISO timestamp), or null. Cleared whenever new repository
+   * evidence is recorded, so a stale check never covers unseen files.
+   */
+  evidenceReviewedAt?: string | null;
 }
 
 /* ----------------------------- Analytics outputs ----------------------------- */
