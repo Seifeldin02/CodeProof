@@ -22,7 +22,7 @@ import type { ExtractedJobRequirement, JobRequirementMatch } from "@/types/analy
 
 export type ReviewTier = "review_first" | "review" | "verify_in_interview" | "evidence_incomplete";
 
-export type UnknownSignal = "no_repositories" | "failed_repositories" | "no_cv" | "no_requirements";
+export type UnknownSignal = "no_repositories" | "failed_repositories" | "no_cv" | "no_requirements" | "sources_not_analyzed";
 
 export interface RequirementCoverage {
   /** Requirements the order is judged against: the required ones, or all when none are marked required. */
@@ -49,6 +49,8 @@ export interface ReviewQueueEntry {
   /** Strong/Good skills the CV never mentions: the code says more than the résumé. */
   undersold: string[];
   repositories: { analyzed: number; failed: number };
+  /** Portfolio / non-GitHub links from the CV that CodeProof cannot read yet. */
+  unanalyzedSources: string[];
   /** Up to four source files that back the strongest evidence. */
   citedFiles: string[];
   unknowns: UnknownSignal[];
@@ -129,11 +131,13 @@ export function buildReviewEntry(candidate: CandidateDetail, requirements: Extra
   const undersold = claims ? [...strongSkillMap.keys()].filter((skill) => !mentions(claimText, skill)).sort() : [];
 
   const requirementCoverage = coverage(candidate, requirements);
+  const unanalyzedSources = candidate.unanalyzedSources ?? [];
   const unknowns: UnknownSignal[] = [];
   if (analyzed === 0) unknowns.push("no_repositories");
   if (failed > 0) unknowns.push("failed_repositories");
   if (!claims) unknowns.push("no_cv");
   if (!requirementCoverage) unknowns.push("no_requirements");
+  if (unanalyzedSources.length > 0) unknowns.push("sources_not_analyzed");
 
   const repositories = { analyzed, failed };
   return {
@@ -147,6 +151,7 @@ export function buildReviewEntry(candidate: CandidateDetail, requirements: Extra
     claims,
     undersold,
     repositories,
+    unanalyzedSources,
     citedFiles: [...new Set([...strongSkillMap.values()].flat())].slice(0, 4),
     unknowns,
     evidenceReviewedAt: candidate.evidenceReviewedAt ?? null,

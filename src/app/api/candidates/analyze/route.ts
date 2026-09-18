@@ -88,7 +88,16 @@ export async function POST(request: Request): Promise<Response> {
     if (results.length === 0) {
       return Response.json({ error: { code: "NO_REPOSITORIES_ANALYZED", message: "None of the selected repositories could be analyzed." }, failedRepositories }, { status: 422 });
     }
-    const candidate = await getCandidateStore().createCandidate(user.id, { name: parsed.candidateName, role: parsed.role, results, failures: failedRepositories, isDemo: parsed.isDemo });
+    const candidate = await getCandidateStore().createCandidate(user.id, {
+      name: parsed.candidateName,
+      role: parsed.role,
+      results,
+      failures: failedRepositories,
+      isDemo: parsed.isDemo,
+      // Portfolios and non-GitHub hosts are recorded so the queue can report
+      // them as unknown rather than silently dropping them.
+      unanalyzedSources: discovered.otherSources.map((source) => source.url),
+    });
     return Response.json({ candidate, failedRepositories }, { status: 201 });
   } catch (error) {
     if (error instanceof PdfResumeError || error instanceof GitHubServiceError) {

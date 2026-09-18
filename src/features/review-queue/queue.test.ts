@@ -100,3 +100,34 @@ describe("review queue", () => {
     expect(queue.entries[0].unknowns).toContain("no_requirements");
   });
 });
+
+describe("portfolio and non-GitHub sources", () => {
+  it("reports unreadable sources as an unknown rather than dropping them", () => {
+    const entry = buildReviewEntry(
+      candidate("Amina", [analysis([["TypeScript", "Strong Evidence"]])], 0, {
+        unanalyzedSources: ["https://amina.dev", "https://gitlab.com/amina/api"],
+      }),
+      requirements,
+    );
+    expect(entry.unknowns).toContain("sources_not_analyzed");
+    expect(entry.unanalyzedSources).toEqual(["https://amina.dev", "https://gitlab.com/amina/api"]);
+  });
+
+  it("never lowers a candidate who has unreadable sources", () => {
+    // "Amina" wins the name tiebreak, so if an unreadable source carried any
+    // penalty at all she would fall to second and this assertion would fail.
+    const withSources = candidate("Amina", [analysis([["TypeScript", "Strong Evidence"]])], 0, {
+      unanalyzedSources: ["https://amina.dev"],
+    });
+    const without = candidate("Zara", [analysis([["TypeScript", "Strong Evidence"]])]);
+    const queue = buildReviewQueue([without, withSources], requirements);
+    expect(queue.entries.map((item) => item.name)).toEqual(["Amina", "Zara"]);
+    expect(queue.entries[0].tier).toBe(queue.entries[1].tier);
+  });
+
+  it("leaves candidates without extra sources unchanged", () => {
+    const entry = buildReviewEntry(candidate("Plain", [analysis([["TypeScript", "Strong Evidence"]])]), requirements);
+    expect(entry.unknowns).not.toContain("sources_not_analyzed");
+    expect(entry.unanalyzedSources).toEqual([]);
+  });
+});

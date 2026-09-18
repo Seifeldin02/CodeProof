@@ -76,6 +76,11 @@ export interface CandidateRecord {
   verifiedClaimCount?: number;
   isDemo?: boolean;
   /**
+   * Portfolio and non-GitHub links named on the CV that CodeProof cannot read.
+   * Recorded so they surface as an explicit unknown, never as a deficit.
+   */
+  unanalyzedSources?: string[];
+  /**
    * When the recruiter confirmed they opened the cited evidence for this
    * candidate (ISO timestamp), or null. Cleared whenever new repository
    * evidence is recorded, so a stale check never covers unseen files.

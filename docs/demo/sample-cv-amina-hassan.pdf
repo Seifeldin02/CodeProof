@@ -12,7 +12,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
 endobj
 5 0 obj
-<< /Length 765 >>
+<< /Length 937 >>
 stream
 BT
 /F1 11 Tf
@@ -22,6 +22,9 @@ BT
 (Full-Stack Engineer  --  DEMO SAMPLE CV \(not a real person\)) Tj T*
 () Tj T*
 (Public project: https://github.com/sindresorhus/is) Tj T*
+(Portfolio: https://amina-hassan.dev/work) Tj T*
+(Also on: https://gitlab.com/amina-hassan/internal-tools) Tj T*
+(LinkedIn: https://www.linkedin.com/in/amina-hassan) Tj T*
 () Tj T*
 (Summary) Tj T*
 (Builds strongly typed TypeScript libraries with runtime validation and a) Tj T*
@@ -49,5 +52,5 @@ xref
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-1154
+1326
 %%EOF

@@ -11,17 +11,78 @@ export interface DiscoveredGitHubProfile {
   url: string;
 }
 
+/**
+ * A candidate source that is named on the CV but that CodeProof cannot read
+ * yet: a portfolio site, or a repository host other than GitHub.
+ *
+ * These are recorded rather than dropped. The product contract is that a
+ * source we cannot read is reported as *unknown* and never counted against the
+ * candidate — the same rule the review queue applies to every missing input.
+ */
+export type DiscoveredSourceKind = "code_host" | "portfolio";
+
+export interface DiscoveredSource {
+  url: string;
+  host: string;
+  kind: DiscoveredSourceKind;
+}
+
 export interface CvDiscovery {
   candidateName: string | null;
   suggestedRole: Role;
   repositories: DiscoveredRepository[];
   profiles: DiscoveredGitHubProfile[];
+  /** Portfolios and non-GitHub code hosts found on the CV. Not analyzed. */
+  otherSources: DiscoveredSource[];
   manualSelectionRequired: boolean;
   notes: string[];
 }
 
 const GITHUB_LINK = /(?:https?:\/\/)?(?:www\.)?github\.com\/[a-zA-Z0-9_.-]+(?:\/[a-zA-Z0-9_.-]+)?(?:\/[^\s<>"']*)?/gi;
 const RESERVED_OWNERS = new Set(["about", "apps", "collections", "customer-stories", "enterprise", "events", "explore", "features", "marketplace", "new", "orgs", "pricing", "search", "security", "settings", "site", "sponsors", "topics"]);
+
+/**
+ * Requires an explicit scheme or `www.` so that ordinary CV prose — "Node.js",
+ * "Next.js", "package.json" — is never mistaken for a link.
+ */
+const ANY_LINK = /(?:https?:\/\/|www\.)[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/[^\s<>"')\]]*)?/gi;
+
+/** Contact and social profiles. Present on most CVs and never a work sample. */
+const SOCIAL_HOSTS = new Set([
+  "linkedin.com", "twitter.com", "x.com", "facebook.com", "instagram.com", "t.me", "wa.me",
+  "mailto", "tel", "google.com", "docs.google.com", "drive.google.com", "youtube.com",
+]);
+
+/** Repository hosts CodeProof cannot ingest today; ingestion is GitHub-only. */
+const CODE_HOSTS = new Set([
+  "gitlab.com", "bitbucket.org", "codeberg.org", "git.sr.ht", "sourceforge.net", "gitea.com", "gitee.com",
+]);
+
+function hostOf(url: URL): string {
+  return url.hostname.replace(/^www\./i, "").toLowerCase();
+}
+
+/**
+ * Classifies a non-GitHub link found on a CV. Returns null for GitHub (handled
+ * separately) and for social/contact links, which are not work samples.
+ */
+export function classifyDiscoveredSource(rawUrl: string): DiscoveredSource | null {
+  const normalized = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+  let url: URL;
+  try {
+    url = new URL(normalized);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  const host = hostOf(url);
+  if (host === "github.com" || SOCIAL_HOSTS.has(host)) return null;
+  return {
+    url: `https://${host}${url.pathname.replace(/\/+$/, "")}`,
+    host,
+    kind: CODE_HOSTS.has(host) ? "code_host" : "portfolio",
+  };
+}
 
 function cleanLink(value: string): string {
   return value.replace(/[),.;:\]}]+$/g, "");
@@ -71,16 +132,25 @@ export function discoverCandidateLinks(resumeText: string): CvDiscovery {
     }
   }
 
+  const otherSources = new Map<string, DiscoveredSource>();
+  for (const match of resumeText.matchAll(ANY_LINK)) {
+    const source = classifyDiscoveredSource(cleanLink(match[0]));
+    if (source) otherSources.set(source.url.toLowerCase(), source);
+  }
+
   const foundRepositories = [...repositories.values()];
   const foundProfiles = [...profiles.values()].filter((profile) => !foundRepositories.some((repository) => repository.owner.toLowerCase() === profile.owner.toLowerCase()));
+  const foundSources = [...otherSources.values()].sort((a, b) => a.url.localeCompare(b.url));
   const notes: string[] = [];
   if (foundRepositories.length === 0 && foundProfiles.length > 0) notes.push("A GitHub profile was found, but profile project listing requires GitHub API access. Paste one or more public repository URLs to continue for free.");
   if (foundRepositories.length === 0 && foundProfiles.length === 0) notes.push("No GitHub links were detected. Paste public repository URLs manually.");
+  if (foundSources.length > 0) notes.push("Portfolio or non-GitHub sources were found on the CV. CodeProof records them and reports them as unknown, because only public GitHub repositories can be analyzed today.");
   return {
     candidateName: candidateName(resumeText.split(/\r?\n/)),
     suggestedRole: suggestedRole(resumeText),
     repositories: foundRepositories,
     profiles: foundProfiles,
+    otherSources: foundSources,
     manualSelectionRequired: foundRepositories.length === 0,
     notes,
   };

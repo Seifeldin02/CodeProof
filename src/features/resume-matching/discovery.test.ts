@@ -27,3 +27,29 @@ describe("CV GitHub discovery", () => {
     expect(result.notes[0]).toContain("Paste one or more public repository URLs");
   });
 });
+
+describe("portfolio and non-GitHub source discovery", () => {
+  it("detects a portfolio site and a non-GitHub code host", () => {
+    const discovery = discoverCandidateLinks([
+      "Amina Hassan",
+      "Portfolio: https://amina.dev/projects",
+      "Also: https://gitlab.com/amina/api",
+      "Repo: https://github.com/amina/toolkit",
+    ].join("\n"));
+    expect(discovery.otherSources.map((source) => source.url)).toEqual([
+      "https://amina.dev/projects",
+      "https://gitlab.com/amina/api",
+    ]);
+    expect(discovery.otherSources.find((source) => source.host === "gitlab.com")?.kind).toBe("code_host");
+    expect(discovery.otherSources.find((source) => source.host === "amina.dev")?.kind).toBe("portfolio");
+  });
+
+  it("ignores GitHub, social profiles and ordinary prose", () => {
+    const discovery = discoverCandidateLinks([
+      "Skills: Node.js, Next.js, package.json tooling",
+      "https://www.linkedin.com/in/amina",
+      "https://github.com/amina/toolkit",
+    ].join("\n"));
+    expect(discovery.otherSources).toEqual([]);
+  });
+});

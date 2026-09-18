@@ -17,6 +17,7 @@ const UNKNOWN: Record<UnknownSignal, string> = {
   failed_repositories: "{count} selected repositories could not be analyzed",
   no_cv: "No CV text provided, so claim verification is unknown",
   no_requirements: "No company requirements saved, so role fit is unknown",
+  sources_not_analyzed: "{count} portfolio or non-GitHub source(s) named on the CV cannot be read yet",
 };
 
 function Signal({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "positive" | "warning" }) {
@@ -92,7 +93,10 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
             <ul className="mt-2 space-y-1.5">
               {entry.unknowns.map((signal) => (
                 <li key={signal} className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs leading-5 text-slate-600">
-                  {t(UNKNOWN[signal], { count: entry.repositories.failed })}
+                  {t(UNKNOWN[signal], { count: signal === "sources_not_analyzed" ? entry.unanalyzedSources.length : entry.repositories.failed })}
+                  {signal === "sources_not_analyzed" && (
+                    <span dir="ltr" className="mt-1 block break-all text-start text-[10px] text-slate-500">{entry.unanalyzedSources.join(" · ")}</span>
+                  )}
                 </li>
               ))}
             </ul>

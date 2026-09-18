@@ -2,6 +2,9 @@ Amina Hassan
 Full-Stack Engineer  --  DEMO SAMPLE CV (not a real person)
 
 Public project: https://github.com/sindresorhus/is
+Portfolio: https://amina-hassan.dev/work
+Also on: https://gitlab.com/amina-hassan/internal-tools
+LinkedIn: https://www.linkedin.com/in/amina-hassan
 
 Summary
 Builds strongly typed TypeScript libraries with runtime validation and a

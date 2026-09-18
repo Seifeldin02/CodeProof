@@ -43,6 +43,7 @@ interface CandidateRow {
   repository_count: number;
   verified_claim_count: number;
   evidence_reviewed_at?: string | null;
+  unanalyzed_sources?: string | null;
 }
 
 interface AnalysisRow {
@@ -80,6 +81,8 @@ export interface CreateCandidateInput {
   results: AnalysisResult[];
   failures?: RepositoryFailure[];
   isDemo?: boolean;
+  /** Portfolio / non-GitHub links from the CV. Recorded, never analyzed. */
+  unanalyzedSources?: string[];
 }
 
 export interface CandidatePersistence {
@@ -96,6 +99,17 @@ export interface CandidatePersistence {
 
 function parseAnalysis(value: string | AnalysisResult): AnalysisResult {
   return typeof value === "string" ? JSON.parse(value) as AnalysisResult : value;
+}
+
+/** Stored as a JSON array of URLs. Older rows predate the column and read as none. */
+function parseSources(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 function verifiedClaimCount(results: AnalysisResult[]): number {
@@ -136,6 +150,7 @@ function mapCandidate(row: CandidateRow, events: StageEvent[]): CandidateRecord 
     repositoryCount: Number(row.repository_count),
     verifiedClaimCount: Number(row.verified_claim_count),
     evidenceReviewedAt: row.evidence_reviewed_at ?? null,
+    unanalyzedSources: parseSources(row.unanalyzed_sources),
   };
 }
 
@@ -209,6 +224,9 @@ export class CandidateStore implements CandidatePersistence {
     if (!columns.some((column) => column.name === "evidence_reviewed_at")) {
       this.db.exec("ALTER TABLE candidates ADD COLUMN evidence_reviewed_at TEXT");
     }
+    if (!columns.some((column) => column.name === "unanalyzed_sources")) {
+      this.db.exec("ALTER TABLE candidates ADD COLUMN unanalyzed_sources TEXT");
+    }
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_candidates_owner ON candidates(owner_user_id, applied_at DESC);
       CREATE INDEX IF NOT EXISTS idx_candidate_analyses_candidate ON candidate_analyses(candidate_id);
@@ -276,10 +294,11 @@ export class CandidateStore implements CandidatePersistence {
     this.db.exec("BEGIN");
     try {
       this.db.prepare(`INSERT INTO candidates
-        (id, owner_user_id, name, role, source, evidence_index, applied_at, outcome, furthest_stage, is_demo, repository_count, verified_claim_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        (id, owner_user_id, name, role, source, evidence_index, applied_at, outcome, furthest_stage, is_demo, repository_count, verified_claim_count, unanalyzed_sources)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         id, ownerUserId, input.name, input.role, "CodeProof", calculateEvidenceIndex(input.results), now,
         "in_progress", "code_review", input.isDemo ? 1 : 0, input.results.length + (input.failures?.length ?? 0), verifiedClaimCount(input.results),
+        JSON.stringify(input.unanalyzedSources ?? []),
       );
       const insertStage = this.db.prepare("INSERT INTO stage_events (candidate_id, stage, entered_at) VALUES (?, ?, ?)");
       for (const stage of PIPELINE_STAGES.slice(0, 3)) insertStage.run(id, stage, now);
@@ -385,6 +404,7 @@ class PostgresCandidateStore implements CandidatePersistence {
         code TEXT, message TEXT, updated_at TEXT NOT NULL, UNIQUE(candidate_id, repository_url)
       );
       ALTER TABLE codeproof_candidates ADD COLUMN IF NOT EXISTS evidence_reviewed_at TEXT;
+      ALTER TABLE codeproof_candidates ADD COLUMN IF NOT EXISTS unanalyzed_sources TEXT;
     `).then(() => undefined);
     return this.initialized;
   }
@@ -450,10 +470,11 @@ class PostgresCandidateStore implements CandidatePersistence {
     try {
       await client.query("BEGIN");
       await client.query(`INSERT INTO codeproof_candidates
-        (id,owner_user_id,name,role,source,evidence_index,applied_at,outcome,furthest_stage,is_demo,repository_count,verified_claim_count)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, [
+        (id,owner_user_id,name,role,source,evidence_index,applied_at,outcome,furthest_stage,is_demo,repository_count,verified_claim_count,unanalyzed_sources)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [
         id, ownerUserId, input.name, input.role, "CodeProof", calculateEvidenceIndex(input.results), now, "in_progress", "code_review",
         Boolean(input.isDemo), input.results.length + (input.failures?.length ?? 0), verifiedClaimCount(input.results),
+        JSON.stringify(input.unanalyzedSources ?? []),
       ]);
       for (const stage of PIPELINE_STAGES.slice(0, 3)) {
         await client.query("INSERT INTO codeproof_stage_events (candidate_id,stage,entered_at) VALUES ($1,$2,$3)", [id, stage, now]);
