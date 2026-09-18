@@ -34,7 +34,7 @@ browser requests, and private API responses are marked `no-store`.
 
 1. Import the repository and select the `development` branch while testing.
 2. Connect a PostgreSQL provider/integration. Expose `DATABASE_URL` or `POSTGRES_URL` to Production and Preview.
-3. Set a random `CODEPROOF_SESSION_SECRET` in Production and Preview.
+3. Set a random `CODEPROOF_SESSION_SECRET` in Production and Preview. If it is missing, public pages still render but every visitor is treated as signed out, sign-in and registration answer `503 SESSION_NOT_CONFIGURED`, and `/api/health` reports `sessionConfigured: false`.
 4. Build with `npm run build`; use the standard Next.js output.
 5. Verify `/api/health`, registration, sign-in, candidate creation, sign-out, and sign-in again.
 

@@ -13,6 +13,7 @@ const ERROR_COPY: Record<string, string> = {
   WEAK_PASSWORD: "Use at least 12 characters.",
   EMAIL_TAKEN: "That email already has an account.",
   RATE_LIMITED: "Too many attempts. Try again later.",
+  SESSION_NOT_CONFIGURED: "Sign-in is temporarily unavailable: the server is missing its session configuration.",
 };
 
 export default function SignInForm({ canRegister, nextPath }: { canRegister: boolean; nextPath: string }) {
