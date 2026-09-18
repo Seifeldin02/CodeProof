@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthStore, signupAllowed } from "@/features/auth/store";
-import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/features/auth/session";
+import { createSessionToken, SESSION_COOKIE, sessionCookieOptions, sessionSecretConfigured } from "@/features/auth/session";
 import { denyCrossOrigin } from "@/features/auth/guard";
 import { authRateLimited, clearAuthAttempts } from "@/features/auth/rate-limit";
 
@@ -11,6 +11,12 @@ const MINIMUM_PASSWORD_LENGTH = 12;
 export async function POST(request: Request): Promise<Response> {
   const crossOrigin = denyCrossOrigin(request);
   if (crossOrigin) return crossOrigin;
+  if (!sessionSecretConfigured()) {
+    return NextResponse.json(
+      { error: { code: "SESSION_NOT_CONFIGURED", message: "Sign-in is unavailable until the server sets CODEPROOF_SESSION_SECRET." } },
+      { status: 503 },
+    );
+  }
   const store = getAuthStore();
   if (!signupAllowed()) {
     return NextResponse.json(

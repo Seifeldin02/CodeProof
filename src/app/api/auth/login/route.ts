@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server";
-import { getAuthStore, verifyPassword } from "@/features/auth/store";
-import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/features/auth/session";
+import { getAuthStore, hashPassword, verifyPassword } from "@/features/auth/store";
+import { createSessionToken, SESSION_COOKIE, sessionCookieOptions, sessionSecretConfigured } from "@/features/auth/session";
 import { denyCrossOrigin } from "@/features/auth/guard";
 import { authRateLimited, clearAuthAttempts } from "@/features/auth/rate-limit";
 
 export const runtime = "nodejs";
 
+/**
+ * Verified against when the email is unknown, so a missing account costs the
+ * same scrypt work as a wrong password. Without this the response time alone
+ * would reveal which emails are registered.
+ */
+const UNKNOWN_ACCOUNT_HASH = hashPassword("codeproof-unknown-account-placeholder");
+
 export async function POST(request: Request): Promise<Response> {
   const crossOrigin = denyCrossOrigin(request);
   if (crossOrigin) return crossOrigin;
+  if (!sessionSecretConfigured()) {
+    return NextResponse.json(
+      { error: { code: "SESSION_NOT_CONFIGURED", message: "Sign-in is unavailable until the server sets CODEPROOF_SESSION_SECRET." } },
+      { status: 503 },
+    );
+  }
   let email = "";
   let password = "";
   try {
@@ -29,7 +42,8 @@ export async function POST(request: Request): Promise<Response> {
   const user = await getAuthStore().findByEmail(email);
   // Identical response whether the account is missing or the password is wrong,
   // so this endpoint cannot be used to discover which emails are registered.
-  if (!user || !verifyPassword(password, user.passwordHash)) {
+  const valid = verifyPassword(password, user?.passwordHash ?? UNKNOWN_ACCOUNT_HASH);
+  if (!user || !valid) {
     return NextResponse.json(
       { error: { code: "INVALID_CREDENTIALS", message: "Incorrect email or password." } },
       { status: 401 },

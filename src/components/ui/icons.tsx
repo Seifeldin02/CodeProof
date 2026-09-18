@@ -17,6 +17,19 @@ function base(props: IconProps) {
   };
 }
 
+export function ListOrderedIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M10 6h10" />
+      <path d="M10 12h10" />
+      <path d="M10 18h10" />
+      <path d="M4 4.5h1.5V9" />
+      <path d="M4 9h3" />
+      <path d="M4 14.5h2.5a1 1 0 0 1 0 2H5.5l2 2.5H4" />
+    </svg>
+  );
+}
+
 export function ChartBarIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
