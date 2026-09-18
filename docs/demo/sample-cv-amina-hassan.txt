@@ -1,0 +1,16 @@
+Amina Hassan
+Full-Stack Engineer  --  DEMO SAMPLE CV (not a real person)
+
+Public project: https://github.com/sindresorhus/is
+
+Summary
+Builds strongly typed TypeScript libraries with runtime validation and a
+broad automated test suite. Comfortable owning developer tooling end to end.
+
+Skills
+TypeScript, JavaScript, Node.js, automated testing, GitHub Actions, CI/CD
+
+Experience
+- Implemented a runtime type-checking library used across internal services.
+- Designed the type test suite that guards every public API signature.
+- Maintained the GitHub Actions pipeline for lint, test and release.
