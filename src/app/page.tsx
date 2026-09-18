@@ -84,7 +84,7 @@ export default async function DashboardPage() {
           <div className="mx-auto max-w-xl text-center"><span className="evidence-node mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-700"><SearchCodeIcon className="h-6 w-6" /></span><h2 className="mt-5 text-xl font-semibold tracking-[-.02em] text-slate-900">{t("Your evidence workspace is ready")}</h2><p className="mt-2 text-sm leading-6 text-slate-500">{t("Upload a CV to create the first real candidate dossier. A clearly labeled sample remains available as a backup demo.")}</p><Link href="/analyze" className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-brand-700">{t("Start first analysis")}</Link></div>
         </Card>
       ) : (
-        <div className="grid gap-5 xl:grid-cols-[1.45fr_.55fr]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,.55fr)]">
           <Card title={t("Recent candidates")} subtitle={t("Newest CodeProof evidence dossiers")} bodyClassName="!p-0" action={<Link href="/candidates" className="whitespace-nowrap text-xs font-semibold text-brand-700 hover:text-brand-500">{t("View all")} <span className="directional-icon">→</span></Link>}><CandidatesTable candidates={candidates.slice(0, 6)} /></Card>
           <Card title={t("Pipeline movement")} subtitle={t(realCandidates.length ? "Real candidate stages" : "Demo candidate stages")}><HiringFunnel data={computeFunnel(operatingCandidates)} /></Card>
         </div>
