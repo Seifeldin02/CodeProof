@@ -669,10 +669,18 @@ export function localizeAnalysisText(locale: Locale, text: string): string {
     [/^Why ask this: grounded in meaningful (.+) usage selected from the cited implementation file, not the dependency list alone\.$/, (_all, technology) => `لماذا يُطرح هذا السؤال؟ لأنه يستند إلى استخدام فعلي لـ ${technology} في ملف التنفيذ المذكور، لا إلى قائمة الاعتمادات وحدها.`],
     [/^Why ask this: grounded in the cited (.+) selected from the repository\.$/, (_all, reason) => `لماذا يُطرح هذا السؤال؟ لأنه يستند إلى ${localizeAnalysisText(locale, reason)} مذكور ومحدد من المستودع.`],
     [/^Why ask this: the prompt uses boundary files identified by deterministic path analysis\.$/, () => "لماذا يُطرح هذا السؤال؟ لأنه يستخدم ملفات الحدود التي حددها التحليل الحتمي لمسارات المستودع."],
+    [/^(.+); meaningful usage is evaluated by file role and content depth\.$/, (_all, reason) => `${localizeAnalysisText(locale, reason)}؛ يُقيَّم الاستخدام الفعلي حسب دور الملف وعمق محتواه.`],
+    [/^(.+) with (\d+) grounded skill signals?\.$/, (_all, type, count) => `${localizeAnalysisText(locale, type)} مع ${count} من إشارات المهارات المدعومة.`],
+    [/^(.+) The cited files are the repository evidence for this prompt\.$/, (_all, summary) => `${localizeAnalysisText(locale, summary)} الملفات المذكورة هي دليل المستودع لهذا السؤال.`],
+    [/^Grounded in meaningful (.+) usage selected from the repository, not the dependency list alone\.$/, (_all, technology) => `يستند إلى استخدام فعلي لـ ${technology} محدد من المستودع، لا إلى قائمة الاعتمادات وحدها.`],
+    [/^Grounded in a selected representative source file\.$/, () => "يستند إلى ملف مصدر تمثيلي محدد."],
   ];
   for (const [pattern, replacement] of replacements) {
     const match = text.match(pattern);
     if (match) return replacement(...match);
   }
+  // A known label with a trailing full stop (e.g. a project type used as a sentence).
+  const sentence = text.replace(/\.$/, "");
+  if (sentence !== text && analysisExact[sentence]) return `${analysisExact[sentence]}.`;
   return t(text);
 }
