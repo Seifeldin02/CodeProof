@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from "react";
-import { ChartBarIcon, CompareIcon, DashboardIcon, SearchCodeIcon, ShieldCheckIcon, UsersIcon } from "../ui/icons";
+import { ChartBarIcon, CompareIcon, DashboardIcon, ListOrderedIcon, SearchCodeIcon, ShieldCheckIcon, UsersIcon } from "../ui/icons";
 
 export interface NavItem {
   to: string;
@@ -12,6 +12,7 @@ export const navItems: NavItem[] = [
   { to: "/", label: "Dashboard", icon: DashboardIcon },
   { to: "/candidates", label: "Candidates", icon: UsersIcon },
   { to: "/analyze", label: "Analyze Candidate", mobileLabel: "Analyze", icon: SearchCodeIcon },
+  { to: "/review", label: "Review Queue", mobileLabel: "Review", icon: ListOrderedIcon },
   { to: "/compare", label: "Compare Evidence", mobileLabel: "Compare", icon: CompareIcon },
   { to: "/insights", label: "Hiring Insights", mobileLabel: "Insights", icon: ChartBarIcon },
   { to: "/requirements", label: "Company requirements", mobileLabel: "Criteria", icon: ShieldCheckIcon },
