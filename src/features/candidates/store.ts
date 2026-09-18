@@ -42,6 +42,7 @@ interface CandidateRow {
   is_demo: number | boolean;
   repository_count: number;
   verified_claim_count: number;
+  evidence_reviewed_at?: string | null;
 }
 
 interface AnalysisRow {
@@ -88,6 +89,8 @@ export interface CandidatePersistence {
   recordRepositorySuccess(ownerUserId: string, candidateId: string, result: AnalysisResult): Promise<CandidateDetail | null>;
   removeFailedRepository(ownerUserId: string, candidateId: string, repositoryUrl: string): Promise<boolean>;
   updatePipeline(ownerUserId: string, candidateId: string, stage: PipelineStage, outcome: CandidateOutcome): Promise<CandidateDetail | null>;
+  /** Records (or withdraws) the recruiter's confirmation that cited evidence was opened. */
+  setEvidenceReviewed(ownerUserId: string, candidateId: string, reviewed: boolean): Promise<CandidateDetail | null>;
   deleteCandidate(ownerUserId: string, candidateId: string): Promise<boolean>;
 }
 
@@ -132,6 +135,7 @@ function mapCandidate(row: CandidateRow, events: StageEvent[]): CandidateRecord 
     isDemo: Boolean(row.is_demo),
     repositoryCount: Number(row.repository_count),
     verifiedClaimCount: Number(row.verified_claim_count),
+    evidenceReviewedAt: row.evidence_reviewed_at ?? null,
   };
 }
 
@@ -201,6 +205,9 @@ export class CandidateStore implements CandidatePersistence {
     const columns = this.db.prepare("PRAGMA table_info(candidates)").all() as unknown as Array<{ name: string }>;
     if (!columns.some((column) => column.name === "owner_user_id")) {
       this.db.exec("ALTER TABLE candidates ADD COLUMN owner_user_id TEXT");
+    }
+    if (!columns.some((column) => column.name === "evidence_reviewed_at")) {
+      this.db.exec("ALTER TABLE candidates ADD COLUMN evidence_reviewed_at TEXT");
     }
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_candidates_owner ON candidates(owner_user_id, applied_at DESC);
@@ -299,12 +306,20 @@ export class CandidateStore implements CandidatePersistence {
     try {
       this.insertAnalysis(candidateId, result);
       this.refreshCandidateEvidence(candidateId);
+      // New evidence must be opened again before it counts as checked.
+      this.db.prepare("UPDATE candidates SET evidence_reviewed_at = NULL WHERE id = ?").run(candidateId);
       this.db.exec("COMMIT");
     } catch (error) {
       this.db.exec("ROLLBACK");
       throw error;
     }
     return this.getCandidate(ownerUserId, candidateId);
+  }
+
+  async setEvidenceReviewed(ownerUserId: string, candidateId: string, reviewed: boolean): Promise<CandidateDetail | null> {
+    const result = this.db.prepare("UPDATE candidates SET evidence_reviewed_at = ? WHERE id = ? AND owner_user_id = ?")
+      .run(reviewed ? new Date().toISOString() : null, candidateId, ownerUserId);
+    return Number(result.changes) > 0 ? this.getCandidate(ownerUserId, candidateId) : null;
   }
 
   async removeFailedRepository(ownerUserId: string, candidateId: string, repositoryUrl: string): Promise<boolean> {
@@ -369,6 +384,7 @@ class PostgresCandidateStore implements CandidatePersistence {
         repository_url TEXT NOT NULL, repository_name TEXT NOT NULL, status TEXT NOT NULL,
         code TEXT, message TEXT, updated_at TEXT NOT NULL, UNIQUE(candidate_id, repository_url)
       );
+      ALTER TABLE codeproof_candidates ADD COLUMN IF NOT EXISTS evidence_reviewed_at TEXT;
     `).then(() => undefined);
     return this.initialized;
   }
@@ -469,6 +485,8 @@ class PostgresCandidateStore implements CandidatePersistence {
       await client.query("BEGIN");
       await this.insertAnalysis(client, candidateId, result);
       await this.refreshCandidateEvidence(client, candidateId);
+      // New evidence must be opened again before it counts as checked.
+      await client.query("UPDATE codeproof_candidates SET evidence_reviewed_at=NULL WHERE id=$1", [candidateId]);
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -477,6 +495,14 @@ class PostgresCandidateStore implements CandidatePersistence {
       client.release();
     }
     return this.getCandidate(ownerUserId, candidateId);
+  }
+
+  async setEvidenceReviewed(ownerUserId: string, candidateId: string, reviewed: boolean): Promise<CandidateDetail | null> {
+    await this.initialize();
+    const result = await this.pool.query("UPDATE codeproof_candidates SET evidence_reviewed_at=$1 WHERE id=$2 AND owner_user_id=$3", [
+      reviewed ? new Date().toISOString() : null, candidateId, ownerUserId,
+    ]);
+    return (result.rowCount ?? 0) > 0 ? this.getCandidate(ownerUserId, candidateId) : null;
   }
 
   async removeFailedRepository(ownerUserId: string, candidateId: string, repositoryUrl: string): Promise<boolean> {

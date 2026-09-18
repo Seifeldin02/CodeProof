@@ -56,6 +56,13 @@ describe("candidate evidence persistence", () => {
     expect(await store.removeFailedRepository("owner-b", another.id, "https://github.com/example/remove-me")).toBe(true);
     expect((await store.getCandidate("owner-b", another.id))?.repositoryOutcomes).toHaveLength(1);
 
+    expect(retried?.evidenceReviewedAt).toBeNull();
+    expect(await store.setEvidenceReviewed("owner-b", created.id, true)).toBeNull();
+    const checked = await store.setEvidenceReviewed("owner-a", created.id, true);
+    expect(typeof checked?.evidenceReviewedAt).toBe("string");
+    const reanalyzed = await store.recordRepositorySuccess("owner-a", created.id, result(["Good Evidence"], "https://github.com/example/fresh"));
+    expect(reanalyzed?.evidenceReviewedAt).toBeNull();
+
     const hired = await store.updatePipeline("owner-a", created.id, "hired", "in_progress");
     expect(hired).toMatchObject({ furthestStage: "hired", outcome: "hired" });
     expect(hired?.stageHistory.map((event) => event.stage)).toEqual(["applied", "screening", "code_review", "interview", "offer", "hired"]);
