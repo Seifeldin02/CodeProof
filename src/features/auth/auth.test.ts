@@ -2,13 +2,14 @@
 process.env.CODEPROOF_DB_PATH = ":memory:";
 process.env.CODEPROOF_SESSION_SECRET = "test-secret-value";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthStore, hashPassword, signupAllowed, verifyPassword } from "./store";
-import { createSessionToken, readSessionToken, SESSION_MAX_AGE_SECONDS } from "./session";
+import { createSessionToken, readSessionToken, SESSION_MAX_AGE_SECONDS, SessionSecretMissingError, sessionSecretConfigured } from "./session";
 import { denyCrossOrigin } from "./guard";
 
 afterEach(() => {
   delete process.env.CODEPROOF_ALLOW_SIGNUP;
+  vi.unstubAllEnvs();
 });
 
 describe("password hashing", () => {
@@ -52,6 +53,22 @@ describe("session tokens", () => {
     expect(readSessionToken(undefined)).toBeNull();
     expect(readSessionToken("garbage")).toBeNull();
     expect(readSessionToken("a.b.c")).toBeNull();
+  });
+
+  it("treats every token as signed out in production when the secret is missing, and refuses to issue one", () => {
+    const token = createSessionToken("user-123");
+    vi.stubEnv("CODEPROOF_SESSION_SECRET", "");
+    vi.stubEnv("NODE_ENV", "production");
+    expect(sessionSecretConfigured()).toBe(false);
+    expect(readSessionToken(token)).toBeNull();
+    expect(() => createSessionToken("user-123")).toThrow(SessionSecretMissingError);
+  });
+
+  it("falls back to a per-process secret outside production", () => {
+    vi.stubEnv("CODEPROOF_SESSION_SECRET", "");
+    vi.stubEnv("NODE_ENV", "development");
+    expect(sessionSecretConfigured()).toBe(true);
+    expect(readSessionToken(createSessionToken("user-123"))).toBe("user-123");
   });
 });
 

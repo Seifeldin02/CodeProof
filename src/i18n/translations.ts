@@ -66,6 +66,7 @@ const ar: Record<string, string> = {
   "Use at least 10 characters.": "استخدم 10 أحرف على الأقل.",
   "Use at least 12 characters.": "استخدم 12 حرفاً على الأقل.",
   "Too many attempts. Try again later.": "محاولات كثيرة جداً. حاول مرة أخرى لاحقاً.",
+  "Sign-in is temporarily unavailable: the server is missing its session configuration.": "تسجيل الدخول غير متاح مؤقتاً: الخادم يفتقد إعداد الجلسة.",
   "That email already has an account.": "هذا البريد الإلكتروني لديه حساب بالفعل.",
   "Something went wrong. Try again.": "حدث خطأ ما. حاول مرة أخرى.",
   "CodeProof workspace": "مساحة CodeProof",
