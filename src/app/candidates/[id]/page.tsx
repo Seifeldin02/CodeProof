@@ -30,7 +30,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
         {(candidate.unanalyzedSources?.length ?? 0) > 0 && (
           <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <strong className="text-sm text-slate-900">{t("Sources named on the CV that were not analyzed")}</strong>
+              <strong className="text-sm text-slate-900">{t("Sources named on the CV that were not analyzed as evidence")}</strong>
               <span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t("Unknown, not negative")}</span>
             </div>
             <ul className="mt-2 space-y-1">
@@ -38,7 +38,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
                 <li key={source} className="text-xs text-slate-600"><bdi dir="ltr" className="break-all">{source}</bdi></li>
               ))}
             </ul>
-            <p className="mt-2 text-xs leading-5 text-slate-500">{t("Only public GitHub repositories can be analyzed today. These sources are recorded so the gap is visible, and they never count against the candidate.")}</p>
+            <p className="mt-2 text-xs leading-5 text-slate-500">{t("Only public GitHub repositories are analyzed as evidence. A portfolio can be scanned for the projects it links, but the page itself stays a claim, and never counts against the candidate.")}</p>
           </div>
         )}
       </section>
