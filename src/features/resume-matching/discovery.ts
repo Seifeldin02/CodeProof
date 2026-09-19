@@ -107,10 +107,17 @@ function suggestedRole(text: string): Role {
   return "Frontend Engineer";
 }
 
-export function discoverCandidateLinks(resumeText: string): CvDiscovery {
+/**
+ * Pulls GitHub repositories and bare profiles out of any text. Shared by CV
+ * intake and the portfolio scanner so both agree on what counts as a repository.
+ */
+export function extractGitHubLinks(text: string): {
+  repositories: DiscoveredRepository[];
+  profiles: DiscoveredGitHubProfile[];
+} {
   const repositories = new Map<string, DiscoveredRepository>();
   const profiles = new Map<string, DiscoveredGitHubProfile>();
-  for (const match of resumeText.matchAll(GITHUB_LINK)) {
+  for (const match of text.matchAll(GITHUB_LINK)) {
     const raw = cleanLink(match[0]);
     const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
     let url: URL;
@@ -131,6 +138,15 @@ export function discoverCandidateLinks(resumeText: string): CvDiscovery {
       profiles.set(canonical.toLowerCase(), { owner, url: canonical });
     }
   }
+  const found = [...repositories.values()];
+  return {
+    repositories: found,
+    profiles: [...profiles.values()].filter((profile) => !found.some((repository) => repository.owner.toLowerCase() === profile.owner.toLowerCase())),
+  };
+}
+
+export function discoverCandidateLinks(resumeText: string): CvDiscovery {
+  const { repositories: foundRepositories, profiles: foundProfiles } = extractGitHubLinks(resumeText);
 
   const otherSources = new Map<string, DiscoveredSource>();
   for (const match of resumeText.matchAll(ANY_LINK)) {
@@ -138,8 +154,6 @@ export function discoverCandidateLinks(resumeText: string): CvDiscovery {
     if (source) otherSources.set(source.url.toLowerCase(), source);
   }
 
-  const foundRepositories = [...repositories.values()];
-  const foundProfiles = [...profiles.values()].filter((profile) => !foundRepositories.some((repository) => repository.owner.toLowerCase() === profile.owner.toLowerCase()));
   const foundSources = [...otherSources.values()].sort((a, b) => a.url.localeCompare(b.url));
   const notes: string[] = [];
   if (foundRepositories.length === 0 && foundProfiles.length > 0) notes.push("A GitHub profile was found, but profile project listing requires GitHub API access. Paste one or more public repository URLs to continue for free.");

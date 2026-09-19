@@ -10,14 +10,21 @@ import { localizeAnalysisText } from "@/i18n/translations";
 
 interface ApiError { error?: { message?: string } }
 type RepositoryUiStatus = { status: "analyzing" | "analyzed" | "failed" | "skipped"; message?: string };
+interface PortfolioScan {
+  finalUrl: string;
+  title: string | null;
+  repositories: DiscoveredRepository[];
+  claims: Array<{ claim: string }>;
+}
+type ScanState = { status: "scanning" } | { status: "done"; scan: PortfolioScan } | { status: "failed"; message: string };
 
-// Reserved `.example` domains keep the sample unmistakably synthetic while
-// still exercising the portfolio / non-GitHub source path.
+// The portfolio points at a synthetic sample page published in this repository,
+// so the scan reads a real public page without casting a real person as an
+// applicant. It deliberately lists projects the CV omits.
 const SAMPLE_CV = `Demo Candidate
 Full-Stack Engineer
 Public project: https://github.com/sindresorhus/is
-Portfolio: https://demo-candidate.example/work
-Also on: https://gitlab.com/demo-candidate/internal-tools
+Portfolio: https://raw.githubusercontent.com/Seifeldin02/CodeProof/development/docs/demo/portfolio.html
 Experience building TypeScript libraries, runtime validation, automated tests, and maintainable developer tooling.`;
 
 function PipelineMap({ discovery, busy }: { discovery: CvDiscovery | null; busy: "discover" | "analyze" | null }) {
@@ -55,6 +62,33 @@ export default function AnalyzeCandidateWorkflow() {
   const [busy, setBusy] = useState<"discover" | "analyze" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [repositoryStatus, setRepositoryStatus] = useState<Record<string, RepositoryUiStatus>>({});
+  const [scans, setScans] = useState<Record<string, ScanState>>({});
+
+  /**
+   * Reads one portfolio page and folds anything it finds back into the same
+   * confirm step: repositories join the selectable list (the recruiter still
+   * chooses), claims stay claims until repository evidence supports them.
+   */
+  async function scanPortfolio(sourceUrl: string): Promise<void> {
+    setScans((current) => ({ ...current, [sourceUrl]: { status: "scanning" } }));
+    try {
+      const response = await fetch("/api/portfolio/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: sourceUrl }),
+      });
+      const payload = await response.json() as { scan?: PortfolioScan } & ApiError;
+      if (!response.ok || !payload.scan) throw new Error(payload.error?.message ?? "The portfolio could not be scanned.");
+      const scan = payload.scan;
+      setScans((current) => ({ ...current, [sourceUrl]: { status: "done", scan } }));
+      setRepositories((current) => {
+        const seen = new Set(current.map((repository) => repository.url.toLowerCase()));
+        return [...current, ...scan.repositories.filter((repository) => !seen.has(repository.url.toLowerCase()))];
+      });
+    } catch (caught) {
+      setScans((current) => ({ ...current, [sourceUrl]: { status: "failed", message: caught instanceof Error ? caught.message : "The portfolio could not be scanned." } }));
+    }
+  }
 
   async function runDiscovery(textOverride?: string): Promise<void> {
     setBusy("discover"); setError(null);
@@ -143,7 +177,22 @@ export default function AnalyzeCandidateWorkflow() {
         </div> : <div className="mt-6 space-y-6">
           <div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-600">{t("Candidate name")}<input value={candidateName} onChange={(event) => setCandidateName(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-brand-500" /></label><label className="text-xs font-semibold text-slate-600">{t("Target role")}<select value={role} onChange={(event) => setRole(event.target.value as Role)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500">{ROLES.map((item) => <option key={item} value={item}>{t(item)}</option>)}</select></label></div>
           {discovery.profiles.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" /><strong className="text-sm text-amber-900">{t("GitHub profile detected")}</strong></div><p className="mt-2 text-xs leading-5 text-amber-800"><bdi dir="ltr">{discovery.profiles.map((profile) => profile.url).join(", ")}</bdi>. {t("Free archive scanning cannot list profile projects, so paste the repository URLs you want to inspect.")}</p></div>}
-          {discovery.otherSources.length > 0 && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-slate-400" /><strong className="text-sm text-slate-900">{t("Portfolio and other sources detected")}</strong></div><span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t("Unknown, not negative")}</span></div><ul className="mt-2 space-y-1">{discovery.otherSources.map((source) => <li key={source.url} className="text-xs text-slate-600"><bdi dir="ltr" className="break-all">{source.url}</bdi> <span className="text-slate-400">· {t(source.kind === "code_host" ? "Repository host other than GitHub" : "Portfolio site")}</span></li>)}</ul><p className="mt-2 text-xs leading-5 text-slate-500">{t("CodeProof records these against the candidate and reports them as unknown. Only public GitHub repositories can be analyzed today, and a source we cannot read never counts against the candidate.")}</p></div>}
+          {discovery.otherSources.length > 0 && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-slate-400" /><strong className="text-sm text-slate-900">{t("Portfolio and other sources detected")}</strong></div><span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t("Unknown, not negative")}</span></div><ul className="mt-3 space-y-2">{discovery.otherSources.map((source) => { const scan = scans[source.url]; return <li key={source.url} className="rounded-lg border border-slate-200 bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="min-w-0 text-xs text-slate-600"><bdi dir="ltr" className="break-all font-medium text-slate-800">{source.url}</bdi> <span className="text-slate-400">· {t(source.kind === "code_host" ? "Repository host other than GitHub" : "Portfolio site")}</span></span>
+              <button type="button" onClick={() => scanPortfolio(source.url)} disabled={scan?.status === "scanning" || busy !== null} className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 transition hover:border-brand-300 hover:bg-brand-50 disabled:opacity-50">
+                {scan?.status === "scanning" && <i className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-slate-600" />}
+                {t(scan?.status === "scanning" ? "Scanning…" : scan?.status === "done" ? "Scan again" : "Scan for projects")}
+              </button>
+            </div>
+            {scan?.status === "done" && <div className="mt-2 border-t border-slate-100 pt-2">
+              {scan.scan.repositories.length > 0
+                ? <p className="text-xs font-medium text-emerald-700">{t(scan.scan.repositories.length === 1 ? "Found 1 public repository — added below for you to confirm." : "Found {count} public repositories — added below for you to confirm.", { count: scan.scan.repositories.length })}</p>
+                : <p className="text-xs text-slate-500">{t("No public GitHub repositories were linked on that page.")}</p>}
+              {scan.scan.claims.length > 0 && <p className="mt-1 text-xs leading-5 text-slate-500">{t("Claimed on the page:")} <span className="tech-ltr font-medium text-slate-700">{scan.scan.claims.map((claim) => claim.claim).join(", ")}</span>. {t("These stay candidate claims until repository evidence supports them.")}</p>}
+            </div>}
+            {scan?.status === "failed" && <p role="alert" className="mt-2 border-t border-slate-100 pt-2 text-xs text-rose-700">{localizeAnalysisText(locale, scan.message)}</p>}
+          </li>; })}</ul><p className="mt-3 text-xs leading-5 text-slate-500">{t("A portfolio states what a candidate claims; only code proves it. CodeProof reads the page for linked public repositories, and anything it cannot verify stays unknown — never counted against the candidate.")}</p></div>}
           <div><div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-slate-900">{t("Selected repositories")}</h3><span className="text-xs text-slate-400">{t("{count}/3 selected", { count: selected.size })}</span></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{repositories.map((repository) => { const outcome = repositoryStatus[repository.url]; return <div key={repository.url}><button type="button" disabled={busy === "analyze"} onClick={() => toggleRepository(repository.url)} className={`interactive-card flex min-h-16 w-full items-center gap-3 rounded-xl border p-4 text-start transition ${selected.has(repository.url) ? "border-brand-300 bg-brand-50 ring-2 ring-brand-100" : "border-slate-200 bg-white hover:border-brand-200"}`}><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border text-xs ${selected.has(repository.url) ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 text-slate-400"}`}>{outcome?.status === "analyzing" ? <i className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" /> : selected.has(repository.url) ? "✓" : "+"}</span><span className="min-w-0 flex-1"><strong className="tech-ltr block truncate text-sm text-slate-900">{repository.owner}/{repository.repository}</strong><small className={outcome?.status === "failed" ? "text-rose-600" : outcome?.status === "analyzed" ? "text-emerald-600" : "text-slate-400"}>{t(outcome?.status === "analyzing" ? "Analyzing" : outcome?.status === "analyzed" ? "Analyzed successfully" : outcome?.status === "failed" ? "Failed" : outcome?.status === "skipped" ? "Skipped by user" : "Public source archive")}</small></span></button>{outcome?.status === "failed" && outcome.message && <p role="alert" className="mt-1 px-2 text-[10px] leading-4 text-rose-700">{localizeAnalysisText(locale, outcome.message)}</p>}</div>; })}</div>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row"><input dir="ltr" value={manualRepository} onChange={(event) => setManualRepository(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addManualRepository(); } }} placeholder="https://github.com/owner/repository" className="h-12 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 text-left text-sm outline-none focus:border-brand-500" /><button type="button" onClick={addManualRepository} className="min-h-12 rounded-lg border border-slate-200 px-5 text-sm font-semibold text-slate-700">{t("Add")}</button></div>
           </div>
