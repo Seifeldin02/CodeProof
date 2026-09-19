@@ -26,9 +26,14 @@ recommendation and what is still missing, and leaves the recruiter deciding.
 3. **Queue population** — exactly one candidate already analysed:
    - **Sample Candidate B** (Backend Engineer, `chalk/chalk`, `isDemo: true`) → tier **Review**,
      carrying one unreadable portfolio source so the "unknown, not negative" panel is populated
-4. **Evidence checks cleared** — the `/review` header must read `EVIDENCE CHECKED BY YOU: 0`.
-5. **Warm the cache** — run the take once end to end and delete the candidate afterwards.
-   A warm analysis returns in **~0.8 s**; a cold one downloads the archive and takes ~15 s.
+4. **Portfolio reachable** — the sample CV points at
+   `raw.githubusercontent.com/Seifeldin02/CodeProof/development/docs/demo/portfolio.html`,
+   a synthetic sample page in this repository. It needs network access, and edits to it
+   take up to 5 minutes to clear GitHub's CDN.
+5. **Evidence checks cleared** — the `/review` header must read `EVIDENCE CHECKED BY YOU: 0`.
+6. **Warm the cache** — run the take once end to end and delete the candidate afterwards.
+   A warm analysis of `sindresorhus/is` + `p-limit` returns in **~1.5 s**; cold it downloads
+   both archives.
 
 Reset between takes: open the candidate you created, **Delete candidate**. Requirements and
 Sample Candidate B stay untouched.
@@ -39,12 +44,14 @@ Sample Candidate B stay untouched.
 | --- | --- | --- |
 | 0:00–0:06 | Start on `/review` | Queue with one candidate; the rules panel is visible |
 | 0:06–0:12 | **Analyze Candidate** in the sidebar | Step 1 of 2, CV intake |
-| 0:12–0:20 | **Use sample candidate** | Step 2 of 2; `sindresorhus/is` auto-detected, **Demo candidate** badge, and **Portfolio and other sources detected** listing the portfolio + GitLab links as *unknown, not negative* |
-| 0:20–0:26 | **Build candidate evidence report** | ~1 s, lands on the dossier |
-| 0:26–0:38 | Scroll to **Requirement evaluation** | TypeScript strong + 3 cited files, GitHub Actions partial, PostgreSQL weak point |
-| 0:38–0:46 | Scroll to **Evidence gaps** and **Repository-specific interview** | Gaps framed as probes; questions naming real symbols (`nanCheck`, `SymbolConstructor`) |
-| 0:46–0:56 | Sidebar → **Review Queue** | Demo Candidate is now **#1 Review first**, Sample Candidate B **#2 Review** |
-| 0:56–1:00 | Hover **Mark evidence as checked** | The human-in-the-loop step; do not dwell |
+| 0:11–0:16 | **Use sample candidate** | Step 2 of 2; `sindresorhus/is` auto-detected, **Demo candidate** badge, **Portfolio and other sources detected** |
+| 0:16–0:24 | **Scan for projects** | "Found 3 public repositories — added below for you to confirm." Two were never on the CV. Claims listed as claims |
+| 0:24–0:28 | Tick **sindresorhus/p-limit** | A portfolio-only project becomes selectable evidence |
+| 0:28–0:32 | **Build candidate evidence report** | ~1.5 s, lands on the dossier, 2 repositories |
+| 0:32–0:44 | Scroll to **Requirement evaluation** | TypeScript strong + cited files, GitHub Actions partial, PostgreSQL weak point |
+| 0:44–0:50 | Scroll to **Repository-specific interview** | Questions naming real symbols (`nanCheck`, `SymbolConstructor`) |
+| 0:50–0:58 | Sidebar → **Review Queue** | Demo Candidate **#1 Review first**, Sample Candidate B **#2 Review** |
+| 0:58–1:00 | Point at **Mark evidence as checked** | Human-in-the-loop; do not click |
 
 ## Spoken script (~150 words, comfortable at 60 s)
 
@@ -53,7 +60,7 @@ Sample Candidate B stay untouched.
 > So CodeProof does it. I drop in a CV — it pulls out the candidate's public project and
 > downloads the source. No code is ever executed.
 >
-> Notice it also found a portfolio and a GitLab link. We can't read those yet, so we say so — recorded as unknown, never counted against her.
+> It also found her portfolio. One click, and CodeProof reads that page — three projects, two of which were never on the CV. What the page *says* about her stays a claim. What it *links to* becomes evidence.
 >
 > Now look at what comes back. This isn't a score. Against *our* saved requirements:
 > TypeScript — strong, and here are the three files that prove it. GitHub Actions — partial,
@@ -83,7 +90,8 @@ which is why it is the default above.
 ## Honesty guardrails for the script
 
 - Do **not** claim an accuracy percentage. There is no eval harness yet, so "right about 80% of the time" is a guess from the worksheet, not a measurement.
-- Do **not** imply portfolios are analysed. They are *detected and recorded as unknown*; only public GitHub repositories are read.
+- Do **not** say a portfolio is *analysed as evidence*. It is fetched and read for the
+  repositories it links; the page's own prose becomes candidate claims pending verification.
 - Do **not** say "a hundred a week" as though measured. Intake is one candidate at a time today.
 
 ## Do not show
