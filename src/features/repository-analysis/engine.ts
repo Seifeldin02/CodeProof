@@ -35,6 +35,7 @@ import {
   inferProjectType,
 } from "./deterministic";
 import { ANALYSIS_ENGINE_VERSION } from "./version";
+import { buildGroundedEvidenceBundle } from "./grounded-citations";
 
 interface RepositorySource {
   ingest(url: string): Promise<IngestedRepository>;
@@ -266,6 +267,12 @@ export async function analyzeRepository(
     resumeVerification,
     jobMatch,
     interviewQuestions,
+    canonicalEvidence: buildGroundedEvidenceBundle({
+      repository,
+      analysisVersionId: analysisId,
+      skills,
+      questions: interviewQuestions,
+    }),
     selectedFiles: repository.files.map(({ path, size, truncated, selectionReason }) => ({ path, size, truncated, selectionReason })),
     metadata: {
       analysisId,

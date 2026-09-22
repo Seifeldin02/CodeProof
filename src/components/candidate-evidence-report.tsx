@@ -28,9 +28,29 @@ export default function CandidateEvidenceReport({ analysis, locale }: {
   locale: Locale;
 }) {
   const conclusionEligible = analysis.attributionStatus === "verified_contributor";
+  const canonicalQuestions = analysis.result.canonicalEvidence?.interviewQuestions.map((question) => {
+    const citationIds = question.basis.kind === "evidence" ? new Set(question.basis.citationIds) : new Set<string>();
+    const files = analysis.result.canonicalEvidence?.citations
+      .filter((citation) => citationIds.has(citation.id))
+      .map((citation) => citation.filePath) ?? [];
+    return {
+      question: question.question,
+      relatedSkill: question.basis.kind === "gap" ? question.basis.missingCapabilityId : "Evidence verification",
+      difficulty: "Intermediate" as const,
+      files: [...new Set(files)],
+      relevance: question.basis.kind === "gap"
+        ? "Why ask this: the expected implementation context was not present in the analyzed files."
+        : "Why ask this: the prompt is linked to an exact bounded source citation.",
+      origin: "deterministic" as const,
+      source: "Deterministic Fact" as const,
+    };
+  }) ?? [];
+  const sourceResult = canonicalQuestions.length > 0
+    ? { ...analysis.result, interviewQuestions: canonicalQuestions }
+    : analysis.result;
   const result = conclusionEligible
-    ? analysis.result
-    : { ...analysis.result, jobMatch: null, resumeVerification: null };
+    ? sourceResult
+    : { ...sourceResult, jobMatch: null, resumeVerification: null };
   const languageTotal = Object.values(result.languages).reduce((sum, value) => sum + value, 0);
   const t = (key: string, values: Record<string, string | number> = {}) => translate(locale, key, values);
   const l = (text: string) => localizeAnalysisText(locale, text);
@@ -59,6 +79,16 @@ export default function CandidateEvidenceReport({ analysis, locale }: {
         <section id={`${analysis.id}-patterns`} className="scroll-mt-28"><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-brand-700">{t("Implementation evidence")}</p><h3 className="mt-2 text-xl font-semibold text-slate-900">{t("Patterns found in real source files")}</h3>{result.patterns.length ? <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{result.patterns.map((pattern) => <article key={pattern.name} className="interactive-card rounded-xl border border-slate-200 p-4"><span className="text-[9px] font-semibold uppercase tracking-wider text-brand-700">{l(pattern.category)}</span><h4 className="mt-3 text-sm font-semibold text-slate-900">{l(pattern.name)}</h4><p className="mt-2 text-xs leading-5 text-slate-500">{l(pattern.summary)}</p><code dir="ltr" className="mt-3 block break-all text-start text-[10px] text-slate-400">{pattern.files.slice(0, 3).join(" · ")}</code></article>)}</div> : <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500">{t("No supported implementation pattern crossed the deterministic evidence threshold in the selected files.")}</div>}</section>
 
         <section id={`${analysis.id}-skills`} className="scroll-mt-28"><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-brand-700">{t("Skill evidence")}</p><h3 className="mt-2 text-xl font-semibold text-slate-900">{t("Implementation depth by skill")}</h3><p className="mt-2 text-xs text-slate-400">{t("Strong=4, Good=3, Partial=2, Limited=1. Dependency-only signals cannot exceed Limited.")}</p><div className="mt-5 space-y-3">{result.skills.map((skill) => <details key={skill.skill} className="group rounded-xl border border-slate-200 bg-white transition open:border-brand-200 open:shadow-sm"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 p-4"><div className="min-w-0"><strong dir="ltr" className="block truncate text-start text-sm text-slate-900">{skill.skill}</strong><p className="mt-1 text-xs text-slate-500">{l(skill.explanation)}</p></div><div className="flex shrink-0 items-center gap-2"><Badge tone={evidenceTone(skill.level)}>{t(skill.level)}</Badge><span className="text-slate-400 transition group-open:rotate-45">+</span></div></summary><div className="grid gap-px border-t border-slate-100 bg-slate-100 md:grid-cols-2">{skill.evidence.map((evidence, index) => <div key={`${evidence.file}-${index}`} className="bg-white p-4"><code dir="ltr" className="block break-all text-start text-[10px] font-semibold text-brand-700">{evidence.file}</code><strong className="mt-2 block text-xs text-slate-800">{l(evidence.summary)}</strong><p className="mt-1 text-xs leading-5 text-slate-500">{l(evidence.implementationExample)}</p></div>)}</div></details>)}</div></section>
+
+        {(result.canonicalEvidence?.citations.length ?? 0) > 0 && <section>
+          <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-brand-700">{locale === "ar" ? "الاستشهادات المصدرية" : "Source citations"}</p>
+          <h3 className="mt-2 text-xl font-semibold text-slate-900">{locale === "ar" ? "الملفات والأسطر وراء الإشارات" : "Files and lines behind the signals"}</h3>
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">{result.canonicalEvidence?.citations.slice(0, 12).map((citation) => <article key={citation.id} className="min-w-0 rounded-xl border border-slate-200 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2"><a href={citation.sourceLink} target="_blank" rel="noreferrer" dir="ltr" className="break-all text-start font-mono text-[10px] font-semibold text-brand-700 hover:underline">{citation.filePath}{citation.startLine ? `:${citation.startLine}` : ""}</a><Badge tone={citation.attributionStatus === "verified_contributor" ? "positive" : "warning"}>{citation.attributionStatus.replaceAll("_", " ")}</Badge></div>
+            {citation.excerpt ? <pre dir="ltr" className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-950 p-3 text-start font-mono text-[10px] leading-5 text-slate-200"><code>{citation.excerpt}</code></pre> : <p className="mt-3 text-xs text-slate-500">{locale === "ar" ? "تم حجب المقتطف لأنه قد يحتوي على بيانات حساسة." : "Excerpt withheld because it may contain sensitive content."}</p>}
+            <p className="mt-3 text-[10px] text-slate-400">{citation.revisionAvailability === "available" ? (locale === "ar" ? "رابط إصدار ثابت" : "Immutable revision link") : (locale === "ar" ? "الإصدار الثابت غير متاح" : "Immutable revision unavailable")}</p>
+          </article>)}</div>
+        </section>}
 
         {conclusionEligible && <RequirementBriefing jobMatch={result.jobMatch} locale={locale} />}
 

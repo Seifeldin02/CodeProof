@@ -13,6 +13,12 @@ function analysis(skills: Array<[string, Level]>, resume: ResumeVerification | n
     skills: skills.map(([skill, level]) => ({ skill, level, explanation: "", evidence: [{ file: `src/${skill.toLowerCase()}.ts` }] })),
     resumeVerification: resume,
     jobMatch: null,
+    canonicalEvidence: {
+      taxonomyVersion: "2025.1",
+      findings: [],
+      citations: [{ id: "fixture-citation", attributionStatus: "verified_contributor" }],
+      interviewQuestions: [],
+    },
   } as unknown as AnalysisResult;
   return { id: "a1", candidateId: "c", repositoryUrl: result.repository.url, repositoryName: "acme/app", primaryLanguage: "TypeScript", projectType: "Backend API", evidenceIndex: 50, summary: "", analyzedAt: "2026-01-01T00:00:00.000Z", result };
 }

@@ -253,8 +253,16 @@ export interface AnalysisResult {
   resumeVerification: ResumeVerification | null;
   jobMatch: JobMatch | null;
   interviewQuestions: InterviewQuestion[];
+  canonicalEvidence?: GroundedEvidenceBundle;
   selectedFiles: Array<Pick<SelectedFile, "path" | "size" | "truncated" | "selectionReason">>;
   metadata: AnalysisMetadata;
+}
+
+export interface GroundedEvidenceBundle {
+  taxonomyVersion: string;
+  findings: import("./remediation").DetectorFinding[];
+  citations: import("./remediation").EvidenceCitation[];
+  interviewQuestions: import("./remediation").ContextSafeInterviewQuestion[];
 }
 
 export interface AnalysisInput {

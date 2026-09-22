@@ -21,6 +21,48 @@ function seedOwners(store: CandidateStore): void {
   insert.run("owner-b", "owner-b@example.invalid", "test-hash-b", "2026-01-01T00:00:00.000Z");
 }
 
+function canonicalResult(suffix = "1"): AnalysisResult {
+  const analysis = result(["Good Evidence"]);
+  analysis.metadata = {
+    analysisId: `canonical-analysis-${suffix}`,
+    analyzedAt: "2026-01-01T00:00:00.000Z",
+    durationMs: 1,
+    selectedFileCount: 1,
+    inspectedTreeFileCount: 1,
+    selectedBytes: 20,
+    cacheHit: false,
+    cacheStorage: "disabled",
+    engineVersion: "test-engine",
+    aiProvider: null,
+    aiModel: null,
+    aiStatus: "unavailable_not_configured",
+    aiUnavailableReason: "test fixture",
+    warnings: [],
+  };
+  analysis.canonicalEvidence = {
+    taxonomyVersion: "2025.1",
+    findings: [{
+      id: `finding-${suffix}`, detectorId: "detector-1", detectorVersion: "1.0.0",
+      capabilityId: "language.typescript", signalClass: "implementation",
+      repositoryId: "repository-1", revision: null, filePath: "src/app.ts",
+      symbol: "run", startLine: 1, endLine: 1, excerptStartOffset: 0, excerptEndOffset: 20,
+    }],
+    citations: [{
+      id: `citation-${suffix}`, findingId: `finding-${suffix}`, detectorId: "detector-1", detectorVersion: "1.0.0",
+      repositoryId: "repository-1", repositoryUrl: analysis.repository.url, repositoryName: "example/app",
+      revision: null, revisionAvailability: "unavailable", filePath: "src/app.ts", symbol: "run",
+      startLine: 1, endLine: 1, excerpt: "export function run()", sourceLink: "https://github.com/example/app/blob/HEAD/src/app.ts#L1-L1",
+      discoveryOrigin: "manual entry", attributionStatus: "unverified", evidenceLevel: "good", taxonomyVersion: "2025.1",
+    }],
+    interviewQuestions: [{
+      id: `question-${suffix}`, analysisVersionId: `canonical-analysis-${suffix}`,
+      basis: { kind: "evidence", citationIds: [`citation-${suffix}`] }, attributionGate: "unverified",
+      question: "To verify your relationship to this repository, explain run.", redactionApplied: true,
+    }],
+  };
+  return analysis;
+}
+
 describe("candidate evidence persistence", () => {
   it("computes a transparent weighted evidence index", () => {
     expect(calculateEvidenceIndex([result(["Strong Evidence", "Good Evidence", "Limited Evidence"])] )).toBe(67);
@@ -93,7 +135,7 @@ describe("candidate evidence persistence", () => {
       attributionStatus: "verified_contributor",
       verificationRevision: "0123456789abcdef",
     });
-    expect(verified?.verifiedSkillScore).toBe(75);
+    expect(verified?.verifiedSkillScore).toBe(0);
     expect(await store.verifyRepositoryAttribution("owner-b", created.id, "https://github.com/example/app", {
       provider: "github",
       repositoryProviderId: null,
@@ -135,6 +177,63 @@ describe("candidate evidence persistence", () => {
     expect(await store.deleteCandidate("owner-b", created.id)).toBe(false);
     expect(await store.deleteCandidate("owner-a", created.id)).toBe(true);
     expect(await store.getCandidate("owner-a", created.id)).toBeNull();
+    store.db.close();
+  });
+
+  it("persists canonical findings, citations, and safe questions and reprojects them after verification", async () => {
+    const store = new CandidateStore(":memory:");
+    seedOwners(store);
+    const created = await store.createCandidate("owner-a", {
+      name: "Canonical Candidate",
+      role: "Backend Engineer",
+      results: [canonicalResult()],
+      repositorySelections: [{
+        repositoryUrl: "https://github.com/example/app",
+        discoveryOrigin: "CV",
+        candidateSourceClaim: true,
+      }],
+    });
+    expect(store.db.prepare("SELECT COUNT(*) AS count FROM analysis_versions").get()).toMatchObject({ count: 1 });
+    expect(store.db.prepare("SELECT COUNT(*) AS count FROM detector_findings").get()).toMatchObject({ count: 1 });
+    expect(store.db.prepare("SELECT attribution_status, discovery_origin FROM evidence_citations").get()).toEqual({
+      attribution_status: "candidate_claimed",
+      discovery_origin: "CV",
+    });
+    expect(store.db.prepare("SELECT attribution_gate, question FROM interview_questions").get()).toMatchObject({
+      attribution_gate: "candidate_claimed",
+      question: expect.stringMatching(/^To verify your relationship/u),
+    });
+
+    await store.verifyRepositoryAttribution("owner-a", created.id, "https://github.com/example/app", {
+      provider: "github",
+      repositoryProviderId: "repository-42",
+      providerIdentityFingerprint: "b".repeat(64),
+      verifiedAt: "2026-01-02T00:00:00.000Z",
+      proof: {
+        providerConfigured: true,
+        hasAuthenticatedProviderIdentity: true,
+        hasRepositoryIdentity: true,
+        hasRepositoryOwnershipProof: false,
+        immutableContributionRevision: "abcdef0123456789",
+      },
+    });
+    expect(store.db.prepare("SELECT attribution_status FROM evidence_citations WHERE id = 'citation-1'").get()).toEqual({
+      attribution_status: "candidate_claimed",
+    });
+    expect(store.db.prepare("SELECT attribution_gate, question FROM interview_questions WHERE id = 'question-1'").get()).toMatchObject({
+      attribution_gate: "candidate_claimed",
+      question: expect.stringMatching(/^To verify your relationship/u),
+    });
+    const reanalyzed = await store.recordRepositorySuccess("owner-a", created.id, canonicalResult("2"));
+    expect(reanalyzed?.verifiedSkillScore).toBe(75);
+    expect(store.db.prepare("SELECT COUNT(*) AS count FROM analysis_versions").get()).toMatchObject({ count: 2 });
+    expect(store.db.prepare("SELECT attribution_status FROM evidence_citations WHERE id = 'citation-2'").get()).toEqual({
+      attribution_status: "verified_contributor",
+    });
+    expect(store.db.prepare("SELECT attribution_gate, question FROM interview_questions WHERE id = 'question-2'").get()).toMatchObject({
+      attribution_gate: "verified_contributor",
+      question: expect.not.stringMatching(/^To verify your relationship/u),
+    });
     store.db.close();
   });
 });

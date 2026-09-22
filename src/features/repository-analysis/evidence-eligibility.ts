@@ -29,5 +29,8 @@ export function eligibleCandidateAnalyses(candidate: Pick<CandidateDetail, "anal
   const eligibleUrls = new Set(candidate.repositories
     .filter((repository) => isConclusionEligibleAttribution(repository.attributionStatus))
     .map((repository) => repository.repositoryUrl));
-  return candidate.analyses.filter((analysis) => eligibleUrls.has(analysis.repositoryUrl));
+  return candidate.analyses.filter((analysis) => (
+    eligibleUrls.has(analysis.repositoryUrl)
+    && analysis.result.canonicalEvidence?.citations.some((citation) => isCitationEligibleForConclusion(citation)) === true
+  ));
 }

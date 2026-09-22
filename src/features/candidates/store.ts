@@ -13,6 +13,7 @@ import {
   type RepositoryAttributionState,
 } from "@/features/repository-analysis/attribution-transitions";
 import type { ContributionVerificationResult } from "@/features/repository-analysis/provider-verification";
+import { reprojectGroundedEvidence } from "@/features/repository-analysis/grounded-citations";
 import type { AttributionStatus, DiscoveryOrigin } from "@/types/remediation";
 import type { CandidateDetail, CandidateRepositoryOutcome, CandidateRepositoryRelationship, RepositoryFailure } from "./types";
 import {
@@ -271,6 +272,20 @@ function selectionFor(input: CreateCandidateInput, repositoryUrl: string): Repos
   };
 }
 
+function resultWithAttribution(result: AnalysisResult, selection: RepositorySelection): AnalysisResult {
+  const state = createRepositoryAttributionState(selection);
+  return result.canonicalEvidence
+    ? {
+        ...result,
+        canonicalEvidence: reprojectGroundedEvidence(
+          result.canonicalEvidence,
+          state.discoveryOrigin,
+          state.attributionStatus,
+        ),
+      }
+    : result;
+}
+
 function attributionState(row: CandidateRepositoryRow): RepositoryAttributionState | null {
   if (!row.discovery_origin || Boolean(row.origin_confirmation_required)) return null;
   return {
@@ -431,14 +446,80 @@ export class CandidateStore implements CandidatePersistence {
     );
   }
 
+  private insertCanonicalEvidence(
+    ownerUserId: string,
+    candidateId: string,
+    candidateRepositoryId: string,
+    _legacyAnalysisId: string,
+    result: AnalysisResult,
+    isDemo: boolean,
+  ): void {
+    const bundle = result.canonicalEvidence;
+    if (!bundle) return;
+    const analysisVersionId = result.metadata.analysisId;
+    this.db.prepare(`INSERT INTO analysis_versions
+      (id, owner_user_id, candidate_id, legacy_analysis_id, status, analyzed_at,
+       deterministic_engine_version, taxonomy_version, requisition_version_id,
+       ai_request_schema_version, provider_id, model_id, prompt_version, pricing_version,
+       is_demo, recompute_required, legacy_marker, created_at)
+      VALUES (?, ?, ?, NULL, 'completed', ?, ?, ?, NULL, NULL, ?, ?, NULL, NULL, ?, 0, NULL, ?)`)
+      .run(
+        analysisVersionId, ownerUserId, candidateId, result.metadata.analyzedAt,
+        result.metadata.engineVersion, bundle.taxonomyVersion, result.metadata.aiProvider,
+        result.metadata.aiModel, isDemo ? 1 : 0, result.metadata.analyzedAt,
+      );
+    const insertFinding = this.db.prepare(`INSERT INTO detector_findings
+      (id, analysis_version_id, candidate_repository_id, detector_id, detector_version,
+       capability_id, signal_class, repository_id, revision, file_path, symbol, start_line,
+       end_line, excerpt_start_offset, excerpt_end_offset)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    for (const finding of bundle.findings) insertFinding.run(
+      finding.id, analysisVersionId, candidateRepositoryId, finding.detectorId,
+      finding.detectorVersion, finding.capabilityId, finding.signalClass, finding.repositoryId,
+      finding.revision, finding.filePath, finding.symbol, finding.startLine, finding.endLine,
+      finding.excerptStartOffset, finding.excerptEndOffset,
+    );
+    const insertCitation = this.db.prepare(`INSERT INTO evidence_citations
+      (id, analysis_version_id, finding_id, detector_id, detector_version, repository_id,
+       repository_url, repository_name, revision, revision_availability, file_path, symbol,
+       start_line, end_line, excerpt, source_link, discovery_origin, attribution_status,
+       evidence_level, taxonomy_version)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const insertItem = this.db.prepare(`INSERT INTO evidence_items
+      (id, analysis_version_id, finding_id, capability_id, claim_scope, evidence_level, taxonomy_version)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`);
+    const findingById = new Map(bundle.findings.map((finding) => [finding.id, finding]));
+    for (const citation of bundle.citations) {
+      insertCitation.run(
+        citation.id, analysisVersionId, citation.findingId, citation.detectorId,
+        citation.detectorVersion, citation.repositoryId, citation.repositoryUrl,
+        citation.repositoryName, citation.revision, citation.revisionAvailability,
+        citation.filePath, citation.symbol, citation.startLine, citation.endLine, citation.excerpt,
+        citation.sourceLink, citation.discoveryOrigin, citation.attributionStatus,
+        citation.evidenceLevel, citation.taxonomyVersion,
+      );
+      const finding = findingById.get(citation.findingId);
+      if (finding) insertItem.run(
+        randomUUID(), analysisVersionId, finding.id, finding.capabilityId,
+        finding.capabilityId, citation.evidenceLevel, citation.taxonomyVersion,
+      );
+    }
+    const insertQuestion = this.db.prepare(`INSERT INTO interview_questions
+      (id, analysis_version_id, basis_kind, basis_json, attribution_gate, question, redaction_applied)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`);
+    for (const question of bundle.interviewQuestions) insertQuestion.run(
+      question.id, analysisVersionId, question.basis.kind, JSON.stringify(question.basis),
+      question.attributionGate, question.question, question.redactionApplied ? 1 : 0,
+    );
+  }
+
   private refreshCandidateEvidence(candidateId: string): void {
-    const eligibleRows = this.db.prepare(`SELECT analysis.analysis_json FROM candidate_analyses analysis
-      INNER JOIN candidate_repositories repository
-        ON repository.candidate_id = analysis.candidate_id
-       AND repository.repository_url = analysis.repository_url
-      WHERE analysis.candidate_id = ? AND repository.attribution_status = 'verified_contributor'`)
+    const eligibleRows = this.db.prepare(`SELECT analysis_json FROM candidate_analyses
+      WHERE candidate_id = ?`)
       .all(candidateId) as unknown as Array<{ analysis_json: string }>;
-    const results = eligibleRows.map((row) => parseAnalysis(row.analysis_json));
+    const results = eligibleRows.map((row) => parseAnalysis(row.analysis_json)).filter((analysis) => (
+      analysis.canonicalEvidence?.citations.some((citation) => citation.attributionStatus === "verified_contributor") === true
+    ));
     const count = (this.db.prepare("SELECT COUNT(*) AS count FROM candidate_repository_outcomes WHERE candidate_id = ?").get(candidateId) as { count: number }).count;
     this.db.prepare("UPDATE candidates SET evidence_index = ?, repository_count = ?, verified_claim_count = ? WHERE id = ?")
       .run(calculateEvidenceIndex(results), count, verifiedClaimCount(results), candidateId);
@@ -458,7 +539,9 @@ export class CandidateStore implements CandidatePersistence {
       );
       const insertStage = this.db.prepare("INSERT INTO stage_events (candidate_id, stage, entered_at) VALUES (?, ?, ?)");
       for (const stage of PIPELINE_STAGES.slice(0, 3)) insertStage.run(id, stage, now);
-      for (const result of input.results) this.insertAnalysis(id, result);
+      for (const result of input.results) {
+        this.insertAnalysis(id, resultWithAttribution(result, selectionFor(input, result.repository.url)));
+      }
       const insertFailure = this.db.prepare(`INSERT INTO candidate_repository_outcomes
         (id, candidate_id, repository_url, repository_name, status, code, message, updated_at)
         VALUES (?, ?, ?, ?, 'failed', ?, ?, ?)`);
@@ -472,6 +555,22 @@ export class CandidateStore implements CandidatePersistence {
       for (const repositoryUrl of repositoryUrls) {
         this.insertRepositoryRelationship(ownerUserId, id, repositoryUrl, selectionFor(input, repositoryUrl), now);
       }
+      for (const result of input.results) {
+        const legacy = this.db.prepare(`SELECT id FROM candidate_analyses
+          WHERE candidate_id = ? AND repository_url = ?`).get(id, result.repository.url) as { id: string } | undefined;
+        const relationship = this.db.prepare(`SELECT id FROM candidate_repositories
+          WHERE owner_user_id = ? AND candidate_id = ? AND repository_url = ?`)
+          .get(ownerUserId, id, result.repository.url) as { id: string } | undefined;
+        if (!legacy || !relationship) throw new Error("Canonical repository analysis linkage failed.");
+        this.insertCanonicalEvidence(
+          ownerUserId,
+          id,
+          relationship.id,
+          legacy.id,
+          resultWithAttribution(result, selectionFor(input, result.repository.url)),
+          Boolean(input.isDemo),
+        );
+      }
       this.db.exec("COMMIT");
     } catch (error) {
       this.db.exec("ROLLBACK");
@@ -483,10 +582,20 @@ export class CandidateStore implements CandidatePersistence {
   }
 
   async recordRepositorySuccess(ownerUserId: string, candidateId: string, result: AnalysisResult): Promise<CandidateDetail | null> {
-    if (!(await this.getCandidate(ownerUserId, candidateId))) return null;
+    const candidate = await this.getCandidate(ownerUserId, candidateId);
+    if (!candidate) return null;
+    const relationship = candidate.repositories.find((repository) => repository.repositoryUrl === result.repository.url);
+    const projected = relationship && result.canonicalEvidence
+      ? { ...result, canonicalEvidence: reprojectGroundedEvidence(result.canonicalEvidence, relationship.discoveryOrigin ?? "manual entry", relationship.attributionStatus) }
+      : result;
     this.db.exec("BEGIN");
     try {
-      this.insertAnalysis(candidateId, result);
+      this.insertAnalysis(candidateId, projected);
+      const legacy = this.db.prepare(`SELECT id FROM candidate_analyses
+        WHERE candidate_id = ? AND repository_url = ?`).get(candidateId, result.repository.url) as { id: string } | undefined;
+      if (legacy && relationship) {
+        this.insertCanonicalEvidence(ownerUserId, candidateId, relationship.id, legacy.id, projected, Boolean(candidate.isDemo));
+      }
       this.refreshCandidateEvidence(candidateId);
       // New evidence must be opened again before it counts as checked.
       this.db.prepare("UPDATE candidates SET evidence_reviewed_at = NULL WHERE id = ?").run(candidateId);
@@ -740,14 +849,75 @@ class PostgresCandidateStore implements CandidatePersistence {
     ]);
   }
 
+  private async insertCanonicalEvidence(
+    client: PoolClient,
+    ownerUserId: string,
+    candidateId: string,
+    candidateRepositoryId: string,
+    _legacyAnalysisId: string,
+    result: AnalysisResult,
+    isDemo: boolean,
+  ): Promise<void> {
+    const bundle = result.canonicalEvidence;
+    if (!bundle) return;
+    const analysisVersionId = result.metadata.analysisId;
+    await client.query(`INSERT INTO codeproof_analysis_versions
+      (id, owner_user_id, candidate_id, legacy_analysis_id, status, analyzed_at,
+       deterministic_engine_version, taxonomy_version, requisition_version_id,
+       ai_request_schema_version, provider_id, model_id, prompt_version, pricing_version,
+       is_demo, recompute_required, legacy_marker, created_at)
+      VALUES ($1,$2,$3,NULL,'completed',$4,$5,$6,NULL,NULL,$7,$8,NULL,NULL,$9,FALSE,NULL,$4)`, [
+      analysisVersionId, ownerUserId, candidateId, result.metadata.analyzedAt,
+      result.metadata.engineVersion, bundle.taxonomyVersion, result.metadata.aiProvider,
+      result.metadata.aiModel, isDemo,
+    ]);
+    for (const finding of bundle.findings) await client.query(`INSERT INTO codeproof_detector_findings
+      (id, analysis_version_id, candidate_repository_id, detector_id, detector_version,
+       capability_id, signal_class, repository_id, revision, file_path, symbol, start_line,
+       end_line, excerpt_start_offset, excerpt_end_offset)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`, [
+      finding.id, analysisVersionId, candidateRepositoryId, finding.detectorId,
+      finding.detectorVersion, finding.capabilityId, finding.signalClass, finding.repositoryId,
+      finding.revision, finding.filePath, finding.symbol, finding.startLine, finding.endLine,
+      finding.excerptStartOffset, finding.excerptEndOffset,
+    ]);
+    const findingById = new Map(bundle.findings.map((finding) => [finding.id, finding]));
+    for (const citation of bundle.citations) {
+      await client.query(`INSERT INTO codeproof_evidence_citations
+        (id, analysis_version_id, finding_id, detector_id, detector_version, repository_id,
+         repository_url, repository_name, revision, revision_availability, file_path, symbol,
+         start_line, end_line, excerpt, source_link, discovery_origin, attribution_status,
+         evidence_level, taxonomy_version)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`, [
+        citation.id, analysisVersionId, citation.findingId, citation.detectorId,
+        citation.detectorVersion, citation.repositoryId, citation.repositoryUrl,
+        citation.repositoryName, citation.revision, citation.revisionAvailability,
+        citation.filePath, citation.symbol, citation.startLine, citation.endLine, citation.excerpt,
+        citation.sourceLink, citation.discoveryOrigin, citation.attributionStatus,
+        citation.evidenceLevel, citation.taxonomyVersion,
+      ]);
+      const finding = findingById.get(citation.findingId);
+      if (finding) await client.query(`INSERT INTO codeproof_evidence_items
+        (id, analysis_version_id, finding_id, capability_id, claim_scope, evidence_level, taxonomy_version)
+        VALUES ($1,$2,$3,$4,$4,$5,$6)`, [
+        randomUUID(), analysisVersionId, finding.id, finding.capabilityId,
+        citation.evidenceLevel, citation.taxonomyVersion,
+      ]);
+    }
+    for (const question of bundle.interviewQuestions) await client.query(`INSERT INTO codeproof_interview_questions
+      (id, analysis_version_id, basis_kind, basis_json, attribution_gate, question, redaction_applied)
+      VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7)`, [
+      question.id, analysisVersionId, question.basis.kind, JSON.stringify(question.basis),
+      question.attributionGate, question.question, question.redactionApplied,
+    ]);
+  }
+
   private async refreshCandidateEvidence(client: PoolClient, candidateId: string): Promise<void> {
-    const rows = await client.query<{ analysis_json: AnalysisResult }>(`SELECT analysis.analysis_json
-      FROM codeproof_candidate_analyses analysis
-      INNER JOIN codeproof_candidate_repositories repository
-        ON repository.candidate_id = analysis.candidate_id
-       AND repository.repository_url = analysis.repository_url
-      WHERE analysis.candidate_id = $1 AND repository.attribution_status = 'verified_contributor'`, [candidateId]);
-    const results = rows.rows.map((row) => row.analysis_json);
+    const rows = await client.query<{ analysis_json: AnalysisResult }>(`SELECT analysis_json
+      FROM codeproof_candidate_analyses WHERE candidate_id = $1`, [candidateId]);
+    const results = rows.rows.map((row) => row.analysis_json).filter((analysis) => (
+      analysis.canonicalEvidence?.citations.some((citation) => citation.attributionStatus === "verified_contributor") === true
+    ));
     const count = await client.query<{ count: string }>("SELECT COUNT(*)::text AS count FROM codeproof_candidate_repository_outcomes WHERE candidate_id = $1", [candidateId]);
     await client.query("UPDATE codeproof_candidates SET evidence_index=$1, repository_count=$2, verified_claim_count=$3 WHERE id=$4", [
       calculateEvidenceIndex(results), Number(count.rows[0]?.count ?? 0), verifiedClaimCount(results), candidateId,
@@ -771,7 +941,9 @@ class PostgresCandidateStore implements CandidatePersistence {
       for (const stage of PIPELINE_STAGES.slice(0, 3)) {
         await client.query("INSERT INTO codeproof_stage_events (candidate_id,stage,entered_at) VALUES ($1,$2,$3)", [id, stage, now]);
       }
-      for (const result of input.results) await this.insertAnalysis(client, id, result);
+      for (const result of input.results) {
+        await this.insertAnalysis(client, id, resultWithAttribution(result, selectionFor(input, result.repository.url)));
+      }
       for (const failure of input.failures ?? []) {
         await client.query(`INSERT INTO codeproof_candidate_repository_outcomes
           (id,candidate_id,repository_url,repository_name,status,code,message,updated_at)
@@ -786,6 +958,22 @@ class PostgresCandidateStore implements CandidatePersistence {
       for (const repositoryUrl of repositoryUrls) {
         await this.insertRepositoryRelationship(client, ownerUserId, id, repositoryUrl, selectionFor(input, repositoryUrl), now);
       }
+      for (const result of input.results) {
+        const legacy = await client.query<{ id: string }>(`SELECT id FROM codeproof_candidate_analyses
+          WHERE candidate_id=$1 AND repository_url=$2`, [id, result.repository.url]);
+        const relationship = await client.query<{ id: string }>(`SELECT id FROM codeproof_candidate_repositories
+          WHERE owner_user_id=$1 AND candidate_id=$2 AND repository_url=$3`, [ownerUserId, id, result.repository.url]);
+        if (!legacy.rows[0] || !relationship.rows[0]) throw new Error("Canonical repository analysis linkage failed.");
+        await this.insertCanonicalEvidence(
+          client,
+          ownerUserId,
+          id,
+          relationship.rows[0].id,
+          legacy.rows[0].id,
+          resultWithAttribution(result, selectionFor(input, result.repository.url)),
+          Boolean(input.isDemo),
+        );
+      }
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -799,11 +987,23 @@ class PostgresCandidateStore implements CandidatePersistence {
   }
 
   async recordRepositorySuccess(ownerUserId: string, candidateId: string, result: AnalysisResult): Promise<CandidateDetail | null> {
-    if (!(await this.getCandidate(ownerUserId, candidateId))) return null;
+    const candidate = await this.getCandidate(ownerUserId, candidateId);
+    if (!candidate) return null;
+    const relationship = candidate.repositories.find((repository) => repository.repositoryUrl === result.repository.url);
+    const projected = relationship && result.canonicalEvidence
+      ? { ...result, canonicalEvidence: reprojectGroundedEvidence(result.canonicalEvidence, relationship.discoveryOrigin ?? "manual entry", relationship.attributionStatus) }
+      : result;
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      await this.insertAnalysis(client, candidateId, result);
+      await this.insertAnalysis(client, candidateId, projected);
+      if (relationship) {
+        const legacy = await client.query<{ id: string }>(`SELECT id FROM codeproof_candidate_analyses
+          WHERE candidate_id=$1 AND repository_url=$2`, [candidateId, result.repository.url]);
+        if (legacy.rows[0]) await this.insertCanonicalEvidence(
+          client, ownerUserId, candidateId, relationship.id, legacy.rows[0].id, projected, Boolean(candidate.isDemo),
+        );
+      }
       await this.refreshCandidateEvidence(client, candidateId);
       // New evidence must be opened again before it counts as checked.
       await client.query("UPDATE codeproof_candidates SET evidence_reviewed_at=NULL WHERE id=$1", [candidateId]);
