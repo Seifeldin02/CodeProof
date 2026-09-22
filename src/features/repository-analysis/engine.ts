@@ -36,6 +36,7 @@ import {
 } from "./deterministic";
 import { ANALYSIS_ENGINE_VERSION } from "./version";
 import { buildGroundedEvidenceBundle } from "./grounded-citations";
+import { projectRepositoryMetrics } from "./repository-metrics";
 
 interface RepositorySource {
   ingest(url: string): Promise<IngestedRepository>;
@@ -289,6 +290,8 @@ export async function analyzeRepository(
       aiStatus,
       aiUnavailableReason,
       warnings,
+      corpusMetrics: repository.corpusMetrics,
+      metricProjections: repository.corpusMetrics ? projectRepositoryMetrics(repository.corpusMetrics) : undefined,
     },
   };
 

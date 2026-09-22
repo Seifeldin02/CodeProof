@@ -14,7 +14,9 @@ import {
 } from "@/features/repository-analysis/attribution-transitions";
 import type { ContributionVerificationResult } from "@/features/repository-analysis/provider-verification";
 import { reprojectGroundedEvidence } from "@/features/repository-analysis/grounded-citations";
+import { reconcileRepositoryRunMetrics } from "@/features/repository-analysis/repository-metrics";
 import type { AttributionStatus, DiscoveryOrigin } from "@/types/remediation";
+import type { AttributionCounts, RepositoryRunMetrics } from "@/types/remediation";
 import type { CandidateDetail, CandidateRepositoryOutcome, CandidateRepositoryRelationship, RepositoryFailure } from "./types";
 import {
   PIPELINE_STAGES,
@@ -286,6 +288,26 @@ function resultWithAttribution(result: AnalysisResult, selection: RepositorySele
     : result;
 }
 
+function completedRunMetrics(input: CreateCandidateInput, repositoryUrls: string[]): RepositoryRunMetrics {
+  const attributionCounts: AttributionCounts = {
+    unverified: 0,
+    candidate_claimed: 0,
+    verified_owner: 0,
+    verified_contributor: 0,
+  };
+  for (const repositoryUrl of repositoryUrls) {
+    const state = createRepositoryAttributionState(selectionFor(input, repositoryUrl));
+    attributionCounts[state.attributionStatus] += 1;
+  }
+  return reconcileRepositoryRunMetrics(
+    "completed",
+    repositoryUrls.length,
+    input.results.length,
+    input.failures?.length ?? 0,
+    attributionCounts,
+  );
+}
+
 function attributionState(row: CandidateRepositoryRow): RepositoryAttributionState | null {
   if (!row.discovery_origin || Boolean(row.origin_confirmation_required)) return null;
   return {
@@ -511,6 +533,16 @@ export class CandidateStore implements CandidatePersistence {
       question.id, analysisVersionId, question.basis.kind, JSON.stringify(question.basis),
       question.attributionGate, question.question, question.redactionApplied ? 1 : 0,
     );
+    if (result.metadata.corpusMetrics) {
+      const repositoryId = bundle.citations[0]?.repositoryId ?? result.repository.commitSha;
+      const revision = bundle.citations[0]?.revision ?? null;
+      this.db.prepare(`INSERT INTO repository_corpus_metrics
+        (id, analysis_version_id, candidate_repository_id, repository_id, revision, analyzed_at, metrics_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
+        randomUUID(), analysisVersionId, candidateRepositoryId, repositoryId, revision,
+        result.metadata.analyzedAt, JSON.stringify(result.metadata.corpusMetrics),
+      );
+    }
   }
 
   private refreshCandidateEvidence(candidateId: string): void {
@@ -569,6 +601,19 @@ export class CandidateStore implements CandidatePersistence {
           legacy.id,
           resultWithAttribution(result, selectionFor(input, result.repository.url)),
           Boolean(input.isDemo),
+        );
+      }
+      if (input.results[0]?.canonicalEvidence) {
+        const metrics = completedRunMetrics(input, [...repositoryUrls]);
+        this.db.prepare(`INSERT INTO repository_run_metrics
+          (id, owner_user_id, analysis_version_id, state, selected_repository_count,
+           successful_repository_count, failed_repository_count, pending_repository_count,
+           attribution_counts_json, is_demo, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+          randomUUID(), ownerUserId, input.results[0].metadata.analysisId, metrics.state,
+          metrics.selectedRepositoryCount, metrics.successfulRepositoryCount,
+          metrics.failedRepositoryCount, metrics.pendingRepositoryCount,
+          JSON.stringify(metrics.attributionCounts), input.isDemo ? 1 : 0, now,
         );
       }
       this.db.exec("COMMIT");
@@ -910,6 +955,16 @@ class PostgresCandidateStore implements CandidatePersistence {
       question.id, analysisVersionId, question.basis.kind, JSON.stringify(question.basis),
       question.attributionGate, question.question, question.redactionApplied,
     ]);
+    if (result.metadata.corpusMetrics) {
+      const repositoryId = bundle.citations[0]?.repositoryId ?? result.repository.commitSha;
+      const revision = bundle.citations[0]?.revision ?? null;
+      await client.query(`INSERT INTO codeproof_repository_corpus_metrics
+        (id, analysis_version_id, candidate_repository_id, repository_id, revision, analyzed_at, metrics_json)
+        VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)`, [
+        randomUUID(), analysisVersionId, candidateRepositoryId, repositoryId, revision,
+        result.metadata.analyzedAt, JSON.stringify(result.metadata.corpusMetrics),
+      ]);
+    }
   }
 
   private async refreshCandidateEvidence(client: PoolClient, candidateId: string): Promise<void> {
@@ -973,6 +1028,19 @@ class PostgresCandidateStore implements CandidatePersistence {
           resultWithAttribution(result, selectionFor(input, result.repository.url)),
           Boolean(input.isDemo),
         );
+      }
+      if (input.results[0]?.canonicalEvidence) {
+        const metrics = completedRunMetrics(input, [...repositoryUrls]);
+        await client.query(`INSERT INTO codeproof_repository_run_metrics
+          (id, owner_user_id, analysis_version_id, state, selected_repository_count,
+           successful_repository_count, failed_repository_count, pending_repository_count,
+           attribution_counts_json, is_demo, created_at)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11)`, [
+          randomUUID(), ownerUserId, input.results[0].metadata.analysisId, metrics.state,
+          metrics.selectedRepositoryCount, metrics.successfulRepositoryCount,
+          metrics.failedRepositoryCount, metrics.pendingRepositoryCount,
+          JSON.stringify(metrics.attributionCounts), Boolean(input.isDemo), now,
+        ]);
       }
       await client.query("COMMIT");
     } catch (error) {

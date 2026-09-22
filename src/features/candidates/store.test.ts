@@ -38,6 +38,18 @@ function canonicalResult(suffix = "1"): AnalysisResult {
     aiStatus: "unavailable_not_configured",
     aiUnavailableReason: "test fixture",
     warnings: [],
+    corpusMetrics: {
+      rawArchiveEntryCount: 2,
+      eligibleTextFileCount: 1,
+      selectedFileCount: 1,
+      analyzedFileCount: 1,
+      downloadedArchiveBytes: 200,
+      eligibleTextBytes: 20,
+      selectedTextBytes: 20,
+      analyzedTextBytes: 20,
+      excludedByReason: { generated_vendor_or_binary: { files: 1, bytes: 180 } },
+      limits: { selectedFiles: 32, selectedBytes: 600_000 },
+    },
   };
   analysis.canonicalEvidence = {
     taxonomyVersion: "2025.1",
@@ -195,6 +207,13 @@ describe("candidate evidence persistence", () => {
     });
     expect(store.db.prepare("SELECT COUNT(*) AS count FROM analysis_versions").get()).toMatchObject({ count: 1 });
     expect(store.db.prepare("SELECT COUNT(*) AS count FROM detector_findings").get()).toMatchObject({ count: 1 });
+    expect(store.db.prepare("SELECT COUNT(*) AS count FROM repository_corpus_metrics").get()).toMatchObject({ count: 1 });
+    expect(store.db.prepare("SELECT selected_repository_count, successful_repository_count, failed_repository_count, pending_repository_count FROM repository_run_metrics").get()).toEqual({
+      selected_repository_count: 1,
+      successful_repository_count: 1,
+      failed_repository_count: 0,
+      pending_repository_count: 0,
+    });
     expect(store.db.prepare("SELECT attribution_status, discovery_origin FROM evidence_citations").get()).toEqual({
       attribution_status: "candidate_claimed",
       discovery_origin: "CV",

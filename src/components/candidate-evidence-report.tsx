@@ -67,6 +67,15 @@ export default function CandidateEvidenceReport({ analysis, locale }: {
           : "Repository signals are shown for review only. The candidate's contribution is not verified, so these signals do not enter candidate conclusions or ordering."}
       </div>}
 
+      {result.metadata.metricProjections && result.metadata.metricProjections.length > 0 && <div className="border-b border-slate-200 bg-slate-50 px-5 py-4 sm:px-7">
+        <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-slate-500">{locale === "ar" ? "نطاق التحليل المحدود" : "Bounded analysis coverage"}</p>
+        <dl className="mt-3 grid gap-3 sm:grid-cols-3">{result.metadata.metricProjections.map((metric) => <div key={metric.id} className="rounded-lg border border-slate-200 bg-white p-3">
+          <dt className="text-xs font-semibold text-slate-800">{metric.id.replaceAll("_", " ")}</dt>
+          <dd className="mt-1 font-mono text-lg text-brand-700">{metric.value === null ? (locale === "ar" ? "غير متاح" : "Unavailable") : `${metric.value.toFixed(1)}%`}</dd>
+          <p className="mt-1 text-[10px] leading-4 text-slate-500">{metric.numerator.toLocaleString()} / {metric.denominator.toLocaleString()} · {metric.weighting.replaceAll("_", " ")} · {metric.roundingRule.replaceAll("_", " ")}</p>
+        </div>)}</dl>
+      </div>}
+
       <nav className="flex gap-1 overflow-x-auto border-b border-slate-100 bg-white px-4 py-2 sm:px-7" aria-label={t("Repository report sections")}>{[["surface", "Stack"], ["architecture", "Architecture"], ["patterns", "Patterns"], ["skills", "Skills"], ["interview", "Interview"]].map(([target, label]) => <a key={target} href={`#${analysis.id}-${target}`} className="min-h-11 whitespace-nowrap rounded-lg px-3 py-2.5 text-[11px] font-semibold text-slate-500 transition hover:bg-brand-50 hover:text-brand-700">{t(label)}</a>)}</nav>
 
       <div className="space-y-10 p-5 sm:p-7 lg:p-8">

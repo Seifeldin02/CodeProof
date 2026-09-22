@@ -237,6 +237,20 @@ export interface AnalysisMetadata {
   aiStatus: "completed" | "unavailable_not_configured" | "unavailable_failed";
   aiUnavailableReason: string | null;
   warnings: AnalysisWarning[];
+  corpusMetrics?: import("./remediation").RepositoryCorpusMetrics;
+  metricProjections?: RepositoryMetricProjection[];
+}
+
+export interface RepositoryMetricProjection {
+  id: "selection_coverage" | "analysis_coverage" | "analyzed_byte_coverage";
+  stage: "selection" | "analysis";
+  eligiblePopulation: string;
+  weighting: "per_file" | "per_byte";
+  attributionFilter: "all_ingested_repository_content";
+  numerator: number;
+  denominator: number;
+  value: number | null;
+  roundingRule: "half_up_1dp";
 }
 
 export interface AnalysisResult {

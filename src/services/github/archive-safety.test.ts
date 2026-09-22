@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { GitHubClient } from "./index";
 
 /**
@@ -58,6 +59,12 @@ async function ingest(files: Record<string, string>) {
 const NUL = String.fromCharCode(0);
 
 describe("untrusted archive path handling", () => {
+  it("keeps the ingestion module non-executing and free of dynamic code loading", () => {
+    const source = readFileSync(new URL("./client.ts", import.meta.url), "utf8");
+    expect(source).not.toMatch(/node:child_process|child_process|\bexecFile\b|\bspawn\s*\(/u);
+    expect(source).not.toMatch(/\beval\s*\(|\bimport\s*\(/u);
+  });
+
   // Outer layer: the ZIP reader fails the whole archive closed rather than
   // partially trusting it, so a traversal entry never reaches path handling.
   it("rejects an archive containing directory-traversal entries", async () => {

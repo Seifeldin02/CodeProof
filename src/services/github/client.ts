@@ -3,8 +3,9 @@ import type { Readable } from "node:stream";
 import yauzl, { type Entry, type ZipFile } from "yauzl";
 import { logger } from "@/services/observability/logger";
 import type { RepositoryMetadata, SelectedFile } from "@/types/analysis";
+import type { RepositoryCorpusMetrics } from "@/types/remediation";
 import { GitHubServiceError } from "./errors";
-import { exceedsTreeLimit, FILE_LIMITS, isEarlyExcludedArchivePath, selectFileCandidates } from "./file-selection";
+import { exceedsTreeLimit, FILE_LIMITS, isEarlyExcludedArchivePath, selectFileCandidatesWithAccounting } from "./file-selection";
 import type { GitHubTreeEntry } from "./types";
 
 export interface ParsedGitHubUrl {
@@ -21,6 +22,7 @@ export interface IngestedRepository {
   treeFileCount: number;
   treeTruncated: boolean;
   ingestionMethod: "public_archive" | "provider";
+  corpusMetrics?: RepositoryCorpusMetrics;
 }
 
 /** Optional repository providers can implement this contract without changing the analysis engine. */
@@ -122,9 +124,21 @@ function isSymbolicLink(entry: Entry): boolean {
   return (mode & 0o170000) === 0o120000;
 }
 
-async function indexArchive(zip: ZipFile): Promise<Array<{ entry: Entry; path: string }>> {
+interface IndexedArchive {
+  entries: Array<{ entry: Entry; path: string }>;
+  rawEntryCount: number;
+  excluded: Record<string, { files: number; bytes: number }>;
+}
+
+function addExcluded(target: IndexedArchive["excluded"], reason: string, bytes: number): void {
+  const current = target[reason] ?? { files: 0, bytes: 0 };
+  target[reason] = { files: current.files + 1, bytes: current.bytes + Math.max(0, bytes) };
+}
+
+async function indexArchive(zip: ZipFile): Promise<IndexedArchive> {
   return new Promise((resolve, reject) => {
     const entries: Array<{ entry: Entry; path: string }> = [];
+    const excluded: IndexedArchive["excluded"] = {};
     let declaredBytes = 0;
     let archiveEntries = 0;
     const fail = (error: Error): void => {
@@ -139,7 +153,17 @@ async function indexArchive(zip: ZipFile): Promise<Array<{ entry: Entry; path: s
         return;
       }
       const path = safeRelativePath(entry.fileName);
-      if (!path || entry.fileName.endsWith("/") || isSymbolicLink(entry) || isEarlyExcludedArchivePath(path)) {
+      const exclusion = !path ? "unsafe_path"
+        : entry.fileName.endsWith("/") ? "directory"
+          : isSymbolicLink(entry) ? "symbolic_link"
+            : isEarlyExcludedArchivePath(path) ? "generated_vendor_or_binary"
+              : null;
+      if (exclusion) {
+        addExcluded(excluded, exclusion, entry.uncompressedSize);
+        zip.readEntry();
+        return;
+      }
+      if (path === null) {
         zip.readEntry();
         return;
       }
@@ -155,7 +179,7 @@ async function indexArchive(zip: ZipFile): Promise<Array<{ entry: Entry; path: s
       entries.push({ entry, path });
       zip.readEntry();
     });
-    zip.on("end", () => resolve(entries));
+    zip.on("end", () => resolve({ entries, rawEntryCount: archiveEntries, excluded }));
     zip.readEntry();
   });
 }
@@ -222,7 +246,8 @@ export class GitHubClient implements RepositoryProvider {
     let zip: ZipFile | null = null;
     try {
       zip = await openZip(archive);
-      const indexed = await indexArchive(zip);
+      const indexedArchive = await indexArchive(zip);
+      const indexed = indexedArchive.entries;
       if (indexed.length === 0) throw new GitHubServiceError("EMPTY_REPOSITORY", "The repository archive contains no files.", 422);
       if (exceedsTreeLimit(indexed.length)) throw new GitHubServiceError("OVERSIZED_REPOSITORY", "Repository contains too many files.", 413);
 
@@ -236,11 +261,17 @@ export class GitHubClient implements RepositoryProvider {
         url: "",
       }));
       const files: SelectedFile[] = [];
-      for (const candidate of selectFileCandidates(treeEntries)) {
+      const selection = selectFileCandidatesWithAccounting(treeEntries);
+      const excluded = { ...indexedArchive.excluded };
+      for (const item of selection.excluded) addExcluded(excluded, item.reason, item.size);
+      for (const candidate of selection.selected) {
         const entry = byPath.get(candidate.path);
         if (!entry) continue;
         const bytes = await readEntry(zip, entry);
-        if (bytes.includes(0)) continue;
+        if (bytes.includes(0)) {
+          addExcluded(excluded, "binary_content", bytes.length);
+          continue;
+        }
         const decoded = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
         const content = decoded.slice(0, FILE_LIMITS.maxPromptCharsPerFile);
         files.push({
@@ -274,6 +305,27 @@ export class GitHubClient implements RepositoryProvider {
         treeFileCount: indexed.length,
         treeTruncated: false,
         ingestionMethod: "public_archive",
+        corpusMetrics: {
+          rawArchiveEntryCount: indexedArchive.rawEntryCount,
+          eligibleTextFileCount: selection.eligible.length,
+          selectedFileCount: selection.selected.length,
+          analyzedFileCount: files.length,
+          downloadedArchiveBytes: archive.length,
+          eligibleTextBytes: selection.eligible.reduce((total, file) => total + (file.size ?? 0), 0),
+          selectedTextBytes: selection.selected.reduce((total, file) => total + (file.size ?? 0), 0),
+          analyzedTextBytes: files.reduce((total, file) => total + Buffer.byteLength(file.content, "utf8"), 0),
+          excludedByReason: excluded,
+          limits: {
+            compressedBytes: ARCHIVE_LIMITS.maxCompressedBytes,
+            archiveEntries: ARCHIVE_LIMITS.maxArchiveEntries,
+            declaredUncompressedBytes: ARCHIVE_LIMITS.maxDeclaredUncompressedBytes,
+            treeEntries: FILE_LIMITS.maxTreeEntries,
+            selectedFiles: FILE_LIMITS.maxSelectedFiles,
+            fileBytes: FILE_LIMITS.maxFileBytes,
+            selectedBytes: FILE_LIMITS.maxSelectedBytes,
+            promptCharactersPerFile: FILE_LIMITS.maxPromptCharsPerFile,
+          },
+        },
       };
       logger.info("repository_archive_download_completed", {
         owner: parsed.owner,

@@ -62,12 +62,29 @@ export function isEarlyExcludedArchivePath(path: string): boolean {
   return EXCLUDED_NAMES.test(path) || BINARY_EXTENSIONS.test(path) || segments.some((segment) => EXCLUDED_SEGMENTS.has(segment));
 }
 
+export type FileExclusionReason =
+  | "empty"
+  | "oversized_file"
+  | "generated_vendor_build"
+  | "binary_extension"
+  | "unsupported_text"
+  | "selection_file_limit"
+  | "selection_byte_limit"
+  | "directory_diversity";
+
+export function classifyFileExclusion(path: string, size: number): FileExclusionReason | null {
+  if (size <= 0) return "empty";
+  if (size > FILE_LIMITS.maxFileBytes) return "oversized_file";
+  const segments = path.toLowerCase().split("/");
+  if (EXCLUDED_NAMES.test(path) || segments.some((segment) => EXCLUDED_SEGMENTS.has(segment))) return "generated_vendor_build";
+  if (BINARY_EXTENSIONS.test(path)) return "binary_extension";
+  if (!SOURCE_EXTENSIONS.test(path) && !EXTENSIONLESS_TEXT_NAMES.test(path)) return "unsupported_text";
+  return null;
+}
+
 function isExcluded(path: string, size: number): boolean {
   return (
-    size <= 0 ||
-    size > FILE_LIMITS.maxFileBytes ||
-    isEarlyExcludedArchivePath(path) ||
-    (!SOURCE_EXTENSIONS.test(path) && !EXTENSIONLESS_TEXT_NAMES.test(path))
+    classifyFileExclusion(path, size) !== null
   );
 }
 
@@ -93,20 +110,46 @@ export function rankFiles(entries: GitHubTreeEntry[]): FileCandidate[] {
 }
 
 export function selectFileCandidates(entries: GitHubTreeEntry[]): FileCandidate[] {
+  return selectFileCandidatesWithAccounting(entries).selected;
+}
+
+export interface FileSelectionAccounting {
+  selected: FileCandidate[];
+  excluded: Array<{ path: string; size: number; reason: FileExclusionReason }>;
+  eligible: FileCandidate[];
+}
+
+export function selectFileCandidatesWithAccounting(entries: GitHubTreeEntry[]): FileSelectionAccounting {
   const selected: FileCandidate[] = [];
+  const excluded: FileSelectionAccounting["excluded"] = [];
   const directoryCounts = new Map<string, number>();
   let totalBytes = 0;
 
-  for (const candidate of rankFiles(entries)) {
-    if (selected.length >= FILE_LIMITS.maxSelectedFiles) break;
+  for (const entry of entries) {
+    const reason = classifyFileExclusion(entry.path, entry.size ?? 0);
+    if (reason) excluded.push({ path: entry.path, size: entry.size ?? 0, reason });
+  }
+
+  const eligible = rankFiles(entries);
+  for (const candidate of eligible) {
+    if (selected.length >= FILE_LIMITS.maxSelectedFiles) {
+      excluded.push({ path: candidate.path, size: candidate.size ?? 0, reason: "selection_file_limit" });
+      continue;
+    }
     const directory = candidate.path.split("/").slice(0, -1).join("/");
     const directoryCount = directoryCounts.get(directory) ?? 0;
-    if (candidate.score < 80 && directoryCount >= 4) continue;
-    if (totalBytes + (candidate.size ?? 0) > FILE_LIMITS.maxSelectedBytes) continue;
+    if (candidate.score < 80 && directoryCount >= 4) {
+      excluded.push({ path: candidate.path, size: candidate.size ?? 0, reason: "directory_diversity" });
+      continue;
+    }
+    if (totalBytes + (candidate.size ?? 0) > FILE_LIMITS.maxSelectedBytes) {
+      excluded.push({ path: candidate.path, size: candidate.size ?? 0, reason: "selection_byte_limit" });
+      continue;
+    }
     selected.push(candidate);
     directoryCounts.set(directory, directoryCount + 1);
     totalBytes += candidate.size ?? 0;
   }
 
-  return selected;
+  return { selected, excluded, eligible };
 }

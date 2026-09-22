@@ -88,6 +88,14 @@ describe("public archive errors", () => {
     expect(result.languages.TypeScript).toBeGreaterThan(0);
     expect(result.files.map((file) => file.path)).toEqual(["package.json", "src/index.ts"]);
     expect(result.metadata.stars).toBeNull();
+    expect(result.corpusMetrics).toMatchObject({
+      rawArchiveEntryCount: 2,
+      eligibleTextFileCount: 2,
+      selectedFileCount: 2,
+      analyzedFileCount: 2,
+      downloadedArchiveBytes: archive.byteLength,
+    });
+    expect(result.corpusMetrics?.selectedTextBytes).toBe(result.corpusMetrics?.analyzedTextBytes);
   });
 
   it("accepts a transport above the former 20 MB ceiling when analyzable content is bounded", async () => {
@@ -120,6 +128,8 @@ describe("public archive errors", () => {
     const result = await new GitHubClient(fetcher).ingest("https://github.com/example/eco");
     expect(result.treePaths).toEqual(["pom.xml", "src/main/java/app/UserDAO.java"]);
     expect(result.treeFileCount).toBe(2);
+    expect(result.corpusMetrics?.rawArchiveEntryCount).toBe(FILE_LIMITS.maxTreeEntries + 202);
+    expect(result.corpusMetrics?.excludedByReason.generated_vendor_or_binary.files).toBe(FILE_LIMITS.maxTreeEntries + 200);
   });
 
   it.each<{ label: string; files: Record<string, string>; language: string; selected: string }>([
