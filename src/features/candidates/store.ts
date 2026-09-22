@@ -7,7 +7,14 @@ import { projectLegacyAnalysisRecord } from "@/features/persistence/legacy-adapt
 import { ensurePostgreSQLRemediationSchema } from "@/features/persistence/postgres-migrations";
 import { getPostgresPool } from "@/features/persistence/postgres";
 import { ensureRemediationSchema } from "@/features/persistence/sqlite-migrations";
-import type { CandidateDetail, CandidateRepositoryOutcome, RepositoryFailure } from "./types";
+import {
+  applyProviderVerification,
+  createRepositoryAttributionState,
+  type RepositoryAttributionState,
+} from "@/features/repository-analysis/attribution-transitions";
+import type { ContributionVerificationResult } from "@/features/repository-analysis/provider-verification";
+import type { AttributionStatus, DiscoveryOrigin } from "@/types/remediation";
+import type { CandidateDetail, CandidateRepositoryOutcome, CandidateRepositoryRelationship, RepositoryFailure } from "./types";
 import {
   PIPELINE_STAGES,
   type CandidateOutcome,
@@ -73,6 +80,19 @@ interface OutcomeRow {
   updated_at: string;
 }
 
+interface CandidateRepositoryRow {
+  id: string;
+  candidate_id: string;
+  repository_url: string;
+  repository_owner: string | null;
+  repository_name: string;
+  discovery_origin: DiscoveryOrigin | null;
+  attribution_status: AttributionStatus;
+  attribution_updated_at: string;
+  verification_revision: string | null;
+  origin_confirmation_required: number | boolean;
+}
+
 interface StageRow {
   stage: PipelineStage;
   entered_at: string;
@@ -86,6 +106,13 @@ export interface CreateCandidateInput {
   isDemo?: boolean;
   /** Portfolio / non-GitHub links from the CV. Recorded, never analyzed. */
   unanalyzedSources?: string[];
+  repositorySelections?: RepositorySelection[];
+}
+
+export interface RepositorySelection {
+  repositoryUrl: string;
+  discoveryOrigin: DiscoveryOrigin;
+  candidateSourceClaim: boolean;
 }
 
 export interface CandidatePersistence {
@@ -93,6 +120,12 @@ export interface CandidatePersistence {
   getCandidate(ownerUserId: string, id: string): Promise<CandidateDetail | null>;
   createCandidate(ownerUserId: string, input: CreateCandidateInput): Promise<CandidateDetail>;
   recordRepositorySuccess(ownerUserId: string, candidateId: string, result: AnalysisResult): Promise<CandidateDetail | null>;
+  verifyRepositoryAttribution(
+    ownerUserId: string,
+    candidateId: string,
+    repositoryUrl: string,
+    verification: ContributionVerificationResult,
+  ): Promise<CandidateDetail | null>;
   removeFailedRepository(ownerUserId: string, candidateId: string, repositoryUrl: string): Promise<boolean>;
   updatePipeline(ownerUserId: string, candidateId: string, stage: PipelineStage, outcome: CandidateOutcome): Promise<CandidateDetail | null>;
   /** Records (or withdraws) the recruiter's confirmation that cited evidence was opened. */
@@ -195,6 +228,63 @@ function mapOutcome(row: OutcomeRow): CandidateRepositoryOutcome {
   };
 }
 
+function mapRepository(row: CandidateRepositoryRow): CandidateRepositoryRelationship {
+  return {
+    id: row.id,
+    candidateId: row.candidate_id,
+    repositoryUrl: row.repository_url,
+    repositoryOwner: row.repository_owner,
+    repositoryName: row.repository_name,
+    discoveryOrigin: row.discovery_origin,
+    attributionStatus: row.attribution_status,
+    attributionUpdatedAt: new Date(row.attribution_updated_at).toISOString(),
+    verificationRevision: row.verification_revision,
+    originConfirmationRequired: Boolean(row.origin_confirmation_required),
+  };
+}
+
+function analysesWithAttribution(
+  analyses: readonly AnalysisRow[],
+  repositories: readonly CandidateRepositoryRelationship[],
+) {
+  const statuses = new Map(repositories.map((repository) => [repository.repositoryUrl, repository.attributionStatus]));
+  return analyses.map((row) => ({
+    ...mapAnalysis(row),
+    attributionStatus: statuses.get(row.repository_url) ?? "unverified" as const,
+  }));
+}
+
+function repositoryParts(url: string): { owner: string | null; name: string } {
+  try {
+    const parts = new URL(url).pathname.split("/").filter(Boolean);
+    return { owner: parts[0] ?? null, name: parts.slice(0, 2).join("/") || url };
+  } catch {
+    return { owner: null, name: url };
+  }
+}
+
+function selectionFor(input: CreateCandidateInput, repositoryUrl: string): RepositorySelection {
+  return input.repositorySelections?.find((item) => item.repositoryUrl === repositoryUrl) ?? {
+    repositoryUrl,
+    discoveryOrigin: "manual entry",
+    candidateSourceClaim: false,
+  };
+}
+
+function attributionState(row: CandidateRepositoryRow): RepositoryAttributionState | null {
+  if (!row.discovery_origin || Boolean(row.origin_confirmation_required)) return null;
+  return {
+    discoveryOrigin: row.discovery_origin,
+    attributionStatus: row.attribution_status,
+    activeProviderVerification: row.attribution_status === "verified_contributor"
+      ? { kind: "contributor", immutableContributionRevision: row.verification_revision }
+      : row.attribution_status === "verified_owner"
+        ? { kind: "owner", immutableContributionRevision: null }
+        : null,
+    history: [],
+  };
+}
+
 /** SQLite persistence for local development and deterministic tests. */
 export class CandidateStore implements CandidatePersistence {
   readonly db: DatabaseSync;
@@ -273,7 +363,54 @@ export class CandidateStore implements CandidatePersistence {
     if (!row) return null;
     const analyses = this.db.prepare("SELECT * FROM candidate_analyses WHERE candidate_id = ? ORDER BY analyzed_at DESC").all(id) as unknown as AnalysisRow[];
     const outcomes = this.db.prepare("SELECT * FROM candidate_repository_outcomes WHERE candidate_id = ? ORDER BY updated_at DESC").all(id) as unknown as OutcomeRow[];
-    return { ...mapCandidate(row, this.events(id)), analyses: analyses.map(mapAnalysis), repositoryOutcomes: outcomes.map(mapOutcome) };
+    const repositories = this.db.prepare(`SELECT id, candidate_id, repository_url, repository_owner,
+      repository_name, discovery_origin, attribution_status, attribution_updated_at,
+      verification_revision, origin_confirmation_required
+      FROM candidate_repositories WHERE candidate_id = ? AND owner_user_id = ?
+      ORDER BY attribution_updated_at DESC`).all(id, ownerUserId) as unknown as CandidateRepositoryRow[];
+    return {
+      ...mapCandidate(row, this.events(id)),
+      analyses: analysesWithAttribution(analyses, repositories.map(mapRepository)),
+      repositoryOutcomes: outcomes.map(mapOutcome),
+      repositories: repositories.map(mapRepository),
+    };
+  }
+
+  private insertRepositoryRelationship(
+    ownerUserId: string,
+    candidateId: string,
+    repositoryUrl: string,
+    selection: RepositorySelection,
+    now: string,
+  ): void {
+    const state = createRepositoryAttributionState(selection);
+    const parts = repositoryParts(repositoryUrl);
+    const relationshipId = randomUUID();
+    this.db.prepare(`INSERT INTO candidate_repositories
+      (id, owner_user_id, candidate_id, repository_url, repository_owner, repository_name,
+       discovery_origin, attribution_status, attribution_updated_at, verification_revision,
+       linked_provider_identity_id, origin_confirmation_required, legacy_marker)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 0, NULL)`)
+      .run(
+        relationshipId,
+        ownerUserId,
+        candidateId,
+        repositoryUrl,
+        parts.owner,
+        parts.name,
+        state.discoveryOrigin,
+        state.attributionStatus,
+        now,
+      );
+    if (state.attributionStatus === "candidate_claimed") {
+      this.db.prepare(`INSERT INTO contribution_verification_events
+        (id, candidate_repository_id, from_status, to_status, provider,
+         provider_identity_fingerprint, repository_provider_id, immutable_revision,
+         reason, verified_at, created_at)
+        VALUES (?, ?, 'unverified', 'candidate_claimed', NULL, NULL, NULL, NULL,
+          'candidate_source_claim', NULL, ?)`)
+        .run(randomUUID(), relationshipId, now);
+    }
   }
 
   private insertAnalysis(candidateId: string, result: AnalysisResult): void {
@@ -295,8 +432,13 @@ export class CandidateStore implements CandidatePersistence {
   }
 
   private refreshCandidateEvidence(candidateId: string): void {
-    const rows = this.db.prepare("SELECT analysis_json FROM candidate_analyses WHERE candidate_id = ?").all(candidateId) as unknown as Array<{ analysis_json: string }>;
-    const results = rows.map((row) => parseAnalysis(row.analysis_json));
+    const eligibleRows = this.db.prepare(`SELECT analysis.analysis_json FROM candidate_analyses analysis
+      INNER JOIN candidate_repositories repository
+        ON repository.candidate_id = analysis.candidate_id
+       AND repository.repository_url = analysis.repository_url
+      WHERE analysis.candidate_id = ? AND repository.attribution_status = 'verified_contributor'`)
+      .all(candidateId) as unknown as Array<{ analysis_json: string }>;
+    const results = eligibleRows.map((row) => parseAnalysis(row.analysis_json));
     const count = (this.db.prepare("SELECT COUNT(*) AS count FROM candidate_repository_outcomes WHERE candidate_id = ?").get(candidateId) as { count: number }).count;
     this.db.prepare("UPDATE candidates SET evidence_index = ?, repository_count = ?, verified_claim_count = ? WHERE id = ?")
       .run(calculateEvidenceIndex(results), count, verifiedClaimCount(results), candidateId);
@@ -310,8 +452,8 @@ export class CandidateStore implements CandidatePersistence {
       this.db.prepare(`INSERT INTO candidates
         (id, owner_user_id, name, role, source, evidence_index, applied_at, outcome, furthest_stage, is_demo, repository_count, verified_claim_count, unanalyzed_sources)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-        id, ownerUserId, input.name, input.role, "CodeProof", calculateEvidenceIndex(input.results), now,
-        "in_progress", "code_review", input.isDemo ? 1 : 0, input.results.length + (input.failures?.length ?? 0), verifiedClaimCount(input.results),
+        id, ownerUserId, input.name, input.role, "CodeProof", 0, now,
+        "in_progress", "code_review", input.isDemo ? 1 : 0, input.results.length + (input.failures?.length ?? 0), 0,
         JSON.stringify(input.unanalyzedSources ?? []),
       );
       const insertStage = this.db.prepare("INSERT INTO stage_events (candidate_id, stage, entered_at) VALUES (?, ?, ?)");
@@ -322,6 +464,13 @@ export class CandidateStore implements CandidatePersistence {
         VALUES (?, ?, ?, ?, 'failed', ?, ?, ?)`);
       for (const failure of input.failures ?? []) {
         insertFailure.run(randomUUID(), id, failure.repositoryUrl, repositoryName(failure.repositoryUrl), failure.code, failure.message, now);
+      }
+      const repositoryUrls = new Set([
+        ...input.results.map((result) => result.repository.url),
+        ...(input.failures ?? []).map((failure) => failure.repositoryUrl),
+      ]);
+      for (const repositoryUrl of repositoryUrls) {
+        this.insertRepositoryRelationship(ownerUserId, id, repositoryUrl, selectionFor(input, repositoryUrl), now);
       }
       this.db.exec("COMMIT");
     } catch (error) {
@@ -349,6 +498,70 @@ export class CandidateStore implements CandidatePersistence {
     return this.getCandidate(ownerUserId, candidateId);
   }
 
+  async verifyRepositoryAttribution(
+    ownerUserId: string,
+    candidateId: string,
+    repositoryUrl: string,
+    verification: ContributionVerificationResult,
+  ): Promise<CandidateDetail | null> {
+    const row = this.db.prepare(`SELECT id, candidate_id, repository_url, repository_owner,
+      repository_name, discovery_origin, attribution_status, attribution_updated_at,
+      verification_revision, origin_confirmation_required
+      FROM candidate_repositories WHERE owner_user_id = ? AND candidate_id = ? AND repository_url = ?`)
+      .get(ownerUserId, candidateId, repositoryUrl) as CandidateRepositoryRow | undefined;
+    if (!row) return null;
+    const current = attributionState(row);
+    if (!current) return null;
+    const updated = applyProviderVerification(current, verification.proof);
+    const transition = updated.history.at(-1);
+    if (!transition || transition.reason === "provider_proof_incomplete") {
+      return this.getCandidate(ownerUserId, candidateId);
+    }
+
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const changed = this.db.prepare(`UPDATE candidate_repositories SET
+        attribution_status = ?, attribution_updated_at = ?, verification_revision = ?,
+        linked_provider_identity_id = ?
+        WHERE id = ? AND owner_user_id = ? AND candidate_id = ? AND repository_url = ?`)
+        .run(
+          updated.attributionStatus,
+          verification.verifiedAt,
+          updated.activeProviderVerification?.immutableContributionRevision ?? null,
+          verification.providerIdentityFingerprint,
+          row.id,
+          ownerUserId,
+          candidateId,
+          repositoryUrl,
+        );
+      if (Number(changed.changes) !== 1) throw new Error("Repository attribution changed concurrently.");
+      this.db.prepare(`INSERT INTO contribution_verification_events
+        (id, candidate_repository_id, from_status, to_status, provider,
+         provider_identity_fingerprint, repository_provider_id, immutable_revision,
+         reason, verified_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(
+          randomUUID(),
+          row.id,
+          transition.fromStatus,
+          transition.toStatus,
+          verification.provider,
+          verification.providerIdentityFingerprint,
+          verification.repositoryProviderId,
+          verification.proof.immutableContributionRevision,
+          transition.reason,
+          verification.verifiedAt,
+          verification.verifiedAt,
+        );
+      this.refreshCandidateEvidence(candidateId);
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+    return this.getCandidate(ownerUserId, candidateId);
+  }
+
   async setEvidenceReviewed(ownerUserId: string, candidateId: string, reviewed: boolean): Promise<CandidateDetail | null> {
     const result = this.db.prepare("UPDATE candidates SET evidence_reviewed_at = ? WHERE id = ? AND owner_user_id = ?")
       .run(reviewed ? new Date().toISOString() : null, candidateId, ownerUserId);
@@ -357,9 +570,20 @@ export class CandidateStore implements CandidatePersistence {
 
   async removeFailedRepository(ownerUserId: string, candidateId: string, repositoryUrl: string): Promise<boolean> {
     if (!(await this.getCandidate(ownerUserId, candidateId))) return false;
-    const result = this.db.prepare("DELETE FROM candidate_repository_outcomes WHERE candidate_id = ? AND repository_url = ? AND status = 'failed'").run(candidateId, repositoryUrl);
-    if (Number(result.changes) > 0) this.refreshCandidateEvidence(candidateId);
-    return Number(result.changes) > 0;
+    this.db.exec("BEGIN");
+    try {
+      const result = this.db.prepare("DELETE FROM candidate_repository_outcomes WHERE candidate_id = ? AND repository_url = ? AND status = 'failed'").run(candidateId, repositoryUrl);
+      if (Number(result.changes) > 0) {
+        this.db.prepare("DELETE FROM candidate_repositories WHERE owner_user_id = ? AND candidate_id = ? AND repository_url = ?")
+          .run(ownerUserId, candidateId, repositoryUrl);
+        this.refreshCandidateEvidence(candidateId);
+      }
+      this.db.exec("COMMIT");
+      return Number(result.changes) > 0;
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
   }
 
   async updatePipeline(ownerUserId: string, candidateId: string, stage: PipelineStage, outcome: CandidateOutcome): Promise<CandidateDetail | null> {
@@ -442,12 +666,58 @@ class PostgresCandidateStore implements CandidatePersistence {
     const candidate = await this.pool.query<CandidateRow>("SELECT * FROM codeproof_candidates WHERE id = $1 AND owner_user_id = $2", [id, ownerUserId]);
     const row = candidate.rows[0];
     if (!row) return null;
-    const [events, analyses, outcomes] = await Promise.all([
+    const [events, analyses, outcomes, repositories] = await Promise.all([
       this.events(id),
       this.pool.query<AnalysisRow>("SELECT * FROM codeproof_candidate_analyses WHERE candidate_id = $1 ORDER BY analyzed_at DESC", [id]),
       this.pool.query<OutcomeRow>("SELECT * FROM codeproof_candidate_repository_outcomes WHERE candidate_id = $1 ORDER BY updated_at DESC", [id]),
+      this.pool.query<CandidateRepositoryRow>(`SELECT id, candidate_id, repository_url, repository_owner,
+        repository_name, discovery_origin, attribution_status, attribution_updated_at,
+        verification_revision, origin_confirmation_required
+        FROM codeproof_candidate_repositories WHERE candidate_id = $1 AND owner_user_id = $2
+        ORDER BY attribution_updated_at DESC`, [id, ownerUserId]),
     ]);
-    return { ...mapCandidate(row, events), analyses: analyses.rows.map(mapAnalysis), repositoryOutcomes: outcomes.rows.map(mapOutcome) };
+    return {
+      ...mapCandidate(row, events),
+      analyses: analysesWithAttribution(analyses.rows, repositories.rows.map(mapRepository)),
+      repositoryOutcomes: outcomes.rows.map(mapOutcome),
+      repositories: repositories.rows.map(mapRepository),
+    };
+  }
+
+  private async insertRepositoryRelationship(
+    client: PoolClient,
+    ownerUserId: string,
+    candidateId: string,
+    repositoryUrl: string,
+    selection: RepositorySelection,
+    now: string,
+  ): Promise<void> {
+    const state = createRepositoryAttributionState(selection);
+    const parts = repositoryParts(repositoryUrl);
+    const relationshipId = randomUUID();
+    await client.query(`INSERT INTO codeproof_candidate_repositories
+      (id, owner_user_id, candidate_id, repository_url, repository_owner, repository_name,
+       discovery_origin, attribution_status, attribution_updated_at, verification_revision,
+       linked_provider_identity_id, origin_confirmation_required, legacy_marker)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL,NULL,FALSE,NULL)`, [
+      relationshipId,
+      ownerUserId,
+      candidateId,
+      repositoryUrl,
+      parts.owner,
+      parts.name,
+      state.discoveryOrigin,
+      state.attributionStatus,
+      now,
+    ]);
+    if (state.attributionStatus === "candidate_claimed") {
+      await client.query(`INSERT INTO codeproof_contribution_verification_events
+        (id, candidate_repository_id, from_status, to_status, provider,
+         provider_identity_fingerprint, repository_provider_id, immutable_revision,
+         reason, verified_at, created_at)
+        VALUES ($1,$2,'unverified','candidate_claimed',NULL,NULL,NULL,NULL,
+          'candidate_source_claim',NULL,$3)`, [randomUUID(), relationshipId, now]);
+    }
   }
 
   private async insertAnalysis(client: PoolClient, candidateId: string, result: AnalysisResult): Promise<void> {
@@ -471,7 +741,12 @@ class PostgresCandidateStore implements CandidatePersistence {
   }
 
   private async refreshCandidateEvidence(client: PoolClient, candidateId: string): Promise<void> {
-    const rows = await client.query<{ analysis_json: AnalysisResult }>("SELECT analysis_json FROM codeproof_candidate_analyses WHERE candidate_id = $1", [candidateId]);
+    const rows = await client.query<{ analysis_json: AnalysisResult }>(`SELECT analysis.analysis_json
+      FROM codeproof_candidate_analyses analysis
+      INNER JOIN codeproof_candidate_repositories repository
+        ON repository.candidate_id = analysis.candidate_id
+       AND repository.repository_url = analysis.repository_url
+      WHERE analysis.candidate_id = $1 AND repository.attribution_status = 'verified_contributor'`, [candidateId]);
     const results = rows.rows.map((row) => row.analysis_json);
     const count = await client.query<{ count: string }>("SELECT COUNT(*)::text AS count FROM codeproof_candidate_repository_outcomes WHERE candidate_id = $1", [candidateId]);
     await client.query("UPDATE codeproof_candidates SET evidence_index=$1, repository_count=$2, verified_claim_count=$3 WHERE id=$4", [
@@ -489,8 +764,8 @@ class PostgresCandidateStore implements CandidatePersistence {
       await client.query(`INSERT INTO codeproof_candidates
         (id,owner_user_id,name,role,source,evidence_index,applied_at,outcome,furthest_stage,is_demo,repository_count,verified_claim_count,unanalyzed_sources)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [
-        id, ownerUserId, input.name, input.role, "CodeProof", calculateEvidenceIndex(input.results), now, "in_progress", "code_review",
-        Boolean(input.isDemo), input.results.length + (input.failures?.length ?? 0), verifiedClaimCount(input.results),
+        id, ownerUserId, input.name, input.role, "CodeProof", 0, now, "in_progress", "code_review",
+        Boolean(input.isDemo), input.results.length + (input.failures?.length ?? 0), 0,
         JSON.stringify(input.unanalyzedSources ?? []),
       ]);
       for (const stage of PIPELINE_STAGES.slice(0, 3)) {
@@ -503,6 +778,13 @@ class PostgresCandidateStore implements CandidatePersistence {
           VALUES ($1,$2,$3,$4,'failed',$5,$6,$7)`, [
           randomUUID(), id, failure.repositoryUrl, repositoryName(failure.repositoryUrl), failure.code, failure.message, now,
         ]);
+      }
+      const repositoryUrls = new Set([
+        ...input.results.map((result) => result.repository.url),
+        ...(input.failures ?? []).map((failure) => failure.repositoryUrl),
+      ]);
+      for (const repositoryUrl of repositoryUrls) {
+        await this.insertRepositoryRelationship(client, ownerUserId, id, repositoryUrl, selectionFor(input, repositoryUrl), now);
       }
       await client.query("COMMIT");
     } catch (error) {
@@ -535,6 +817,80 @@ class PostgresCandidateStore implements CandidatePersistence {
     return this.getCandidate(ownerUserId, candidateId);
   }
 
+  async verifyRepositoryAttribution(
+    ownerUserId: string,
+    candidateId: string,
+    repositoryUrl: string,
+    verification: ContributionVerificationResult,
+  ): Promise<CandidateDetail | null> {
+    await this.initialize();
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query<CandidateRepositoryRow>(`SELECT id, candidate_id, repository_url,
+        repository_owner, repository_name, discovery_origin, attribution_status, attribution_updated_at,
+        verification_revision, origin_confirmation_required
+        FROM codeproof_candidate_repositories
+        WHERE owner_user_id=$1 AND candidate_id=$2 AND repository_url=$3 FOR UPDATE`, [
+        ownerUserId, candidateId, repositoryUrl,
+      ]);
+      const row = result.rows[0];
+      if (!row) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      const current = attributionState(row);
+      if (!current) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      const updated = applyProviderVerification(current, verification.proof);
+      const transition = updated.history.at(-1);
+      if (!transition || transition.reason === "provider_proof_incomplete") {
+        await client.query("COMMIT");
+        return this.getCandidate(ownerUserId, candidateId);
+      }
+      const changed = await client.query(`UPDATE codeproof_candidate_repositories SET
+        attribution_status=$1, attribution_updated_at=$2, verification_revision=$3,
+        linked_provider_identity_id=$4
+        WHERE id=$5 AND owner_user_id=$6 AND candidate_id=$7 AND repository_url=$8`, [
+        updated.attributionStatus,
+        verification.verifiedAt,
+        updated.activeProviderVerification?.immutableContributionRevision ?? null,
+        verification.providerIdentityFingerprint,
+        row.id,
+        ownerUserId,
+        candidateId,
+        repositoryUrl,
+      ]);
+      if (changed.rowCount !== 1) throw new Error("Repository attribution changed concurrently.");
+      await client.query(`INSERT INTO codeproof_contribution_verification_events
+        (id, candidate_repository_id, from_status, to_status, provider,
+         provider_identity_fingerprint, repository_provider_id, immutable_revision,
+         reason, verified_at, created_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)`, [
+        randomUUID(),
+        row.id,
+        transition.fromStatus,
+        transition.toStatus,
+        verification.provider,
+        verification.providerIdentityFingerprint,
+        verification.repositoryProviderId,
+        verification.proof.immutableContributionRevision,
+        transition.reason,
+        verification.verifiedAt,
+      ]);
+      await this.refreshCandidateEvidence(client, candidateId);
+      await client.query("COMMIT");
+    } catch (error) {
+      try { await client.query("ROLLBACK"); } catch { /* Preserve the original error. */ }
+      throw error;
+    } finally {
+      client.release();
+    }
+    return this.getCandidate(ownerUserId, candidateId);
+  }
+
   async setEvidenceReviewed(ownerUserId: string, candidateId: string, reviewed: boolean): Promise<CandidateDetail | null> {
     await this.initialize();
     const result = await this.pool.query("UPDATE codeproof_candidates SET evidence_reviewed_at=$1 WHERE id=$2 AND owner_user_id=$3", [
@@ -549,7 +905,11 @@ class PostgresCandidateStore implements CandidatePersistence {
     try {
       await client.query("BEGIN");
       const removed = await client.query("DELETE FROM codeproof_candidate_repository_outcomes WHERE candidate_id=$1 AND repository_url=$2 AND status='failed'", [candidateId, repositoryUrl]);
-      if ((removed.rowCount ?? 0) > 0) await this.refreshCandidateEvidence(client, candidateId);
+      if ((removed.rowCount ?? 0) > 0) {
+        await client.query(`DELETE FROM codeproof_candidate_repositories
+          WHERE owner_user_id=$1 AND candidate_id=$2 AND repository_url=$3`, [ownerUserId, candidateId, repositoryUrl]);
+        await this.refreshCandidateEvidence(client, candidateId);
+      }
       await client.query("COMMIT");
       return (removed.rowCount ?? 0) > 0;
     } catch (error) {

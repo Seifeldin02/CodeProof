@@ -13,6 +13,7 @@ import {
   getCapabilityTaxonomyVersion,
   resolveCapabilityAliasInTaxonomy,
 } from "./capability-taxonomy";
+import { isCitationEligibleForConclusion } from "./evidence-eligibility";
 
 const CONCLUSIVE_LEVELS = new Set<CanonicalEvidenceLevel>(["strong", "good", "partial"]);
 const WEAK_SIGNAL_CLASSES = new Set<DetectorFinding["signalClass"]>([
@@ -563,7 +564,7 @@ export function validateCanonicalAnalysisBundle(
       && citation.analysisVersionId === bundle.analysis.versionId
       && citation.candidateId === bundle.analysis.candidateId
       && citation.taxonomyVersion === bundle.analysis.taxonomyVersion
-      && citation.attributionStatus === "verified_contributor"
+      && isCitationEligibleForConclusion(citation)
       && citation.evidenceLevel === item.evidenceLevel
       && item.findingIds.includes(citation.findingId)
     ));
@@ -599,7 +600,7 @@ export function validateCanonicalAnalysisBundle(
         || citation.analysisVersionId !== bundle.analysis.versionId
         || citation.candidateId !== bundle.analysis.candidateId
         || citation.taxonomyVersion !== bundle.analysis.taxonomyVersion
-        || citation.attributionStatus !== "verified_contributor"
+        || !isCitationEligibleForConclusion(citation)
         || !CONCLUSIVE_LEVELS.has(citation.evidenceLevel)
         || citation.evidenceLevel !== conclusion.evidenceLevel
       ) return false;

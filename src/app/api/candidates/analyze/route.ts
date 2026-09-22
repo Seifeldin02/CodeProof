@@ -8,6 +8,7 @@ import type { RepositoryFailure } from "@/features/candidates/types";
 import { ROLES } from "@/features/hiring-analytics/types";
 import { GitHubServiceError, parseGitHubRepositoryUrl } from "@/services/github";
 import type { AnalysisResult } from "@/types/analysis";
+import { DiscoveryOriginSchema, type DiscoveryOrigin } from "@/types/remediation";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -21,6 +22,11 @@ const inputSchema = z.object({
   resumeText: z.string().max(50_000),
   jobDescription: z.string().max(50_000).optional(),
   isDemo: z.boolean().optional(),
+  repositorySelections: z.array(z.object({
+    repositoryUrl: z.string().url().max(500),
+    discoveryOrigin: DiscoveryOriginSchema,
+    candidateSourceClaim: z.boolean(),
+  }).strict()).max(MAX_REPOSITORIES),
 }).strict();
 
 function text(form: FormData, name: string): string {
@@ -38,6 +44,23 @@ function repositories(form: FormData): string[] {
   }
   if (!Array.isArray(parsed)) return [];
   return [...new Set(parsed.filter((value): value is string => typeof value === "string").map((value) => parseGitHubRepositoryUrl(value).canonicalUrl))];
+}
+
+function requestedOrigins(form: FormData): Map<string, DiscoveryOrigin> {
+  const raw = text(form, "repositorySelections");
+  if (!raw) return new Map();
+  try {
+    const parsed = z.array(z.object({
+      repositoryUrl: z.string().trim().min(1).max(500),
+      discoveryOrigin: DiscoveryOriginSchema,
+    }).strict()).max(MAX_REPOSITORIES).parse(JSON.parse(raw));
+    return new Map(parsed.map((selection) => [
+      parseGitHubRepositoryUrl(selection.repositoryUrl).canonicalUrl,
+      selection.discoveryOrigin,
+    ]));
+  } catch {
+    return new Map();
+  }
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -59,6 +82,22 @@ export async function POST(request: Request): Promise<Response> {
     if (!resumeText) return Response.json({ error: { code: "CV_REQUIRED", message: "Upload a CV PDF or paste CV text." } }, { status: 400 });
 
     const discovered = discoverCandidateLinks(resumeText);
+    const selectedRepositories = repositories(form);
+    const requestedRepositoryOrigins = requestedOrigins(form);
+    const cvRepositories = new Set(discovered.repositories.map((repository) => repository.url));
+    const repositorySelections = selectedRepositories.map((repositoryUrl) => {
+      const requestedOrigin = requestedRepositoryOrigins.get(repositoryUrl);
+      const discoveryOrigin: DiscoveryOrigin = cvRepositories.has(repositoryUrl)
+        ? "CV"
+        : requestedOrigin === "portfolio"
+          ? "portfolio"
+          : "manual entry";
+      return {
+        repositoryUrl,
+        discoveryOrigin,
+        candidateSourceClaim: discoveryOrigin === "CV" || discoveryOrigin === "portfolio",
+      };
+    });
     // Fall back to the saved company requirements so every candidate is
     // evaluated against the same bar without the recruiter re-typing it.
     const savedRequirements = toJobDescriptionText(await getRequirementsStore().list(user.id));
@@ -66,10 +105,11 @@ export async function POST(request: Request): Promise<Response> {
     const parsed = inputSchema.parse({
       candidateName: text(form, "candidateName") || discovered.candidateName || "Unnamed candidate",
       role: text(form, "role") || discovered.suggestedRole,
-      repositoryUrls: repositories(form),
+      repositoryUrls: selectedRepositories,
       resumeText,
       ...(jobDescription ? { jobDescription } : {}),
       isDemo: text(form, "isDemo") === "true",
+      repositorySelections,
     });
 
     const results: AnalysisResult[] = [];
@@ -94,6 +134,7 @@ export async function POST(request: Request): Promise<Response> {
       results,
       failures: failedRepositories,
       isDemo: parsed.isDemo,
+      repositorySelections: parsed.repositorySelections,
       // Portfolios and non-GitHub hosts are recorded so the queue can report
       // them as unknown rather than silently dropping them.
       unanalyzedSources: discovered.otherSources.map((source) => source.url),

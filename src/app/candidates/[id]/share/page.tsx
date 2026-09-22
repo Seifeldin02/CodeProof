@@ -7,6 +7,7 @@ import { getI18n } from "@/i18n/server";
 import { localizeAnalysisText } from "@/i18n/translations";
 import type { EvidenceLevel } from "@/types/analysis";
 import { requirePageUser } from "@/features/auth/page-guard";
+import { eligibleCandidateAnalyses } from "@/features/repository-analysis/evidence-eligibility";
 
 export const dynamic = "force-dynamic";
 const WEIGHT: Record<EvidenceLevel, number> = { "Strong Evidence": 4, "Good Evidence": 3, "Partial Evidence": 2, "Limited Evidence": 1, "Insufficient Evidence": 0 };
@@ -17,8 +18,9 @@ export default async function CandidateSharePage({ params }: { params: Promise<{
   const candidate = await getCandidateStore().getCandidate(user.id, id);
   if (!candidate) notFound();
   const { locale, t } = await getI18n();
+  const eligibleAnalyses = eligibleCandidateAnalyses(candidate);
   const skills = new Map<string, { skill: string; level: EvidenceLevel; files: string[] }>();
-  for (const analysis of candidate.analyses) for (const skill of analysis.result.skills) {
+  for (const analysis of eligibleAnalyses) for (const skill of analysis.result.skills) {
     const current = skills.get(skill.skill);
     if (!current || WEIGHT[skill.level] > WEIGHT[current.level]) skills.set(skill.skill, { skill: skill.skill, level: skill.level, files: skill.evidence.map((item) => item.file) });
   }
@@ -38,7 +40,7 @@ export default async function CandidateSharePage({ params }: { params: Promise<{
         <p className="mt-2 text-sm text-slate-400">{t(candidate.role)} · CodeProof</p>
         <dl className="mt-8 grid grid-cols-3 gap-2">
           <div><dt className="text-[9px] uppercase text-slate-500">{t("Evidence index")}</dt><dd className="mt-1 text-2xl font-semibold text-lime-300">{candidate.verifiedSkillScore}</dd></div>
-          <div><dt className="text-[9px] uppercase text-slate-500">{t("Verified repositories")}</dt><dd className="mt-1 text-2xl font-semibold">{candidate.analyses.length}</dd></div>
+          <div><dt className="text-[9px] uppercase text-slate-500">{t("Verified repositories")}</dt><dd className="mt-1 text-2xl font-semibold">{eligibleAnalyses.length}</dd></div>
           <div><dt className="text-[9px] uppercase text-slate-500">{t("Grounded CV claims")}</dt><dd className="mt-1 text-2xl font-semibold">{candidate.verifiedClaimCount ?? 0}</dd></div>
         </dl>
       </header>

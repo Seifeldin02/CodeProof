@@ -7,6 +7,7 @@ import type { CvDiscovery, DiscoveredRepository } from "@/features/resume-matchi
 import { ROLES, type Role } from "@/features/hiring-analytics/types";
 import { useI18n } from "@/components/i18n/LocaleProvider";
 import { localizeAnalysisText } from "@/i18n/translations";
+import type { DiscoveryOrigin } from "@/types/remediation";
 
 interface ApiError { error?: { message?: string } }
 type RepositoryUiStatus = { status: "analyzing" | "analyzed" | "failed" | "skipped"; message?: string };
@@ -56,6 +57,7 @@ export default function AnalyzeCandidateWorkflow() {
   const [candidateName, setCandidateName] = useState("");
   const [role, setRole] = useState<Role>("Frontend Engineer");
   const [repositories, setRepositories] = useState<DiscoveredRepository[]>([]);
+  const [repositoryOrigins, setRepositoryOrigins] = useState<Record<string, DiscoveryOrigin>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [manualRepository, setManualRepository] = useState("");
   const [isDemo, setIsDemo] = useState(false);
@@ -81,6 +83,12 @@ export default function AnalyzeCandidateWorkflow() {
       if (!response.ok || !payload.scan) throw new Error(payload.error?.message ?? "The portfolio could not be scanned.");
       const scan = payload.scan;
       setScans((current) => ({ ...current, [sourceUrl]: { status: "done", scan } }));
+      setRepositoryOrigins((current) => ({
+        ...current,
+        ...Object.fromEntries(scan.repositories
+          .filter((repository) => current[repository.url] === undefined)
+          .map((repository) => [repository.url, "portfolio" as const])),
+      }));
       setRepositories((current) => {
         const seen = new Set(current.map((repository) => repository.url.toLowerCase()));
         return [...current, ...scan.repositories.filter((repository) => !seen.has(repository.url.toLowerCase()))];
@@ -103,6 +111,7 @@ export default function AnalyzeCandidateWorkflow() {
       setCandidateName(payload.discovery.candidateName ?? "");
       setRole(payload.discovery.suggestedRole);
       setRepositories(payload.discovery.repositories);
+      setRepositoryOrigins(Object.fromEntries(payload.discovery.repositories.map((repository) => [repository.url, "CV" as const])));
       setSelected(new Set(payload.discovery.repositories.slice(0, 3).map((repository) => repository.url)));
       setRepositoryStatus({});
     } catch (caught) { setError(caught instanceof Error ? caught.message : "CV discovery failed."); }
@@ -118,6 +127,7 @@ export default function AnalyzeCandidateWorkflow() {
     const parsed = canonicalRepository(manualRepository);
     if (!parsed) { setError(t("Enter a public repository URL such as https://github.com/owner/repository.")); return; }
     setRepositories((current) => current.some((repository) => repository.url.toLowerCase() === parsed.url.toLowerCase()) ? current : [...current, parsed]);
+    setRepositoryOrigins((current) => ({ ...current, [parsed.url]: current[parsed.url] ?? "manual entry" }));
     setSelected((current) => new Set([...current, parsed.url]));
     setManualRepository(""); setError(null);
   }
@@ -142,6 +152,10 @@ export default function AnalyzeCandidateWorkflow() {
       form.set("candidateName", candidateName);
       form.set("role", role);
       form.set("repositoryUrls", JSON.stringify([...selected]));
+      form.set("repositorySelections", JSON.stringify([...selected].map((repositoryUrl) => ({
+        repositoryUrl,
+        discoveryOrigin: repositoryOrigins[repositoryUrl] ?? "manual entry",
+      }))));
       form.set("resumeText", resumeText);
       form.set("jobDescription", jobDescription);
       form.set("isDemo", String(isDemo));

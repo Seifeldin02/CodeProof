@@ -29,6 +29,18 @@ function candidate(name: string, analyses: CandidateDetail["analyses"], failed =
     furthestStage: "code_review",
     stageHistory: [],
     analyses,
+    repositories: analyses.map((item) => ({
+      id: `repository-${item.id}`,
+      candidateId: item.candidateId,
+      repositoryUrl: item.repositoryUrl,
+      repositoryOwner: "acme",
+      repositoryName: item.repositoryName,
+      discoveryOrigin: "CV" as const,
+      attributionStatus: "verified_contributor" as const,
+      attributionUpdatedAt: item.analyzedAt,
+      verificationRevision: "fixture-revision",
+      originConfirmationRequired: false,
+    })),
     repositoryOutcomes: [
       ...analyses.map((item) => ({ id: item.id, candidateId: item.candidateId, repositoryUrl: item.repositoryUrl, repositoryName: item.repositoryName, status: "analyzed" as const, code: null, message: null, updatedAt: item.analyzedAt })),
       ...Array.from({ length: failed }, (_, index) => ({ id: `f${index}`, candidateId: name, repositoryUrl: `https://github.com/acme/broken-${index}`, repositoryName: `acme/broken-${index}`, status: "failed" as const, code: "EMPTY", message: "Empty.", updatedAt: "2026-01-01" })),
@@ -98,6 +110,20 @@ describe("review queue", () => {
     expect(queue.requirementsSaved).toBe(false);
     expect(queue.entries[0].tier).toBe("review");
     expect(queue.entries[0].unknowns).toContain("no_requirements");
+  });
+
+  it("keeps candidate-claimed repository signals out of conclusions and ordering", () => {
+    const claimed = candidate("Claimed", [analysis([["TypeScript", "Strong Evidence"]])]);
+    claimed.repositories = claimed.repositories.map((repository) => ({
+      ...repository,
+      attributionStatus: "candidate_claimed",
+      verificationRevision: null,
+    }));
+    const entry = buildReviewEntry(claimed, requirements);
+    expect(entry.strongSkills).toBe(0);
+    expect(entry.claims).toBeNull();
+    expect(entry.requirements).toMatchObject({ strong: 0, partial: 0, unsupported: 2 });
+    expect(entry.tier).toBe("evidence_incomplete");
   });
 });
 

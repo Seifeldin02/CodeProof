@@ -15,6 +15,12 @@ function result(levels: AnalysisResult["skills"][number]["level"][], repositoryU
   } as unknown as AnalysisResult;
 }
 
+function seedOwners(store: CandidateStore): void {
+  const insert = store.db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)");
+  insert.run("owner-a", "owner-a@example.invalid", "test-hash-a", "2026-01-01T00:00:00.000Z");
+  insert.run("owner-b", "owner-b@example.invalid", "test-hash-b", "2026-01-01T00:00:00.000Z");
+}
+
 describe("candidate evidence persistence", () => {
   it("computes a transparent weighted evidence index", () => {
     expect(calculateEvidenceIndex([result(["Strong Evidence", "Good Evidence", "Limited Evidence"])] )).toBe(67);
@@ -29,15 +35,26 @@ describe("candidate evidence persistence", () => {
 
   it("persists account-scoped repository outcomes and supports pipeline updates", async () => {
     const store = new CandidateStore(":memory:");
+    seedOwners(store);
     const created = await store.createCandidate("owner-a", {
       name: "Candidate",
       role: "Backend Engineer",
       results: [result(["Good Evidence"])],
       failures: [{ repositoryUrl: "https://github.com/example/broken", code: "MALFORMED_ARCHIVE", message: "The repository archive is malformed." }],
+      repositorySelections: [
+        { repositoryUrl: "https://github.com/example/app", discoveryOrigin: "CV", candidateSourceClaim: true },
+        { repositoryUrl: "https://github.com/example/broken", discoveryOrigin: "manual entry", candidateSourceClaim: false },
+      ],
     });
     expect(created.repositoryCount).toBe(2);
     expect(created.repositoryOutcomes.map((outcome) => outcome.status).sort()).toEqual(["analyzed", "failed"]);
     expect(created.repositoryOutcomes.find((outcome) => outcome.status === "failed")).toMatchObject({ code: "MALFORMED_ARCHIVE", message: "The repository archive is malformed." });
+    expect(created.repositories).toEqual(expect.arrayContaining([
+      expect.objectContaining({ repositoryUrl: "https://github.com/example/app", discoveryOrigin: "CV", attributionStatus: "candidate_claimed" }),
+      expect.objectContaining({ repositoryUrl: "https://github.com/example/broken", discoveryOrigin: "manual entry", attributionStatus: "unverified" }),
+    ]));
+    expect(created.verifiedSkillScore).toBe(0);
+    expect(created.verifiedClaimCount).toBe(0);
     expect(created.analyses[0]).toMatchObject({
       evidenceIndex: 75,
       result: expect.objectContaining({ projectType: "Backend API" }),
@@ -58,6 +75,38 @@ describe("candidate evidence persistence", () => {
 
     expect(await store.getCandidate("owner-b", created.id)).toBeNull();
     expect(await store.listCandidates("owner-b")).toEqual([]);
+
+    const verified = await store.verifyRepositoryAttribution("owner-a", created.id, "https://github.com/example/app", {
+      provider: "github",
+      repositoryProviderId: "repository-42",
+      providerIdentityFingerprint: "a".repeat(64),
+      verifiedAt: "2026-01-02T00:00:00.000Z",
+      proof: {
+        providerConfigured: true,
+        hasAuthenticatedProviderIdentity: true,
+        hasRepositoryIdentity: true,
+        hasRepositoryOwnershipProof: false,
+        immutableContributionRevision: "0123456789abcdef",
+      },
+    });
+    expect(verified?.repositories.find((repository) => repository.repositoryUrl.endsWith("/app"))).toMatchObject({
+      attributionStatus: "verified_contributor",
+      verificationRevision: "0123456789abcdef",
+    });
+    expect(verified?.verifiedSkillScore).toBe(75);
+    expect(await store.verifyRepositoryAttribution("owner-b", created.id, "https://github.com/example/app", {
+      provider: "github",
+      repositoryProviderId: null,
+      providerIdentityFingerprint: null,
+      verifiedAt: "2026-01-02T00:00:00.000Z",
+      proof: {
+        providerConfigured: false,
+        hasAuthenticatedProviderIdentity: false,
+        hasRepositoryIdentity: false,
+        hasRepositoryOwnershipProof: false,
+        immutableContributionRevision: null,
+      },
+    })).toBeNull();
 
     const retried = await store.recordRepositorySuccess("owner-a", created.id, result(["Strong Evidence"], "https://github.com/example/broken"));
     expect(retried?.repositoryOutcomes.every((outcome) => outcome.status === "analyzed")).toBe(true);

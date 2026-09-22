@@ -6,6 +6,7 @@ import { getCandidateStore } from "@/features/candidates/store";
 import type { EvidenceLevel } from "@/types/analysis";
 import { getI18n } from "@/i18n/server";
 import { requirePageUser } from "@/features/auth/page-guard";
+import { eligibleCandidateAnalyses } from "@/features/repository-analysis/evidence-eligibility";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,8 @@ export default async function CompareCandidatesPage() {
   const candidates = await Promise.all(records.map(async (record): Promise<ComparisonCandidate> => {
     const detail = await store.getCandidate(user.id, record.id);
     const skills = new Map<string, { name: string; level: EvidenceLevel; files: string[] }>();
-    for (const analysis of detail?.analyses ?? []) {
+    const eligibleAnalyses = detail ? eligibleCandidateAnalyses(detail) : [];
+    for (const analysis of eligibleAnalyses) {
       for (const skill of analysis.result.skills) {
         const existing = skills.get(skill.skill);
         if (!existing || LEVEL_WEIGHT[skill.level] > LEVEL_WEIGHT[existing.level]) skills.set(skill.skill, { name: skill.skill, level: skill.level, files: skill.evidence.map((evidence) => evidence.file) });
@@ -33,8 +35,8 @@ export default async function CompareCandidatesPage() {
       repositoryCount: record.repositoryCount ?? 0,
       groundedClaims: record.verifiedClaimCount ?? 0,
       topSkills: [...skills.values()].sort((a, b) => LEVEL_WEIGHT[b.level] - LEVEL_WEIGHT[a.level]).slice(0, 5),
-      patternCategories: [...new Set((detail?.analyses ?? []).flatMap((analysis) => analysis.result.patterns.map((pattern) => pattern.category)))],
-      gapCount: (detail?.analyses ?? []).reduce((sum, analysis) => sum + analysis.result.gaps.length, 0),
+      patternCategories: [...new Set(eligibleAnalyses.flatMap((analysis) => analysis.result.patterns.map((pattern) => pattern.category)))],
+      gapCount: eligibleAnalyses.reduce((sum, analysis) => sum + analysis.result.gaps.length, 0),
     };
   }));
 

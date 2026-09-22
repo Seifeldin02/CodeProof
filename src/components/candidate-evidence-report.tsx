@@ -23,8 +23,14 @@ function EvidenceRing({ value }: { value: number }) {
   return <div className="relative grid h-24 w-24 shrink-0 place-items-center" aria-label={`${value} / 100`}><svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="43" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="7" /><circle className="metric-ring-path" cx="50" cy="50" r="43" pathLength="100" fill="none" stroke="#b9ff6b" strokeWidth="7" strokeLinecap="round" strokeDasharray="100" strokeDashoffset={100 - value} /></svg><span className="font-mono text-2xl font-semibold text-lime-300">{value}</span></div>;
 }
 
-export default function CandidateEvidenceReport({ analysis, locale }: { analysis: CandidateRepositoryAnalysis; locale: Locale }) {
-  const result = analysis.result;
+export default function CandidateEvidenceReport({ analysis, locale }: {
+  analysis: CandidateRepositoryAnalysis;
+  locale: Locale;
+}) {
+  const conclusionEligible = analysis.attributionStatus === "verified_contributor";
+  const result = conclusionEligible
+    ? analysis.result
+    : { ...analysis.result, jobMatch: null, resumeVerification: null };
   const languageTotal = Object.values(result.languages).reduce((sum, value) => sum + value, 0);
   const t = (key: string, values: Record<string, string | number> = {}) => translate(locale, key, values);
   const l = (text: string) => localizeAnalysisText(locale, text);
@@ -35,6 +41,11 @@ export default function CandidateEvidenceReport({ analysis, locale }: { analysis
         <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Badge tone="positive">{t("Deterministic evidence")}</Badge><span className="text-xs text-slate-500">{t("Engine {version}", { version: result.metadata.engineVersion })}</span></div><h2 className="tech-ltr mt-4 break-all text-start text-2xl font-semibold tracking-[-.035em] sm:text-3xl">{analysis.repositoryName}</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">{l(analysis.summary)}</p><div className="mt-4 flex flex-wrap gap-4"><a href={analysis.repositoryUrl} target="_blank" rel="noreferrer" dir="ltr" className="inline-flex min-h-11 items-center text-xs font-semibold text-lime-300 hover:text-lime-200">{t("Open public repository")} ↗</a><Link href={`/candidates/${analysis.candidateId}/projects/${analysis.id}`} className="inline-flex min-h-11 items-center text-xs font-semibold text-white hover:text-lime-300">{t("Open project drill-down")} <span className="directional-icon ms-1">→</span></Link></div></div>
         <div className="flex flex-wrap items-center gap-4 sm:flex-nowrap"><EvidenceRing value={analysis.evidenceIndex} /><dl className="grid min-w-0 flex-1 grid-cols-2 gap-2"><div className="col-span-2 rounded-lg border border-white/10 p-3"><dt className="text-[9px] uppercase tracking-wider text-slate-500">{t("Project")}</dt><dd className="mt-1 text-xs font-semibold">{l(result.projectType)}</dd></div><div className="rounded-lg border border-white/10 p-3"><dt className="text-[9px] uppercase tracking-wider text-slate-500">{t("Archive")}</dt><dd className="mt-1 text-lg font-semibold">{result.complexity.repositoryFiles}</dd></div><div className="rounded-lg border border-white/10 p-3"><dt className="text-[9px] uppercase tracking-wider text-slate-500">{t("Evidence")}</dt><dd className="mt-1 text-lg font-semibold">{result.complexity.selectedEvidenceFiles}</dd></div></dl></div>
       </header>
+      {!conclusionEligible && <div className="border-b border-amber-200 bg-amber-50 px-5 py-4 text-xs leading-5 text-amber-900 sm:px-7" role="status">
+        {locale === "ar"
+          ? "تُعرض إشارات المستودع للمراجعة فقط. لم يتم التحقق بعد من مساهمة المرشح، لذلك لا تدخل هذه الإشارات في استنتاجات المرشح أو ترتيبه."
+          : "Repository signals are shown for review only. The candidate's contribution is not verified, so these signals do not enter candidate conclusions or ordering."}
+      </div>}
 
       <nav className="flex gap-1 overflow-x-auto border-b border-slate-100 bg-white px-4 py-2 sm:px-7" aria-label={t("Repository report sections")}>{[["surface", "Stack"], ["architecture", "Architecture"], ["patterns", "Patterns"], ["skills", "Skills"], ["interview", "Interview"]].map(([target, label]) => <a key={target} href={`#${analysis.id}-${target}`} className="min-h-11 whitespace-nowrap rounded-lg px-3 py-2.5 text-[11px] font-semibold text-slate-500 transition hover:bg-brand-50 hover:text-brand-700">{t(label)}</a>)}</nav>
 
@@ -49,7 +60,7 @@ export default function CandidateEvidenceReport({ analysis, locale }: { analysis
 
         <section id={`${analysis.id}-skills`} className="scroll-mt-28"><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-brand-700">{t("Skill evidence")}</p><h3 className="mt-2 text-xl font-semibold text-slate-900">{t("Implementation depth by skill")}</h3><p className="mt-2 text-xs text-slate-400">{t("Strong=4, Good=3, Partial=2, Limited=1. Dependency-only signals cannot exceed Limited.")}</p><div className="mt-5 space-y-3">{result.skills.map((skill) => <details key={skill.skill} className="group rounded-xl border border-slate-200 bg-white transition open:border-brand-200 open:shadow-sm"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 p-4"><div className="min-w-0"><strong dir="ltr" className="block truncate text-start text-sm text-slate-900">{skill.skill}</strong><p className="mt-1 text-xs text-slate-500">{l(skill.explanation)}</p></div><div className="flex shrink-0 items-center gap-2"><Badge tone={evidenceTone(skill.level)}>{t(skill.level)}</Badge><span className="text-slate-400 transition group-open:rotate-45">+</span></div></summary><div className="grid gap-px border-t border-slate-100 bg-slate-100 md:grid-cols-2">{skill.evidence.map((evidence, index) => <div key={`${evidence.file}-${index}`} className="bg-white p-4"><code dir="ltr" className="block break-all text-start text-[10px] font-semibold text-brand-700">{evidence.file}</code><strong className="mt-2 block text-xs text-slate-800">{l(evidence.summary)}</strong><p className="mt-1 text-xs leading-5 text-slate-500">{l(evidence.implementationExample)}</p></div>)}</div></details>)}</div></section>
 
-        <RequirementBriefing jobMatch={result.jobMatch} locale={locale} />
+        {conclusionEligible && <RequirementBriefing jobMatch={result.jobMatch} locale={locale} />}
 
         {result.resumeVerification && <section><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-brand-700">{t("CV verification")}</p><h3 className="mt-2 text-xl font-semibold text-slate-900">{t("Claims compared with this repository")}</h3><div className="mt-5 grid gap-3 md:grid-cols-2">{result.resumeVerification.claims.map((claim) => <article key={`${claim.claim}-${claim.support}`} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><strong className="text-sm text-slate-900">{claim.claim}</strong><Badge tone={supportTone(claim.support)}>{t(claim.support)}</Badge></div><p className="mt-2 text-xs leading-5 text-slate-500">{l(claim.explanation)}</p>{claim.files.length > 0 && <code dir="ltr" className="mt-3 block break-all text-start text-[10px] text-brand-700">{claim.files.join(" · ")}</code>}</article>)}</div></section>}
 

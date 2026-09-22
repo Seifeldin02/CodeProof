@@ -1,6 +1,7 @@
 import type { CandidateDetail } from "@/features/candidates/types";
 import type { Role } from "@/features/hiring-analytics/types";
 import { matchJobDescription } from "@/features/job-matching/match";
+import { eligibleCandidateAnalyses } from "@/features/repository-analysis/evidence-eligibility";
 import type { ExtractedJobRequirement, JobRequirementMatch } from "@/types/analysis";
 
 /**
@@ -73,7 +74,7 @@ function mentions(text: string, skill: string): boolean {
 function coverage(candidate: CandidateDetail, requirements: ExtractedJobRequirement[]): RequirementCoverage | null {
   if (requirements.length === 0) return null;
   const best = new Map<string, JobRequirementMatch>();
-  for (const analysis of candidate.analyses) {
+  for (const analysis of eligibleCandidateAnalyses(candidate)) {
     const { result } = analysis;
     const match = matchJobDescription("", result.technologies, result.skills, result.resumeVerification, requirements);
     for (const item of [...match.strongMatches, ...match.partialMatches, ...match.unsupportedRequirements]) {
@@ -105,11 +106,12 @@ function tierFor(entry: Pick<ReviewQueueEntry, "repositories" | "requirements">)
 }
 
 export function buildReviewEntry(candidate: CandidateDetail, requirements: ExtractedJobRequirement[]): ReviewQueueEntry {
-  const analyzed = candidate.repositoryOutcomes.filter((outcome) => outcome.status === "analyzed").length;
+  const eligibleAnalyses = eligibleCandidateAnalyses(candidate);
+  const analyzed = eligibleAnalyses.length;
   const failed = candidate.repositoryOutcomes.filter((outcome) => outcome.status === "failed").length;
 
   const strongSkillMap = new Map<string, string[]>();
-  for (const analysis of candidate.analyses) {
+  for (const analysis of eligibleAnalyses) {
     for (const skill of analysis.result.skills) {
       if (skill.level !== "Strong Evidence" && skill.level !== "Good Evidence") continue;
       const files = strongSkillMap.get(skill.skill) ?? [];
@@ -117,7 +119,7 @@ export function buildReviewEntry(candidate: CandidateDetail, requirements: Extra
     }
   }
 
-  const verifications = candidate.analyses.map((analysis) => analysis.result.resumeVerification).filter((item) => item !== null);
+  const verifications = eligibleAnalyses.map((analysis) => analysis.result.resumeVerification).filter((item) => item !== null);
   const claimSupport = new Map<string, boolean>();
   for (const verification of verifications) {
     for (const claim of verification.claims) {

@@ -14,6 +14,7 @@ import { computeFunnel, computeSkillBands, computeSourceMetrics, computeStageDro
 import { getCandidateStore } from "@/features/candidates/store";
 import { getI18n } from "@/i18n/server";
 import { requirePageUser } from "@/features/auth/page-guard";
+import { eligibleCandidateAnalyses } from "@/features/repository-analysis/evidence-eligibility";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +28,12 @@ export default async function HiringInsightsPage() {
   const store = getCandidateStore();
   const details = (await Promise.all(activeCandidates.map((candidate) => store.getCandidate(user.id, candidate.id)))).filter((candidate) => candidate !== null);
   const patternCounts = new Map<string, number>();
-  for (const detail of details) for (const analysis of detail.analyses) for (const category of new Set(analysis.result.patterns.map((pattern) => pattern.category))) patternCounts.set(category, (patternCounts.get(category) ?? 0) + 1);
+  for (const detail of details) for (const analysis of eligibleCandidateAnalyses(detail)) for (const category of new Set(analysis.result.patterns.map((pattern) => pattern.category))) patternCounts.set(category, (patternCounts.get(category) ?? 0) + 1);
   const coverage: EvidenceCoverageData = {
-    repositories: details.reduce((sum, candidate) => sum + candidate.analyses.length, 0),
+    repositories: details.reduce((sum, candidate) => sum + eligibleCandidateAnalyses(candidate).length, 0),
     groundedClaims: activeCandidates.reduce((sum, candidate) => sum + (candidate.verifiedClaimCount ?? 0), 0),
-    selectedFiles: details.reduce((sum, candidate) => sum + candidate.analyses.reduce((analysisSum, analysis) => analysisSum + analysis.result.selectedFiles.length, 0), 0),
-    strongOrGoodSkills: details.reduce((sum, candidate) => sum + candidate.analyses.reduce((analysisSum, analysis) => analysisSum + analysis.result.skills.filter((skill) => skill.level === "Strong Evidence" || skill.level === "Good Evidence").length, 0), 0),
+    selectedFiles: details.reduce((sum, candidate) => sum + eligibleCandidateAnalyses(candidate).reduce((analysisSum, analysis) => analysisSum + analysis.result.selectedFiles.length, 0), 0),
+    strongOrGoodSkills: details.reduce((sum, candidate) => sum + eligibleCandidateAnalyses(candidate).reduce((analysisSum, analysis) => analysisSum + analysis.result.skills.filter((skill) => skill.level === "Strong Evidence" || skill.level === "Good Evidence").length, 0), 0),
     patterns: [...patternCounts].map(([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count),
   };
   return (
