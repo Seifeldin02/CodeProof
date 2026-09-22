@@ -3,8 +3,9 @@ import type { DatabaseSync } from "node:sqlite";
 import type { Pool, PoolClient } from "pg";
 import {
   AdminAuditEntrySchema,
-  type AdminActor,
   type AdminAuditEntry,
+  type AccountLifecycleState,
+  type AccountRole,
 } from "@/types/remediation";
 
 const GENESIS_HASH = "0".repeat(64);
@@ -30,6 +31,15 @@ const DENIED_KEYS = new Set([
 ]);
 
 type JsonObject = Record<string, unknown>;
+
+/** A denied attempt may be made by a non-admin account, so audit actors are
+ * deliberately broader than an authorized AdminActor. */
+export interface AdministrativeAuditActor {
+  readonly userId: string;
+  readonly email: string;
+  readonly role: AccountRole;
+  readonly lifecycleState: AccountLifecycleState;
+}
 
 export interface AdminAuditRequestContext {
   readonly requestCorrelationId: string;
@@ -60,13 +70,13 @@ export interface AdminMutationResult<T> {
 
 export interface AdminAuditPersistence {
   withAdminAudit<T>(
-    actor: AdminActor,
+    actor: AdministrativeAuditActor,
     descriptor: AdminAuditDescriptor,
     context: AdminAuditRequestContext,
     mutate: (transaction: AdminAuditTransaction) => Promise<AdminMutationResult<T>> | AdminMutationResult<T>,
   ): Promise<T>;
   appendDeniedAttempt(
-    actor: AdminActor,
+    actor: AdministrativeAuditActor,
     descriptor: AdminAuditDescriptor,
     context: AdminAuditRequestContext,
     denialReason: string,
@@ -139,7 +149,7 @@ function entryHash(entry: Omit<AdminAuditEntry, "entryHash">): string {
 function createEntry(input: {
   sequence: number;
   previousEntryHash: string;
-  actor: AdminActor;
+  actor: AdministrativeAuditActor;
   descriptor: AdminAuditDescriptor;
   context: AdminAuditRequestContext;
   outcome: AdminAuditEntry["outcome"];
@@ -277,7 +287,7 @@ export class SQLiteAdminAuditStore implements AdminAuditPersistence {
   constructor(private readonly db: DatabaseSync) {}
 
   async withAdminAudit<T>(
-    actor: AdminActor,
+    actor: AdministrativeAuditActor,
     descriptor: AdminAuditDescriptor,
     context: AdminAuditRequestContext,
     mutate: (transaction: AdminAuditTransaction) => Promise<AdminMutationResult<T>> | AdminMutationResult<T>,
@@ -299,7 +309,7 @@ export class SQLiteAdminAuditStore implements AdminAuditPersistence {
   }
 
   async appendDeniedAttempt(
-    actor: AdminActor,
+    actor: AdministrativeAuditActor,
     descriptor: AdminAuditDescriptor,
     context: AdminAuditRequestContext,
     denialReason: string,
@@ -331,7 +341,7 @@ export class SQLiteAdminAuditStore implements AdminAuditPersistence {
   }
 
   private nextEntry(
-    actor: AdminActor,
+    actor: AdministrativeAuditActor,
     descriptor: AdminAuditDescriptor,
     context: AdminAuditRequestContext,
     outcome: AdminAuditEntry["outcome"],
@@ -358,7 +368,7 @@ export class PostgreSQLAdminAuditStore implements AdminAuditPersistence {
   constructor(private readonly pool: Pool) {}
 
   async withAdminAudit<T>(
-    actor: AdminActor,
+    actor: AdministrativeAuditActor,
     descriptor: AdminAuditDescriptor,
     context: AdminAuditRequestContext,
     mutate: (transaction: AdminAuditTransaction) => Promise<AdminMutationResult<T>> | AdminMutationResult<T>,
@@ -385,7 +395,7 @@ export class PostgreSQLAdminAuditStore implements AdminAuditPersistence {
   }
 
   async appendDeniedAttempt(
-    actor: AdminActor,
+    actor: AdministrativeAuditActor,
     descriptor: AdminAuditDescriptor,
     context: AdminAuditRequestContext,
     denialReason: string,
@@ -425,7 +435,7 @@ export class PostgreSQLAdminAuditStore implements AdminAuditPersistence {
 
   private async nextEntry(
     client: PoolClient,
-    actor: AdminActor,
+    actor: AdministrativeAuditActor,
     descriptor: AdminAuditDescriptor,
     context: AdminAuditRequestContext,
     outcome: AdminAuditEntry["outcome"],
