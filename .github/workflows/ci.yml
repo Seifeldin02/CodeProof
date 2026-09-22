@@ -1,0 +1,203 @@
+name: Continuous verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+
+jobs:
+  verification:
+    name: Lint, types, tests, E2E, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use pinned Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Prepare check artifacts
+        run: mkdir -p artifacts
+
+      - name: Clean install
+        run: |
+          set -o pipefail
+          npm ci 2>&1 | tee artifacts/npm-ci.log
+
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          npm run lint 2>&1 | tee artifacts/lint.log
+
+      - name: Typecheck
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee artifacts/typecheck.log
+
+      - name: Unit tests
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          npm run test:unit 2>&1 | tee artifacts/unit.log
+
+      - name: Integration tests
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          npm run test:integration 2>&1 | tee artifacts/integration.log
+
+      - name: Security tests
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          npm run test:security 2>&1 | tee artifacts/security.log
+
+      - name: Install Playwright Chromium
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          npx playwright install --with-deps chromium 2>&1 | tee artifacts/playwright-install.log
+
+      - name: Core Playwright E2E
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          npm run test:e2e 2>&1 | tee artifacts/e2e.log
+
+      - name: Browser Matrix
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          npm run test:browser 2>&1 | tee artifacts/browser.log
+
+      - name: Production build
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee artifacts/build.log
+
+      - name: Archive verification results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/
+            playwright-report/
+            test-results/
+
+  migrations:
+    name: Migrations (${{ matrix.persistence }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        persistence:
+          - sqlite
+          - postgresql
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: codeproof_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d codeproof_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use pinned Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Prepare migration artifacts
+        run: mkdir -p artifacts
+
+      - name: Clean install
+        run: |
+          set -o pipefail
+          npm ci 2>&1 | tee artifacts/npm-ci-${{ matrix.persistence }}.log
+
+      - name: Fresh and upgrade-path migration checks
+        if: ${{ !cancelled() }}
+        env:
+          CODEPROOF_DB_PATH: ${{ runner.temp }}/codeproof-${{ matrix.persistence }}.db
+          DATABASE_URL: ${{ matrix.persistence == 'postgresql' && 'postgresql://postgres:postgres@127.0.0.1:5432/codeproof_test' || '' }}
+          POSTGRES_URL: ""
+        run: |
+          set -o pipefail
+          npm run test:migrations 2>&1 | tee artifacts/migrations-${{ matrix.persistence }}.log
+
+      - name: Archive migration results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: migrations-${{ matrix.persistence }}-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: artifacts/
+
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use pinned Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Prepare audit artifacts
+        run: mkdir -p artifacts
+
+      - name: Clean install
+        run: |
+          set -o pipefail
+          npm ci 2>&1 | tee artifacts/npm-ci-audit.log
+
+      - name: Audit high and critical vulnerabilities
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          npm audit --audit-level=high --json 2>&1 | tee artifacts/npm-audit.json
+
+      - name: Archive dependency audit
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 14
+          path: artifacts/

@@ -1,0 +1,1099 @@
+{
+  "schemaVersion": "1.0.0",
+  "kind": "codeproof.release-verification-manifest",
+  "spec": {
+    "id": "58c52e60-be84-4f4e-a147-f722efcf02e4",
+    "name": "codeproof-audit-remediation",
+    "specType": "feature",
+    "taskId": "1.2",
+    "taskTitle": "Inventory established boundaries and create the release-verification manifest",
+    "requirementsSource": ".kiro/specs/codeproof-audit-remediation/requirements.md",
+    "designSource": ".kiro/specs/codeproof-audit-remediation/design.md",
+    "tasksSource": ".kiro/specs/codeproof-audit-remediation/tasks.md",
+    "authoritativeRequirementRange": {
+      "first": 1,
+      "last": 29,
+      "count": 29,
+      "note": "Requirements 19-29 were appended after the original task 1.2 text and are included by instruction."
+    }
+  },
+  "capture": {
+    "observedAtUtc": "2026-09-22T18:06:09.0576587Z",
+    "workingDirectory": "C:\\Users\\USER\\OneDrive\\Desktop\\Coding projects\\codeproof",
+    "baselineOnly": true,
+    "containsCompletionClaims": false,
+    "releaseAssessmentPerformed": false,
+    "releaseDisclosureInitialized": false,
+    "sensitiveEnvironmentFilesRead": false,
+    "notes": [
+      "Observed facts describe the pre-remediation/current repository only.",
+      "A historical pre-remediation pass is not a post-remediation or release-gate pass.",
+      "Null release status and outcome fields mean not assessed; they must not be interpreted as passed, completed, skipped, or blocked.",
+      "The ignored .env.local and .vercel/project.json files were not read."
+    ]
+  },
+  "statusContracts": {
+    "allowedDisclosureStatuses": [
+      "completed",
+      "incomplete",
+      "blocked",
+      "skipped",
+      "failed",
+      "externally_unverifiable"
+    ],
+    "allowedVerificationOutcomes": [
+      "passed",
+      "failed",
+      "blocked_live_check",
+      "externally_unverifiable"
+    ],
+    "baselineObservationStates": [
+      "observed",
+      "not_observed",
+      "documented",
+      "not_assessed"
+    ],
+    "nullReleaseFieldMeaning": "No release assessment has been made."
+  },
+  "repositoryState": {
+    "requiredBranch": "deploy/vercel-production",
+    "actualBranch": "deploy/vercel-production",
+    "branchMatches": true,
+    "headCommit": "0757554a1e5ca735256f4e839be9a5aa71479412",
+    "upstream": null,
+    "upstreamObservation": "No upstream is configured for deploy/vercel-production.",
+    "remotes": [
+      {
+        "name": "origin",
+        "fetchUrl": "https://github.com/Seifeldin02/CodeProof.git",
+        "pushUrl": "https://github.com/Seifeldin02/CodeProof.git"
+      }
+    ],
+    "statusShortBeforeManifestWrite": [
+      "?? .claude/",
+      "?? .kiro/"
+    ],
+    "preservation": {
+      "branchChanged": false,
+      "worktreeReset": false,
+      "worktreeCleaned": false,
+      "preExistingUntrackedRootsPreserved": [
+        ".claude/",
+        ".kiro/"
+      ],
+      "baselineEvidence": ".kiro/specs/codeproof-audit-remediation/pre-remediation-baseline.json"
+    }
+  },
+  "architectureInventory": {
+    "framework": {
+      "application": "Next.js 16.2.10 App Router",
+      "ui": "React 19.2.7",
+      "language": "TypeScript 5.9.x",
+      "runtimeContract": "Node.js >=22.5.0",
+      "pinnedNodeVersionFile": "22.5.0"
+    },
+    "appRouter": {
+      "pages": [
+        {
+          "route": "/",
+          "source": "src/app/page.tsx",
+          "access": "mixed",
+          "guard": "getCurrentUser",
+          "ownerScope": "Authenticated dashboard reads the signed-in user's candidate records; signed-out visitors receive AuthLanding."
+        },
+        {
+          "route": "/signin",
+          "source": "src/app/signin/page.tsx",
+          "access": "public",
+          "guard": "getCurrentUser redirects an existing session"
+        },
+        {
+          "route": "/analyze",
+          "source": "src/app/analyze/page.tsx",
+          "access": "authenticated",
+          "guard": "getCurrentUser with redirect to /signin?next=/analyze"
+        },
+        {
+          "route": "/candidates",
+          "source": "src/app/candidates/page.tsx",
+          "access": "authenticated_owner_scoped",
+          "guard": "requirePageUser"
+        },
+        {
+          "route": "/candidates/[id]",
+          "source": "src/app/candidates/[id]/page.tsx",
+          "access": "authenticated_owner_scoped",
+          "guard": "requirePageUser plus getCandidate(user.id, id)"
+        },
+        {
+          "route": "/candidates/[id]/projects/[analysisId]",
+          "source": "src/app/candidates/[id]/projects/[analysisId]/page.tsx",
+          "access": "authenticated_owner_scoped",
+          "guard": "requirePageUser plus owner-scoped candidate lookup"
+        },
+        {
+          "route": "/candidates/[id]/share",
+          "source": "src/app/candidates/[id]/share/page.tsx",
+          "access": "authenticated_owner_scoped_print_view",
+          "guard": "requirePageUser plus getCandidate(user.id, id)",
+          "note": "This is not a public token-based external share route."
+        },
+        {
+          "route": "/compare",
+          "source": "src/app/compare/page.tsx",
+          "access": "authenticated_owner_scoped",
+          "guard": "requirePageUser"
+        },
+        {
+          "route": "/review",
+          "source": "src/app/review/page.tsx",
+          "access": "authenticated_owner_scoped",
+          "guard": "requirePageUser"
+        },
+        {
+          "route": "/requirements",
+          "source": "src/app/requirements/page.tsx",
+          "access": "authenticated_owner_scoped",
+          "guard": "requirePageUser"
+        },
+        {
+          "route": "/insights",
+          "source": "src/app/insights/page.tsx",
+          "access": "authenticated_owner_scoped",
+          "guard": "requirePageUser"
+        },
+        {
+          "route": "/about",
+          "source": "src/app/about/page.tsx",
+          "access": "authenticated",
+          "guard": "requirePageUser"
+        }
+      ],
+      "apiRoutes": [
+        {
+          "route": "/api/health",
+          "methods": ["GET"],
+          "source": "src/app/api/health/route.ts",
+          "access": "public",
+          "guard": null
+        },
+        {
+          "route": "/api/auth/login",
+          "methods": ["POST"],
+          "source": "src/app/api/auth/login/route.ts",
+          "access": "public_mutation",
+          "guard": "denyCrossOrigin plus auth rate limiter"
+        },
+        {
+          "route": "/api/auth/register",
+          "methods": ["POST"],
+          "source": "src/app/api/auth/register/route.ts",
+          "access": "public_mutation",
+          "guard": "denyCrossOrigin, sessionSecretConfigured, signupAllowed, auth rate limiter"
+        },
+        {
+          "route": "/api/auth/logout",
+          "methods": ["POST"],
+          "source": "src/app/api/auth/logout/route.ts",
+          "access": "public_cookie_clear_mutation",
+          "guard": "denyCrossOrigin"
+        },
+        {
+          "route": "/api/analyze",
+          "methods": ["POST"],
+          "source": "src/app/api/analyze/route.ts",
+          "access": "authenticated",
+          "guard": "denyCrossOrigin plus denyUnlessSignedIn"
+        },
+        {
+          "route": "/api/cv/discover",
+          "methods": ["POST"],
+          "source": "src/app/api/cv/discover/route.ts",
+          "access": "authenticated",
+          "guard": "denyCrossOrigin plus denyUnlessSignedIn"
+        },
+        {
+          "route": "/api/portfolio/scan",
+          "methods": ["POST"],
+          "source": "src/app/api/portfolio/scan/route.ts",
+          "access": "authenticated",
+          "guard": "denyCrossOrigin plus authenticateRequest"
+        },
+        {
+          "route": "/api/candidates",
+          "methods": ["GET"],
+          "source": "src/app/api/candidates/route.ts",
+          "access": "authenticated_owner_scoped",
+          "guard": "authenticateRequest plus listCandidates(user.id)"
+        },
+        {
+          "route": "/api/candidates/analyze",
+          "methods": ["POST"],
+          "source": "src/app/api/candidates/analyze/route.ts",
+          "access": "authenticated_owner_scoped_mutation",
+          "guard": "denyCrossOrigin, authenticateRequest, owner-scoped requirement and candidate stores"
+        },
+        {
+          "route": "/api/candidates/[id]",
+          "methods": ["GET", "PATCH", "DELETE"],
+          "source": "src/app/api/candidates/[id]/route.ts",
+          "access": "authenticated_owner_scoped",
+          "guard": "authenticateRequest; mutations also denyCrossOrigin; store calls include user.id"
+        },
+        {
+          "route": "/api/candidates/[id]/repositories",
+          "methods": ["POST", "DELETE"],
+          "source": "src/app/api/candidates/[id]/repositories/route.ts",
+          "access": "authenticated_owner_scoped_mutation",
+          "guard": "denyCrossOrigin plus authenticateRequest; store calls include user.id"
+        },
+        {
+          "route": "/api/candidates/[id]/review",
+          "methods": ["PATCH"],
+          "source": "src/app/api/candidates/[id]/review/route.ts",
+          "access": "authenticated_owner_scoped_mutation",
+          "guard": "denyCrossOrigin plus authenticateRequest; store calls include user.id"
+        },
+        {
+          "route": "/api/requirements",
+          "methods": ["GET", "PUT"],
+          "source": "src/app/api/requirements/route.ts",
+          "access": "authenticated_owner_scoped",
+          "guard": "authenticateRequest; PUT also denyCrossOrigin; store calls include user.id"
+        }
+      ],
+      "globalBoundaries": [
+        "src/app/layout.tsx",
+        "src/app/loading.tsx",
+        "src/app/error.tsx",
+        "src/app/not-found.tsx",
+        "src/app/template.tsx"
+      ],
+      "requiredButNotObservedAtBaseline": [
+        "/methodology",
+        "/pilot",
+        "/share",
+        "/admin"
+      ]
+    },
+    "authenticationAndOwnerScope": {
+      "session": {
+        "source": "src/features/auth/session.ts",
+        "format": "userId.expiry.HMAC-SHA256-signature",
+        "maxAgeSeconds": 604800,
+        "productionCookie": "__Host-codeproof_session",
+        "attributes": ["HttpOnly", "SameSite=Lax", "Secure in production", "Path=/", "Priority=high"],
+        "accountResolution": "getCurrentUser verifies the cookie and calls getAuthStore().findById(userId) on the server."
+      },
+      "apiGuards": {
+        "source": "src/features/auth/guard.ts",
+        "symbols": ["denyUnlessSignedIn", "denyUnlessReadable", "authenticateRequest", "denyCrossOrigin"]
+      },
+      "pageGuard": {
+        "source": "src/features/auth/page-guard.ts",
+        "symbol": "requirePageUser"
+      },
+      "rateLimiter": "src/features/auth/rate-limit.ts",
+      "ownerScopedStoreContracts": [
+        "CandidatePersistence methods require ownerUserId",
+        "RequirementsPersistence methods require ownerUserId"
+      ],
+      "notObservedAtBaseline": [
+        "persisted account role",
+        "account lifecycle state",
+        "administrative guard",
+        "impersonation grant"
+      ]
+    },
+    "repositoryIngestion": {
+      "providerPort": "src/services/github/client.ts#RepositoryProvider",
+      "defaultProvider": "src/services/github/client.ts#GitHubClient",
+      "urlContract": "https://github.com/{owner}/{repository}",
+      "transport": "bounded codeload.github.com ZIP of HEAD",
+      "ingestionMethod": "public_archive",
+      "archiveLimits": {
+        "downloadTimeoutMs": 20000,
+        "maxCompressedBytes": 100663296,
+        "maxArchiveEntries": 25000,
+        "maxDeclaredUncompressedBytes": 83886080
+      },
+      "textSelectionLimits": {
+        "maxTreeEntries": 5000,
+        "maxSelectedFiles": 32,
+        "maxFileBytes": 64000,
+        "maxSelectedBytes": 600000,
+        "maxPromptCharsPerFile": 18000
+      },
+      "safetySeams": [
+        "safeRelativePath rejects absolute, traversal, and NUL-containing paths",
+        "symbolic links and generated/vendor/build/binary paths are excluded before entry reads",
+        "per-entry bytes are bounded before text decoding",
+        "repository content is indexed and read as text and is never executed"
+      ],
+      "relatedSources": [
+        "src/services/github/file-selection.ts",
+        "src/services/github/errors.ts",
+        "src/services/github/types.ts",
+        "src/features/resume-matching/pdf.ts",
+        "src/services/portfolio/fetch.ts",
+        "src/services/portfolio/extract.ts"
+      ]
+    },
+    "deterministicAnalysis": {
+      "engineSource": "src/features/repository-analysis/engine.ts",
+      "engineVersionSource": "src/features/repository-analysis/version.ts",
+      "engineVersion": "3.2.0",
+      "detectorSource": "src/features/repository-analysis/deterministic.ts",
+      "deterministicSymbols": [
+        "detectTechnologies",
+        "inferProjectType",
+        "buildDeterministicArchitecture",
+        "buildDeterministicSkills",
+        "detectEvidenceGaps",
+        "detectImplementationPatterns",
+        "buildComplexityIndicators",
+        "buildRepositoryStrengths",
+        "buildDeterministicQuestions"
+      ],
+      "evidenceScoringSource": "src/features/repository-analysis/evidence-scoring.ts",
+      "currentEvidenceLabels": [
+        "Strong Evidence",
+        "Good Evidence",
+        "Partial Evidence",
+        "Limited Evidence",
+        "Insufficient Evidence"
+      ],
+      "injectedSeams": ["RepositorySource", "AiProvider", "AnalysisCacheStore", "onStage"],
+      "ordering": "Repository ingestion and deterministic analysis complete before optional AI output is accepted.",
+      "fallback": "Absent or failed AI leaves deterministic output available and records an AI-unavailable status/warning.",
+      "cacheKeyObservedInputs": [
+        "analysis engine version",
+        "repository owner and name",
+        "repository archive digest exposed as commitSha",
+        "resume text",
+        "job description",
+        "provider name and model or deterministic marker"
+      ]
+    },
+    "persistence": {
+      "selector": {
+        "source": "src/features/persistence/postgres.ts",
+        "postgresWhen": "DATABASE_URL or POSTGRES_URL is non-empty",
+        "sqliteOtherwise": true,
+        "postgresPool": {
+          "max": 3,
+          "connectionTimeoutMillis": 10000,
+          "idleTimeoutMillis": 30000
+        }
+      },
+      "stores": [
+        {
+          "domain": "authentication",
+          "source": "src/features/auth/store.ts",
+          "sqliteAdapter": "AuthStore",
+          "postgresAdapter": "PostgresAuthStore",
+          "sqliteTable": "users",
+          "postgresTable": "codeproof_users"
+        },
+        {
+          "domain": "candidates and analyses",
+          "source": "src/features/candidates/store.ts",
+          "sqliteAdapter": "CandidateStore",
+          "postgresAdapter": "PostgresCandidateStore",
+          "sqliteTables": ["candidates", "stage_events", "candidate_analyses", "candidate_repository_outcomes"],
+          "postgresTables": ["codeproof_candidates", "codeproof_stage_events", "codeproof_candidate_analyses", "codeproof_candidate_repository_outcomes"]
+        },
+        {
+          "domain": "company requirements",
+          "source": "src/features/requirements/store.ts",
+          "sqliteAdapter": "RequirementsStore",
+          "postgresAdapter": "PostgresRequirementsStore",
+          "sqliteTable": "company_requirements",
+          "postgresTable": "codeproof_company_requirements"
+        },
+        {
+          "domain": "analysis cache",
+          "source": "src/features/repository-analysis/cache.ts",
+          "adapters": ["MemoryAnalysisCache", "FileAnalysisCache", "PostgresAnalysisCache"],
+          "postgresTable": "codeproof_analysis_cache"
+        }
+      ],
+      "inlineUpgradeObservation": "Stores create tables during initialization; candidate and requirements SQLite stores inspect columns and add selected owner/review/source columns in place.",
+      "centralMigrationRunnerObserved": false
+    },
+    "featureFlags": {
+      "observed": [
+        {
+          "id": "public_signup",
+          "environmentVariable": "CODEPROOF_ALLOW_SIGNUP",
+          "source": "src/features/auth/store.ts#signupAllowed",
+          "default": "enabled unless exactly false after trim/lowercase"
+        }
+      ],
+      "generalFeatureFlagRegistryObserved": false,
+      "plannedDesignFlagsNotObservedInSource": [
+        "remediation_read",
+        "remediation_write",
+        "external_shares",
+        "pilot_enforcement",
+        "hybrid_ai_v2",
+        "admin_console",
+        "admin_impersonation"
+      ]
+    },
+    "aiAndPricing": {
+      "providerPort": "src/services/ai/provider.ts#AiProvider",
+      "providerImplementation": "src/services/ai/openai-provider.ts#OpenAiProvider",
+      "schemas": "src/services/ai/schema.ts",
+      "grounding": "src/services/ai/grounding.ts",
+      "providerEnablement": "OPENAI_API_KEY presence",
+      "model": "OPENAI_MODEL or gpt-5.6-luna",
+      "timeoutMs": 60000,
+      "sdkMaxRetries": 1,
+      "untrustedTextBoundary": "Repository, CV, and job text are JSON-delimited and identified as untrusted data.",
+      "strictSchemaValidationObserved": true,
+      "selectedFileGroundingObserved": true,
+      "pricingRegistryObserved": false,
+      "budgetEnforcementObserved": false,
+      "costTelemetryPersistenceObserved": false,
+      "note": "No current pricing row is inferred for the configured/default model."
+    },
+    "environmentContracts": [
+      {
+        "name": "OPENAI_API_KEY",
+        "classification": "optional_secret",
+        "purpose": "Enable optional OpenAI analysis",
+        "trackedDocumentation": [".env.example", "docs/DEPLOYMENT.md"]
+      },
+      {
+        "name": "OPENAI_MODEL",
+        "classification": "optional_configuration",
+        "purpose": "Choose the optional OpenAI model",
+        "trackedDocumentation": [".env.example", "docs/DEPLOYMENT.md"]
+      },
+      {
+        "name": "DATABASE_URL",
+        "classification": "conditional_secret",
+        "purpose": "Select durable PostgreSQL; required on Vercel/ephemeral hosts",
+        "trackedDocumentation": [".env.example", "docs/DEPLOYMENT.md"]
+      },
+      {
+        "name": "POSTGRES_URL",
+        "classification": "conditional_secret_alias",
+        "purpose": "Alternative durable PostgreSQL selector",
+        "trackedDocumentation": [".env.example", "docs/DEPLOYMENT.md"]
+      },
+      {
+        "name": "CODEPROOF_CACHE_DIR",
+        "classification": "optional_path",
+        "purpose": "Filesystem analysis-cache location",
+        "trackedDocumentation": [".env.example"]
+      },
+      {
+        "name": "CODEPROOF_DB_PATH",
+        "classification": "optional_path",
+        "purpose": "SQLite account/candidate/requirements database location",
+        "trackedDocumentation": [".env.example", "docs/DEPLOYMENT.md"]
+      },
+      {
+        "name": "CODEPROOF_SESSION_SECRET",
+        "classification": "production_required_secret",
+        "purpose": "Sign session cookies consistently across instances",
+        "trackedDocumentation": [".env.example", "docs/DEPLOYMENT.md"]
+      },
+      {
+        "name": "CODEPROOF_ALLOW_SIGNUP",
+        "classification": "optional_feature_toggle",
+        "purpose": "Close public registration only when set to false",
+        "trackedDocumentation": [".env.example", "docs/DEPLOYMENT.md"]
+      },
+      {
+        "name": "VERCEL",
+        "classification": "platform_runtime_signal",
+        "purpose": "Health check requires durable persistence on Vercel",
+        "trackedDocumentation": []
+      },
+      {
+        "name": "REPL_ID",
+        "classification": "platform_runtime_signal",
+        "purpose": "Allow Replit framing in the CSP",
+        "trackedDocumentation": []
+      },
+      {
+        "name": "NODE_ENV",
+        "classification": "framework_runtime_signal",
+        "purpose": "Production cookie name/security and CSP selection",
+        "trackedDocumentation": []
+      },
+      {
+        "name": "PORT",
+        "classification": "optional_runtime_port",
+        "purpose": "Documented generic/Replit start port",
+        "trackedDocumentation": ["docs/DEPLOYMENT.md"]
+      }
+    ],
+    "deployment": {
+      "integrationBranch": "deploy/vercel-production",
+      "trackedFiles": [
+        ".node-version",
+        ".replit",
+        ".env.example",
+        "docs/DEPLOYMENT.md",
+        "next.config.ts",
+        "package.json",
+        "package-lock.json"
+      ],
+      "replit": {
+        "developmentCommand": "npm run dev -- --hostname 0.0.0.0",
+        "deploymentBuild": "npm ci && npm run build",
+        "deploymentRun": "npm start -- --hostname 0.0.0.0"
+      },
+      "vercel": {
+        "documented": true,
+        "localLinkMetadataPresent": true,
+        "localLinkMetadataIgnored": true,
+        "localProjectJsonRead": false,
+        "trackedVercelConfigObserved": false,
+        "previewUrlObserved": null,
+        "productionUrlObserved": null
+      },
+      "githubActionsWorkflowObserved": false,
+      "containerDeploymentFilesObserved": false,
+      "healthEndpoint": "/api/health",
+      "healthFieldsObserved": [
+        "status",
+        "engineVersion",
+        "paidApisRequired",
+        "persistence",
+        "durablePersistence",
+        "sessionConfigured",
+        "timestamp"
+      ],
+      "buildMetadataFieldsNotObserved": [
+        "release commit SHA",
+        "build identifier",
+        "deployment environment",
+        "release/build date",
+        "verification timestamp"
+      ]
+    },
+    "tests": {
+      "runner": "Vitest 4.x",
+      "configuration": "vitest.config.ts",
+      "trackedTestFileCount": 20,
+      "trackedTestFiles": [
+        "src/app/api/health/route.test.ts",
+        "src/features/auth/auth.test.ts",
+        "src/features/candidates/store.test.ts",
+        "src/features/hiring-analytics/analytics.test.ts",
+        "src/features/job-matching/match.test.ts",
+        "src/features/repository-analysis/deterministic.test.ts",
+        "src/features/repository-analysis/engine.test.ts",
+        "src/features/repository-analysis/evidence-scoring.test.ts",
+        "src/features/resume-matching/claims.test.ts",
+        "src/features/resume-matching/discovery.test.ts",
+        "src/features/resume-matching/pdf.test.ts",
+        "src/features/review-queue/queue.test.ts",
+        "src/i18n/translation-coverage.test.ts",
+        "src/i18n/translations.test.ts",
+        "src/lib/format.test.ts",
+        "src/services/ai/grounding.test.ts",
+        "src/services/ai/openai-provider.test.ts",
+        "src/services/github/archive-safety.test.ts",
+        "src/services/github/github.test.ts",
+        "src/services/portfolio/portfolio.test.ts"
+      ],
+      "currentScripts": {
+        "test": "vitest run",
+        "verify": "npm run lint && npm run typecheck && npm run test && npm run build"
+      },
+      "playwrightDependencyObserved": false,
+      "trackedE2EConfigurationObserved": false,
+      "separateUnitIntegrationSecurityMigrationBrowserScriptsObserved": false
+    }
+  },
+  "evidenceCatalog": [
+    {
+      "id": "E-GIT-BASELINE",
+      "state": "observed",
+      "sources": [".kiro/specs/codeproof-audit-remediation/pre-remediation-baseline.json"],
+      "summary": "The pre-remediation capture records the required branch, HEAD, no upstream, origin remote, untracked user/spec files, and preservation actions."
+    },
+    {
+      "id": "E-VALIDATION-BASELINE",
+      "state": "observed",
+      "sources": [".kiro/specs/codeproof-audit-remediation/pre-remediation-baseline.json", "package.json"],
+      "summary": "Historical pre-remediation lint, typecheck, Vitest, and build commands passed; this is not post-remediation evidence."
+    },
+    {
+      "id": "E-ROUTES",
+      "state": "observed",
+      "sources": ["src/app"],
+      "summary": "The baseline contains 12 page routes and 13 API route modules; methodology, pilot, public share, and admin routes were not observed."
+    },
+    {
+      "id": "E-AUTH",
+      "state": "observed",
+      "sources": ["src/features/auth/session.ts", "src/features/auth/guard.ts", "src/features/auth/page-guard.ts", "src/features/auth/rate-limit.ts", "src/features/auth/store.ts"],
+      "summary": "Signed expiring cookies resolve a server-side user; page/API guards and mutation-origin checks protect recruiter surfaces."
+    },
+    {
+      "id": "E-OWNER-STORES",
+      "state": "observed",
+      "sources": ["src/features/candidates/store.ts", "src/features/requirements/store.ts"],
+      "summary": "Candidate and requirements store contracts take ownerUserId and use owner predicates for reads and mutations."
+    },
+    {
+      "id": "E-PERSISTENCE",
+      "state": "observed",
+      "sources": ["src/features/persistence/postgres.ts", "src/features/auth/store.ts", "src/features/candidates/store.ts", "src/features/requirements/store.ts", "src/features/repository-analysis/cache.ts"],
+      "summary": "DATABASE_URL/POSTGRES_URL selects PostgreSQL; otherwise auth, candidate, and requirement stores use SQLite, while cache uses filesystem/memory or PostgreSQL."
+    },
+    {
+      "id": "E-INGESTION",
+      "state": "observed",
+      "sources": ["src/services/github/client.ts", "src/services/github/file-selection.ts", "src/services/github/archive-safety.test.ts", "src/services/github/github.test.ts"],
+      "summary": "GitHub public ZIP ingestion validates URL/path/type and enforces transport, archive, file, selection, and text bounds without executing repository code."
+    },
+    {
+      "id": "E-ANALYSIS",
+      "state": "observed",
+      "sources": ["src/features/repository-analysis/engine.ts", "src/features/repository-analysis/deterministic.ts", "src/features/repository-analysis/version.ts"],
+      "summary": "Versioned deterministic analysis runs before optional AI and exposes injectable repository, AI, cache, and progress seams."
+    },
+    {
+      "id": "E-EVIDENCE",
+      "state": "observed",
+      "sources": ["src/features/repository-analysis/evidence-scoring.ts", "src/services/ai/grounding.ts", "src/types/analysis.ts"],
+      "summary": "Current title-cased evidence levels have deterministic caps; AI paths not present in selected files are rejected."
+    },
+    {
+      "id": "E-AI",
+      "state": "observed",
+      "sources": ["src/services/ai/provider.ts", "src/services/ai/openai-provider.ts", "src/services/ai/schema.ts", "src/services/ai/grounding.ts", "src/features/repository-analysis/engine.ts"],
+      "summary": "The optional OpenAI adapter uses strict schemas, a 60-second SDK timeout, bounded JSON-delimited untrusted input, grounding, and deterministic fallback. Pricing, budgets, and persisted cost telemetry were not observed."
+    },
+    {
+      "id": "E-CACHE",
+      "state": "observed",
+      "sources": ["src/features/repository-analysis/cache.ts", "src/features/repository-analysis/engine.ts"],
+      "summary": "Memory, filesystem, and PostgreSQL cache adapters key current analysis by a SHA-256 identity assembled in the engine."
+    },
+    {
+      "id": "E-ENVIRONMENT",
+      "state": "documented",
+      "sources": [".env.example", "docs/DEPLOYMENT.md", "next.config.ts", "src/app/api/health/route.ts"],
+      "summary": "Tracked contracts document optional AI, dual persistence, cache/database paths, production session secret, signup toggle, and platform signals."
+    },
+    {
+      "id": "E-FEATURE-FLAGS",
+      "state": "observed",
+      "sources": ["src/features/auth/store.ts", ".env.example"],
+      "summary": "Only CODEPROOF_ALLOW_SIGNUP was observed as an application feature toggle; no general rollout registry or planned remediation flags were observed."
+    },
+    {
+      "id": "E-DEPLOYMENT",
+      "state": "observed",
+      "sources": [".node-version", ".replit", "docs/DEPLOYMENT.md", "next.config.ts", "package.json", ".gitignore"],
+      "summary": "Tracked deployment support covers Next build/start, Vercel documentation, Replit compatibility, headers, Node pinning, and health; no tracked GitHub Actions or vercel.json was observed."
+    },
+    {
+      "id": "E-TESTS",
+      "state": "observed",
+      "sources": ["vitest.config.ts", "package.json", "src/**/*.test.ts"],
+      "summary": "Twenty tracked Vitest files exist. No Playwright dependency, tracked E2E config, or separated unit/integration/security/migration/browser scripts were observed."
+    },
+    {
+      "id": "E-I18N-DEMO",
+      "state": "observed",
+      "sources": ["src/i18n/translations.ts", "src/i18n/translations.test.ts", "src/i18n/translation-coverage.test.ts", "src/features/candidates/store.ts", "src/app/insights/page.tsx", "docs/demo"],
+      "summary": "English/Arabic translation infrastructure and candidate-level is_demo handling exist, with tracked synthetic demo CV/portfolio artifacts."
+    },
+    {
+      "id": "E-HEALTH",
+      "state": "observed",
+      "sources": ["src/app/api/health/route.ts", "src/app/api/health/route.test.ts"],
+      "summary": "Public health exposes readiness, analysis version, persistence, session configuration, and timestamp but not release commit/build metadata."
+    },
+    {
+      "id": "E-OBSERVABILITY",
+      "state": "observed",
+      "sources": ["src/services/observability/logger.ts"],
+      "summary": "The current logger emits structured JSON from explicitly supplied scalar fields; no durable verification-cycle, defect, admin-audit, or release ledger was observed."
+    }
+  ],
+  "requirements": [
+    { "id": 1, "title": "Contribution attribution and discovery provenance", "acceptanceCriteriaCount": 13, "baselineEvidenceIds": ["E-INGESTION", "E-ANALYSIS", "E-OWNER-STORES"], "releaseDisclosureStatus": null },
+    { "id": 2, "title": "Canonical evidence taxonomy and consistency", "acceptanceCriteriaCount": 13, "baselineEvidenceIds": ["E-EVIDENCE", "E-ANALYSIS"], "releaseDisclosureStatus": null },
+    { "id": 3, "title": "Rich citations and interview-question safety", "acceptanceCriteriaCount": 9, "baselineEvidenceIds": ["E-EVIDENCE", "E-AI"], "releaseDisclosureStatus": null },
+    { "id": 4, "title": "Provider-neutral hybrid AI and cost governance", "acceptanceCriteriaCount": 20, "baselineEvidenceIds": ["E-AI", "E-CACHE", "E-ANALYSIS"], "releaseDisclosureStatus": null },
+    { "id": 5, "title": "Accurate and transparent metrics", "acceptanceCriteriaCount": 9, "baselineEvidenceIds": ["E-INGESTION", "E-ANALYSIS"], "releaseDisclosureStatus": null },
+    { "id": 6, "title": "Requisition-bound comparison and review order", "acceptanceCriteriaCount": 11, "baselineEvidenceIds": ["E-OWNER-STORES", "E-ROUTES"], "releaseDisclosureStatus": null },
+    { "id": 7, "title": "Secure external sharing", "acceptanceCriteriaCount": 15, "baselineEvidenceIds": ["E-ROUTES", "E-AUTH"], "releaseDisclosureStatus": null },
+    { "id": 8, "title": "Recruiter-oriented report presentation and robust states", "acceptanceCriteriaCount": 11, "baselineEvidenceIds": ["E-ROUTES", "E-I18N-DEMO"], "releaseDisclosureStatus": null },
+    { "id": 9, "title": "English, Arabic, RTL, responsiveness, and accessibility", "acceptanceCriteriaCount": 14, "baselineEvidenceIds": ["E-I18N-DEMO", "E-ROUTES", "E-TESTS"], "releaseDisclosureStatus": null },
+    { "id": 10, "title": "Public methodology and value-led positioning", "acceptanceCriteriaCount": 8, "baselineEvidenceIds": ["E-ROUTES", "E-I18N-DEMO"], "releaseDisclosureStatus": null },
+    { "id": 11, "title": "Pilot pricing readiness and access boundaries", "acceptanceCriteriaCount": 13, "baselineEvidenceIds": ["E-FEATURE-FLAGS", "E-AI"], "releaseDisclosureStatus": null },
+    { "id": 12, "title": "Build and analysis traceability", "acceptanceCriteriaCount": 7, "baselineEvidenceIds": ["E-ANALYSIS", "E-HEALTH", "E-DEPLOYMENT"], "releaseDisclosureStatus": null },
+    { "id": 13, "title": "Repository-ingestion and application security", "acceptanceCriteriaCount": 11, "baselineEvidenceIds": ["E-INGESTION", "E-AUTH", "E-OWNER-STORES", "E-OBSERVABILITY"], "releaseDisclosureStatus": null },
+    { "id": 14, "title": "Persistence compatibility and inline upgrades", "acceptanceCriteriaCount": 11, "baselineEvidenceIds": ["E-PERSISTENCE", "E-OWNER-STORES"], "releaseDisclosureStatus": null },
+    { "id": 15, "title": "Automated regression, security, responsive, and E2E coverage", "acceptanceCriteriaCount": 20, "baselineEvidenceIds": ["E-TESTS", "E-VALIDATION-BASELINE"], "releaseDisclosureStatus": null },
+    { "id": 16, "title": "Release validation and Vercel launch verification", "acceptanceCriteriaCount": 15, "baselineEvidenceIds": ["E-VALIDATION-BASELINE", "E-DEPLOYMENT", "E-HEALTH", "E-GIT-BASELINE"], "releaseDisclosureStatus": null },
+    { "id": 17, "title": "Completion disclosure and preservation obligations", "acceptanceCriteriaCount": 8, "baselineEvidenceIds": ["E-GIT-BASELINE", "E-VALIDATION-BASELINE"], "releaseDisclosureStatus": null },
+    { "id": 18, "title": "Authoritative audit scenarios and economic projections", "acceptanceCriteriaCount": 19, "baselineEvidenceIds": ["E-INGESTION", "E-EVIDENCE", "E-AI", "E-I18N-DEMO", "E-DEPLOYMENT"], "releaseDisclosureStatus": null },
+    { "id": 19, "title": "Internal owner administration role and access enforcement", "acceptanceCriteriaCount": 15, "baselineEvidenceIds": ["E-AUTH", "E-PERSISTENCE", "E-ROUTES", "E-OBSERVABILITY"], "releaseDisclosureStatus": null },
+    { "id": 20, "title": "Administration dashboard metrics and account inventory", "acceptanceCriteriaCount": 14, "baselineEvidenceIds": ["E-ROUTES", "E-PERSISTENCE", "E-I18N-DEMO"], "releaseDisclosureStatus": null },
+    { "id": 21, "title": "Administrative account, plan, credit, and demo management", "acceptanceCriteriaCount": 15, "baselineEvidenceIds": ["E-AUTH", "E-PERSISTENCE", "E-I18N-DEMO"], "releaseDisclosureStatus": null },
+    { "id": 22, "title": "Time-limited audited impersonation with safe return", "acceptanceCriteriaCount": 13, "baselineEvidenceIds": ["E-AUTH", "E-ROUTES", "E-OBSERVABILITY"], "releaseDisclosureStatus": null },
+    { "id": 23, "title": "Demo data exclusion from commercial aggregates", "acceptanceCriteriaCount": 7, "baselineEvidenceIds": ["E-I18N-DEMO", "E-PERSISTENCE"], "releaseDisclosureStatus": null },
+    { "id": 24, "title": "Paid-account-controlled external sharing", "acceptanceCriteriaCount": 14, "baselineEvidenceIds": ["E-ROUTES", "E-AUTH", "E-FEATURE-FLAGS"], "releaseDisclosureStatus": null },
+    { "id": 25, "title": "Guest dossier isolation and data reduction", "acceptanceCriteriaCount": 11, "baselineEvidenceIds": ["E-ROUTES", "E-AUTH", "E-I18N-DEMO"], "releaseDisclosureStatus": null },
+    { "id": 26, "title": "Extensible enterprise sharing without billing", "acceptanceCriteriaCount": 9, "baselineEvidenceIds": ["E-FEATURE-FLAGS", "E-ROUTES"], "releaseDisclosureStatus": null },
+    { "id": 27, "title": "Continuous verification loop and acceptance-criterion integrity", "acceptanceCriteriaCount": 13, "baselineEvidenceIds": ["E-VALIDATION-BASELINE", "E-TESTS", "E-OBSERVABILITY"], "releaseDisclosureStatus": null },
+    { "id": 28, "title": "End-to-end recruiter demo simulation", "acceptanceCriteriaCount": 27, "baselineEvidenceIds": ["E-I18N-DEMO", "E-ROUTES", "E-TESTS", "E-DEPLOYMENT"], "releaseDisclosureStatus": null },
+    { "id": 29, "title": "Final release conditions and honest completion reporting", "acceptanceCriteriaCount": 16, "baselineEvidenceIds": ["E-VALIDATION-BASELINE", "E-GIT-BASELINE", "E-DEPLOYMENT", "E-HEALTH"], "releaseDisclosureStatus": null }
+  ],
+  "validationChecks": [
+    {
+      "id": "lint",
+      "requiredBy": ["16.1", "18.17", "29.1"],
+      "currentCommand": "npm run lint",
+      "currentEntrypointObserved": true,
+      "baselineRecord": { "outcome": "passed", "exitCode": 0, "detail": "No lint diagnostics were emitted." },
+      "releaseOutcome": null
+    },
+    {
+      "id": "typecheck",
+      "requiredBy": ["16.2", "18.17", "29.1"],
+      "currentCommand": "npm run typecheck",
+      "currentEntrypointObserved": true,
+      "baselineRecord": { "outcome": "passed", "exitCode": 0, "detail": "No TypeScript diagnostics were emitted." },
+      "releaseOutcome": null
+    },
+    {
+      "id": "vitest_all_baseline",
+      "requiredBy": ["16.3", "18.17", "29.1"],
+      "currentCommand": "npm run test",
+      "currentEntrypointObserved": true,
+      "baselineRecord": { "outcome": "passed", "exitCode": 0, "detail": "20 test files and 99 tests passed in the pre-remediation capture." },
+      "releaseOutcome": null
+    },
+    {
+      "id": "production_build",
+      "requiredBy": ["16.4", "18.17", "29.1"],
+      "currentCommand": "npm run build",
+      "currentEntrypointObserved": true,
+      "baselineRecord": { "outcome": "passed", "exitCode": 0, "detail": "Next.js production build completed in the pre-remediation capture." },
+      "releaseOutcome": null
+    },
+    {
+      "id": "unit",
+      "requiredBy": ["16.3", "18.17"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "property",
+      "requiredBy": ["18.17"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "integration",
+      "requiredBy": ["16.3", "18.17"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "regression",
+      "requiredBy": ["15.2", "16.3", "18.17"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "security",
+      "requiredBy": ["15.9", "15.10", "15.11", "15.12", "16.3", "18.17", "29.4"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "tracked_e2e",
+      "requiredBy": ["15.1", "15.17", "16.3"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "dependency_audit",
+      "requiredBy": ["16.5"],
+      "currentCommand": "npm audit",
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "migration_sqlite_fresh",
+      "requiredBy": ["16.6", "18.17", "29.2"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "migration_sqlite_upgrade",
+      "requiredBy": ["16.6", "18.17", "29.2", "29.3"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "migration_postgresql_fresh",
+      "requiredBy": ["16.6", "18.17", "29.2"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "migration_postgresql_upgrade",
+      "requiredBy": ["16.6", "18.17", "29.2", "29.3"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "browser_matrix",
+      "requiredBy": ["15.15", "15.16", "16.7", "28.20", "28.21", "28.22"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "production_build_runtime_smoke",
+      "requiredBy": ["18.17", "29.10"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "recruiter_demo_simulation",
+      "requiredBy": ["28.1", "28.26", "28.27", "29.7"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "vercel_preview",
+      "requiredBy": ["16.8", "16.10", "16.11"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "vercel_production",
+      "requiredBy": ["16.9", "16.10", "16.11", "29.8", "29.9", "29.10"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "same_commit_equivalence",
+      "requiredBy": ["16.11", "18.18", "29.8", "29.9", "29.11", "29.12", "29.13"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "scoped_diff_review",
+      "requiredBy": ["17.5", "17.6", "18.17"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": { "outcome": "passed", "exitCode": 0, "detail": "Task 1.1 observed no staged or unstaged tracked changes at its capture time." },
+      "releaseOutcome": null
+    },
+    {
+      "id": "generated_artifact_review",
+      "requiredBy": ["18.17"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "secret_security_review",
+      "requiredBy": ["13.11", "18.17"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "no_execution_assertions",
+      "requiredBy": ["13.1", "13.2", "18.17"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "legacy_data_compatibility",
+      "requiredBy": ["14.2", "14.7", "18.17"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "criterion_integrity",
+      "requiredBy": ["27.3", "27.4", "27.5"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "anti_masking_scanner",
+      "requiredBy": ["27.6", "27.7", "27.8", "27.9"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "release_gate_pass_1",
+      "requiredBy": ["27.11", "27.12", "27.13", "29.7"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    },
+    {
+      "id": "release_gate_pass_2",
+      "requiredBy": ["27.11", "27.12", "27.13", "29.7"],
+      "currentCommand": null,
+      "currentEntrypointObserved": false,
+      "baselineRecord": null,
+      "releaseOutcome": null
+    }
+  ],
+  "externalPrerequisites": [
+    {
+      "id": "postgresql",
+      "requirementRefs": ["14.1", "15.13", "16.6", "28.24", "29.2"],
+      "neededFor": "Live PostgreSQL persistence and migration checks",
+      "signals": ["DATABASE_URL", "POSTGRES_URL"],
+      "baselineAvailability": "not_assessed",
+      "releaseDisclosureStatus": null
+    },
+    {
+      "id": "github_network_egress",
+      "requirementRefs": ["18.15", "28.7", "28.24"],
+      "neededFor": "Immutable-revision smoke checks and public archive ingestion",
+      "signals": ["outbound HTTPS to github.com and codeload.github.com"],
+      "baselineAvailability": "not_assessed",
+      "releaseDisclosureStatus": null
+    },
+    {
+      "id": "openai_live_provider",
+      "requirementRefs": ["4.12", "18.11", "28.24"],
+      "neededFor": "Live provider execution",
+      "signals": ["OPENAI_API_KEY", "OPENAI_MODEL", "current reviewed primary-source pricing row"],
+      "baselineAvailability": "not_assessed",
+      "releaseDisclosureStatus": null
+    },
+    {
+      "id": "official_pricing_source_review",
+      "requirementRefs": ["4.12", "4.13", "18.11"],
+      "neededFor": "Enable any paid provider/model without guessed pricing",
+      "signals": ["reviewed official provider pricing URL", "effective date", "source-check date", "registry version"],
+      "baselineAvailability": "not_observed",
+      "releaseDisclosureStatus": null
+    },
+    {
+      "id": "email_transport",
+      "requirementRefs": ["24.11", "28.24"],
+      "neededFor": "Live guest email verification and provider-mediated reset delivery",
+      "signals": ["configured email transport"],
+      "baselineAvailability": "not_observed",
+      "releaseDisclosureStatus": null
+    },
+    {
+      "id": "browser_runtime",
+      "requirementRefs": ["15.15", "15.16", "16.7", "28.20", "28.21", "28.22", "28.23"],
+      "neededFor": "Tracked Playwright E2E, Browser Matrix, accessibility, console, and server-output capture",
+      "signals": ["exact-pinned Playwright dependency", "installed browser binaries"],
+      "baselineAvailability": "not_observed",
+      "releaseDisclosureStatus": null
+    },
+    {
+      "id": "vercel_preview_access",
+      "requirementRefs": ["16.8", "16.10", "18.18"],
+      "neededFor": "Preview deployment verification",
+      "signals": ["preview URL", "deployment access", "release commit identity"],
+      "baselineAvailability": "not_assessed",
+      "releaseDisclosureStatus": null
+    },
+    {
+      "id": "vercel_production_access",
+      "requirementRefs": ["16.9", "16.10", "18.18", "29.8", "29.10"],
+      "neededFor": "Production promotion, same-commit verification, and production smoke",
+      "signals": ["production URL", "deployment access", "release commit identity"],
+      "baselineAvailability": "not_assessed",
+      "releaseDisclosureStatus": null
+    },
+    {
+      "id": "product_owner_approval",
+      "requirementRefs": ["17.6", "27.5", "29.6", "29.16"],
+      "neededFor": "Criterion changes, user-change conflicts, and approved disclosure exceptions",
+      "signals": ["approver", "timestamp", "prior text or condition", "new text or exception", "rationale"],
+      "baselineAvailability": "not_assessed",
+      "releaseDisclosureStatus": null
+    }
+  ],
+  "modifiedFileTracking": {
+    "requiredCategories": [
+      { "id": "spec", "pathExamples": [".kiro/specs/codeproof-audit-remediation/**"] },
+      { "id": "source", "pathExamples": ["src/**/*.ts", "src/**/*.tsx"] },
+      { "id": "test", "pathExamples": ["src/**/*.test.ts", "tests/**", "e2e/**"] },
+      { "id": "schema", "pathExamples": ["migrations/**", "schema/**", "store files containing schema upgrades"] },
+      { "id": "documentation", "pathExamples": ["docs/**", "README.md"] },
+      { "id": "deployment", "pathExamples": [".github/workflows/**", ".replit", "vercel.json", "next.config.ts", "package.json", ".node-version"] }
+    ],
+    "releaseModifiedFiles": [],
+    "releaseChangeSetInitialized": false,
+    "taskArtifact": {
+      "path": ".kiro/specs/codeproof-audit-remediation/release-verification-manifest.json",
+      "category": "spec",
+      "purpose": "Task 1.2 machine-readable baseline inventory"
+    }
+  },
+  "manifestValidationContract": {
+    "requirementsMustCoverInclusiveRange": [1, 29],
+    "requirementIdsMustBeUnique": true,
+    "acceptanceCriteriaCountsMustMatchRequirementsSource": true,
+    "baselineEvidenceIdsMustResolve": true,
+    "releaseDisclosureStatusesMustBeNullOrAllowed": true,
+    "releaseVerificationOutcomesMustBeNullOrAllowed": true,
+    "baselinePassedOutcomesMustReferencePreRemediationEvidence": true,
+    "completionClaimsMustRemainFalseForThisSeed": true
+  }
+}

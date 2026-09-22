@@ -1,0 +1,223 @@
+{
+  "schemaVersion": "1.0",
+  "spec": {
+    "name": "codeproof-audit-remediation",
+    "id": "58c52e60-be84-4f4e-a147-f722efcf02e4",
+    "type": "feature",
+    "task": "1.1 Capture and persist the pre-remediation Git and validation baseline"
+  },
+  "capture": {
+    "startedAtUtc": "2026-09-22T17:51:14.4200550Z",
+    "completedAtUtc": "2026-09-22T17:53:02.1180836Z",
+    "workingDirectory": "C:\\Users\\USER\\OneDrive\\Desktop\\Coding projects\\codeproof",
+    "nodeVersion": "v24.16.0",
+    "npmVersion": "11.13.0",
+    "outcome": "passed",
+    "blocker": null
+  },
+  "git": {
+    "requiredBranch": "deploy/vercel-production",
+    "actualBranch": "deploy/vercel-production",
+    "branchMatches": true,
+    "head": "0757554a1e5ca735256f4e839be9a5aa71479412",
+    "upstream": null,
+    "upstreamObservation": {
+      "configured": false,
+      "command": "git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}'",
+      "observedExitCode": 1,
+      "stderr": "fatal: no upstream configured for branch 'deploy/vercel-production'"
+    },
+    "remotes": [
+      {
+        "name": "origin",
+        "fetchUrl": "https://github.com/Seifeldin02/CodeProof.git",
+        "pushUrl": "https://github.com/Seifeldin02/CodeProof.git"
+      }
+    ],
+    "statusPorcelainV2": [
+      "# branch.oid 0757554a1e5ca735256f4e839be9a5aa71479412",
+      "# branch.head deploy/vercel-production",
+      "? .claude/launch.json",
+      "? .kiro/specs/codeproof-audit-remediation/.config.kiro",
+      "? .kiro/specs/codeproof-audit-remediation/design.md",
+      "? .kiro/specs/codeproof-audit-remediation/requirements.md",
+      "? .kiro/specs/codeproof-audit-remediation/tasks.md",
+      "? .kiro/specs/codeproof-audit-remediation/tasks.meta.json"
+    ],
+    "statusShort": [
+      "## deploy/vercel-production",
+      "?? .claude/launch.json",
+      "?? .kiro/specs/codeproof-audit-remediation/.config.kiro",
+      "?? .kiro/specs/codeproof-audit-remediation/design.md",
+      "?? .kiro/specs/codeproof-audit-remediation/requirements.md",
+      "?? .kiro/specs/codeproof-audit-remediation/tasks.md",
+      "?? .kiro/specs/codeproof-audit-remediation/tasks.meta.json"
+    ],
+    "trackedChanges": {
+      "stagedPaths": [],
+      "unstagedPaths": [],
+      "stagedNameStatus": [],
+      "unstagedNameStatus": [],
+      "stagedStat": "",
+      "unstagedStat": "",
+      "stagedNumstat": [],
+      "unstagedNumstat": [],
+      "stagedDiffQuietExitCode": 0,
+      "unstagedDiffQuietExitCode": 0,
+      "interpretation": "The index and tracked worktree matched HEAD at capture time."
+    },
+    "preExistingUntrackedFiles": [
+      {
+        "path": ".claude/launch.json",
+        "bytes": 185,
+        "sha256": "c8f4051096d499aa44d42257cce4e09dcaad3bcdf0b5ef26244426c6d346d8c8"
+      },
+      {
+        "path": ".kiro/specs/codeproof-audit-remediation/.config.kiro",
+        "bytes": 103,
+        "sha256": "7ddbb06fd3dbc869dea0262f3261f47026318e4eee8a9e23e27919b7660206f1"
+      },
+      {
+        "path": ".kiro/specs/codeproof-audit-remediation/design.md",
+        "bytes": 167779,
+        "sha256": "9815133d6e1e870bb1ddffbc543adbffaf992f0340566b3fc9c612007ce30d79"
+      },
+      {
+        "path": ".kiro/specs/codeproof-audit-remediation/requirements.md",
+        "bytes": 99464,
+        "sha256": "4824535a813f6befa536110d8214c2bff0585444c2077a25e0b705fa31f08786"
+      },
+      {
+        "path": ".kiro/specs/codeproof-audit-remediation/tasks.md",
+        "bytes": 119997,
+        "sha256": "707f0e604b6084843f80b025614f7658f2157362444daca908b756cdb8a351c8"
+      },
+      {
+        "path": ".kiro/specs/codeproof-audit-remediation/tasks.meta.json",
+        "bytes": 39898,
+        "sha256": "3b7ecb1603e910a6c111cce9ab12cd61a0260b8a34a0cab9fd23d25a2536ffa6"
+      }
+    ],
+    "scopedDiffEvidence": {
+      "staged": {
+        "commands": [
+          "git diff --cached --name-status",
+          "git diff --cached --stat",
+          "git diff --cached --numstat"
+        ],
+        "observedExitCode": 0,
+        "output": []
+      },
+      "unstaged": {
+        "commands": [
+          "git diff --name-status",
+          "git diff --stat",
+          "git diff --numstat"
+        ],
+        "observedExitCode": 0,
+        "output": []
+      },
+      "untracked": {
+        "command": "git ls-files --others --exclude-standard",
+        "observedExitCode": 0,
+        "pathsCapturedSeparatelyWithByteSizesAndSha256": true
+      }
+    }
+  },
+  "validation": {
+    "executionPolicy": "Each existing package script was run separately in non-watch mode. No aggregate command was used.",
+    "checks": [
+      {
+        "id": "lint",
+        "command": "npm run lint",
+        "resolvedScript": "eslint .",
+        "exitCode": 0,
+        "outcome": "passed",
+        "result": "No lint diagnostics were emitted."
+      },
+      {
+        "id": "typecheck",
+        "command": "npm run typecheck",
+        "resolvedScript": "tsc --noEmit",
+        "exitCode": 0,
+        "outcome": "passed",
+        "result": "No TypeScript diagnostics were emitted."
+      },
+      {
+        "id": "test",
+        "command": "npm run test",
+        "resolvedScript": "vitest run",
+        "exitCode": 0,
+        "outcome": "passed",
+        "result": {
+          "testFiles": "20 passed (20)",
+          "tests": "99 passed (99)",
+          "startAt": "20:52:16",
+          "duration": "7.67s",
+          "durationBreakdown": "transform 3.31s, setup 0ms, import 8.09s, tests 3.24s, environment 2ms"
+        }
+      },
+      {
+        "id": "build",
+        "command": "npm run build",
+        "resolvedScript": "next build",
+        "exitCode": 0,
+        "outcome": "passed",
+        "result": {
+          "framework": "Next.js 16.2.10 (Turbopack)",
+          "environmentFilesReported": [
+            ".env.local"
+          ],
+          "compile": "Compiled successfully in 3.3s",
+          "typescript": "Finished TypeScript in 3.2s",
+          "pageData": "Collected using 27 workers in 928ms",
+          "staticPages": "10/10 generated in 189ms",
+          "pageOptimization": "Finalized in 10ms",
+          "routes": [
+            "/",
+            "/_not-found",
+            "/about",
+            "/analyze",
+            "/api/analyze",
+            "/api/auth/login",
+            "/api/auth/logout",
+            "/api/auth/register",
+            "/api/candidates",
+            "/api/candidates/[id]",
+            "/api/candidates/[id]/repositories",
+            "/api/candidates/[id]/review",
+            "/api/candidates/analyze",
+            "/api/cv/discover",
+            "/api/health",
+            "/api/portfolio/scan",
+            "/api/requirements",
+            "/candidates",
+            "/candidates/[id]",
+            "/candidates/[id]/projects/[analysisId]",
+            "/candidates/[id]/share",
+            "/compare",
+            "/insights",
+            "/requirements",
+            "/review",
+            "/signin"
+          ]
+        }
+      }
+    ],
+    "summary": {
+      "passed": 4,
+      "failed": 0,
+      "blocked": 0,
+      "preExistingFailures": []
+    }
+  },
+  "preservation": {
+    "branchChanged": false,
+    "worktreeReset": false,
+    "worktreeCleaned": false,
+    "existingFilesOverwritten": false,
+    "preExistingUntrackedFilesFingerprintCapturedBeforeArtifactCreation": true,
+    "newEvidenceArtifact": ".kiro/specs/codeproof-audit-remediation/pre-remediation-baseline.json",
+    "note": "The new evidence artifact is not part of the pre-existing untracked-file set. Existing .claude and .kiro files were treated as user work and left intact."
+  }
+}

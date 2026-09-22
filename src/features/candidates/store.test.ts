@@ -38,6 +38,23 @@ describe("candidate evidence persistence", () => {
     expect(created.repositoryCount).toBe(2);
     expect(created.repositoryOutcomes.map((outcome) => outcome.status).sort()).toEqual(["analyzed", "failed"]);
     expect(created.repositoryOutcomes.find((outcome) => outcome.status === "failed")).toMatchObject({ code: "MALFORMED_ARCHIVE", message: "The repository archive is malformed." });
+    expect(created.analyses[0]).toMatchObject({
+      evidenceIndex: 75,
+      result: expect.objectContaining({ projectType: "Backend API" }),
+      remediation: expect.objectContaining({
+        legacyMarker: "legacy",
+        recomputeRequired: true,
+        legacyAggregates: { evidenceIndex: 75, verifiedClaimCount: null },
+      }),
+    });
+    expect(created.analyses[0]?.remediation?.quarantinedConclusions).toEqual([
+      expect.objectContaining({
+        claim: "Skill 0",
+        evidenceLevel: "good",
+        eligibility: "unsupported",
+        quarantineReason: "missing_verified_contributor_grounding",
+      }),
+    ]);
 
     expect(await store.getCandidate("owner-b", created.id)).toBeNull();
     expect(await store.listCandidates("owner-b")).toEqual([]);

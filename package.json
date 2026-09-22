@@ -12,7 +12,17 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "verify": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "test:unit": "vitest run src",
+    "test:integration": "vitest run tests/integration --passWithNoTests",
+    "test:security": "vitest run tests/security --passWithNoTests",
+    "test:e2e": "playwright test tests/e2e --project=desktop-en --pass-with-no-tests",
+    "test:migrations": "vitest run tests/migrations --passWithNoTests",
+    "test:browser": "playwright test tests/browser --pass-with-no-tests",
+    "test:vitest": "npm run test:unit && npm run test:integration && npm run test:security && npm run test:migrations",
+    "test:all": "npm run test:vitest && npm run test:e2e && npm run test:browser",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "verify:ci": "npm run lint && npm run typecheck && npm run test:all && npm run build",
+    "verify:release": "npm run verify:ci && npm audit --audit-level=high"
   },
   "dependencies": {
     "next": "16.2.10",
@@ -25,6 +35,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.0.0",

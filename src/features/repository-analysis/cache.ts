@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Pool } from "pg";
-import { logger } from "@/services/observability/logger";
+import { ensurePostgreSQLRemediationSchema } from "@/features/persistence/postgres-migrations";
 import { getPostgresPool } from "@/features/persistence/postgres";
+import { logger } from "@/services/observability/logger";
 import type { AnalysisResult } from "@/types/analysis";
 
 const MAX_CACHE_ENTRIES = 50;
@@ -104,14 +105,17 @@ export class PostgresAnalysisCache implements AnalysisCacheStore {
   constructor(private readonly pool: Pool) {}
 
   private initialize(): Promise<void> {
-    this.initialized ??= this.pool.query(`
-      CREATE TABLE IF NOT EXISTS codeproof_analysis_cache (
-        cache_key TEXT PRIMARY KEY,
-        analysis_version TEXT NOT NULL,
-        result JSONB NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `).then(() => undefined);
+    this.initialized ??= (async () => {
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS codeproof_analysis_cache (
+          cache_key TEXT PRIMARY KEY,
+          analysis_version TEXT NOT NULL,
+          result JSONB NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await ensurePostgreSQLRemediationSchema(this.pool);
+    })();
     return this.initialized;
   }
 

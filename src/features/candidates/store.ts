@@ -3,7 +3,10 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Pool, PoolClient } from "pg";
+import { projectLegacyAnalysisRecord } from "@/features/persistence/legacy-adapters";
+import { ensurePostgreSQLRemediationSchema } from "@/features/persistence/postgres-migrations";
 import { getPostgresPool } from "@/features/persistence/postgres";
+import { ensureRemediationSchema } from "@/features/persistence/sqlite-migrations";
 import type { CandidateDetail, CandidateRepositoryOutcome, RepositoryFailure } from "./types";
 import {
   PIPELINE_STAGES,
@@ -155,6 +158,15 @@ function mapCandidate(row: CandidateRow, events: StageEvent[]): CandidateRecord 
 }
 
 function mapAnalysis(row: AnalysisRow) {
+  const result = parseAnalysis(row.analysis_json);
+  const remediation = projectLegacyAnalysisRecord({
+    sourceTable: "candidate_analyses",
+    sourceId: row.id,
+    candidateId: row.candidate_id,
+    analyzedAt: row.analyzed_at,
+    analysisJson: result as unknown,
+    evidenceIndex: Number(row.evidence_index),
+  }).view;
   return {
     id: row.id,
     candidateId: row.candidate_id,
@@ -165,7 +177,8 @@ function mapAnalysis(row: AnalysisRow) {
     evidenceIndex: Number(row.evidence_index),
     summary: row.summary,
     analyzedAt: row.analyzed_at,
-    result: parseAnalysis(row.analysis_json),
+    result,
+    remediation,
   };
 }
 
@@ -242,6 +255,7 @@ export class CandidateStore implements CandidatePersistence {
       const users = this.db.prepare("SELECT id FROM users ORDER BY created_at LIMIT 2").all() as unknown as Array<{ id: string }>;
       if (users.length === 1) this.db.prepare("UPDATE candidates SET owner_user_id = ? WHERE owner_user_id IS NULL").run(users[0].id);
     }
+    ensureRemediationSchema(this.db);
   }
 
   private events(candidateId: string): StageEvent[] {
@@ -381,31 +395,34 @@ class PostgresCandidateStore implements CandidatePersistence {
   constructor(private readonly pool: Pool) {}
 
   private initialize(): Promise<void> {
-    this.initialized ??= this.pool.query(`
-      CREATE TABLE IF NOT EXISTS codeproof_candidates (
-        id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL, name TEXT NOT NULL, role TEXT NOT NULL, source TEXT NOT NULL,
-        evidence_index INTEGER NOT NULL, applied_at TEXT NOT NULL, outcome TEXT NOT NULL, furthest_stage TEXT NOT NULL,
-        is_demo BOOLEAN NOT NULL DEFAULT FALSE, repository_count INTEGER NOT NULL DEFAULT 0, verified_claim_count INTEGER NOT NULL DEFAULT 0
-      );
-      CREATE INDEX IF NOT EXISTS idx_codeproof_candidates_owner ON codeproof_candidates(owner_user_id, applied_at DESC);
-      CREATE TABLE IF NOT EXISTS codeproof_stage_events (
-        id BIGSERIAL PRIMARY KEY, candidate_id TEXT NOT NULL REFERENCES codeproof_candidates(id) ON DELETE CASCADE,
-        stage TEXT NOT NULL, entered_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS codeproof_candidate_analyses (
-        id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL REFERENCES codeproof_candidates(id) ON DELETE CASCADE,
-        repository_url TEXT NOT NULL, repository_name TEXT NOT NULL, primary_language TEXT, project_type TEXT NOT NULL,
-        evidence_index INTEGER NOT NULL, summary TEXT NOT NULL, analyzed_at TEXT NOT NULL, analysis_json JSONB NOT NULL,
-        UNIQUE(candidate_id, repository_url)
-      );
-      CREATE TABLE IF NOT EXISTS codeproof_candidate_repository_outcomes (
-        id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL REFERENCES codeproof_candidates(id) ON DELETE CASCADE,
-        repository_url TEXT NOT NULL, repository_name TEXT NOT NULL, status TEXT NOT NULL,
-        code TEXT, message TEXT, updated_at TEXT NOT NULL, UNIQUE(candidate_id, repository_url)
-      );
-      ALTER TABLE codeproof_candidates ADD COLUMN IF NOT EXISTS evidence_reviewed_at TEXT;
-      ALTER TABLE codeproof_candidates ADD COLUMN IF NOT EXISTS unanalyzed_sources TEXT;
-    `).then(() => undefined);
+    this.initialized ??= (async () => {
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS codeproof_candidates (
+          id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL, name TEXT NOT NULL, role TEXT NOT NULL, source TEXT NOT NULL,
+          evidence_index INTEGER NOT NULL, applied_at TEXT NOT NULL, outcome TEXT NOT NULL, furthest_stage TEXT NOT NULL,
+          is_demo BOOLEAN NOT NULL DEFAULT FALSE, repository_count INTEGER NOT NULL DEFAULT 0, verified_claim_count INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_codeproof_candidates_owner ON codeproof_candidates(owner_user_id, applied_at DESC);
+        CREATE TABLE IF NOT EXISTS codeproof_stage_events (
+          id BIGSERIAL PRIMARY KEY, candidate_id TEXT NOT NULL REFERENCES codeproof_candidates(id) ON DELETE CASCADE,
+          stage TEXT NOT NULL, entered_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS codeproof_candidate_analyses (
+          id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL REFERENCES codeproof_candidates(id) ON DELETE CASCADE,
+          repository_url TEXT NOT NULL, repository_name TEXT NOT NULL, primary_language TEXT, project_type TEXT NOT NULL,
+          evidence_index INTEGER NOT NULL, summary TEXT NOT NULL, analyzed_at TEXT NOT NULL, analysis_json JSONB NOT NULL,
+          UNIQUE(candidate_id, repository_url)
+        );
+        CREATE TABLE IF NOT EXISTS codeproof_candidate_repository_outcomes (
+          id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL REFERENCES codeproof_candidates(id) ON DELETE CASCADE,
+          repository_url TEXT NOT NULL, repository_name TEXT NOT NULL, status TEXT NOT NULL,
+          code TEXT, message TEXT, updated_at TEXT NOT NULL, UNIQUE(candidate_id, repository_url)
+        );
+        ALTER TABLE codeproof_candidates ADD COLUMN IF NOT EXISTS evidence_reviewed_at TEXT;
+        ALTER TABLE codeproof_candidates ADD COLUMN IF NOT EXISTS unanalyzed_sources TEXT;
+      `);
+      await ensurePostgreSQLRemediationSchema(this.pool);
+    })();
     return this.initialized;
   }
 

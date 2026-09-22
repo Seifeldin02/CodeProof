@@ -1,0 +1,1155 @@
+{
+  "pbtResults": {
+    "2.7 Write property test for canonical attribution and discovery transitions": {
+      "status": "passed",
+      "lastRunTimestamp": 1790104867305
+    },
+    "2.8 Write property test for taxonomy uniqueness, alias semantics, and version immutability": {
+      "status": "passed",
+      "lastRunTimestamp": 1790110994886
+    },
+    "2.9 Write property test for canonical evidence thresholds": {
+      "status": "passed",
+      "lastRunTimestamp": 1790110994886
+    },
+    "2.10 Write property test for contradiction rejection": {
+      "status": "passed",
+      "lastRunTimestamp": 1790110994886
+    },
+    "2.11 Write property test for conservative inline upgrades": {
+      "status": "passed",
+      "lastRunTimestamp": 1790110994886
+    }
+  },
+  "executionHistory": {
+    "1.1 Capture and persist the pre-remediation Git and validation baseline": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099178806
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099213196
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099667477
+      }
+    ],
+    "1.2 Inventory established boundaries and create the release-verification manifest": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099178908
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099681923
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790100534643
+      }
+    ],
+    "1.3 Normalize non-watch test and CI/CD entry points without changing architecture": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099178981
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790100545308
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790101222316
+      }
+    ],
+    "15.1 Implement the recorded verification cycle and the defect ledger": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179045
+      }
+    ],
+    "15.2 Add criterion-integrity baselines and the anti-masking scanners": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179108
+      }
+    ],
+    "15.3 Write property test for criterion survival and the masking prohibition": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179168
+      }
+    ],
+    "2.1 Implement canonical remediation domain types and versioned schemas": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179224
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790101233017
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790101519203
+      }
+    ],
+    "2.2 Implement the immutable canonical capability taxonomy and aliases": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179295
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790101534388
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790101944947
+      }
+    ],
+    "2.3 Implement the pure contradiction and eligibility invariant validator": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179357
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790101966164
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790102414281
+      }
+    ],
+    "2.4 Add additive, atomic, idempotent SQLite migrations and bounded backfills": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179416
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790102428500
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790102910827
+      }
+    ],
+    "2.5 Add parity PostgreSQL migrations and bounded backfills": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179484
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790102925779
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790104140967
+      }
+    ],
+    "2.6 Implement conservative legacy read/write adapters and reconciliation audit": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179573
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790104158648
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790104644163
+      }
+    ],
+    "2.7 Write property test for canonical attribution and discovery transitions": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179646
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790104661907
+      },
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790104903270
+      }
+    ],
+    "2.8 Write property test for taxonomy uniqueness, alias semantics, and version immutability": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179729
+      }
+    ],
+    "2.9 Write property test for canonical evidence thresholds": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179803
+      }
+    ],
+    "2.10 Write property test for contradiction rejection": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179881
+      }
+    ],
+    "2.11 Write property test for conservative inline upgrades": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099179975
+      }
+    ],
+    "16.1 Add account role, lifecycle, company, plan, activity, and demo columns with dual-engine parity": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180045
+      }
+    ],
+    "16.2 Implement the idempotent ADMIN_EMAIL bootstrap and its redacted diagnostics": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180120
+      }
+    ],
+    "16.3 Add the append-only hash-chained administrative audit log on both engines": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180191
+      }
+    ],
+    "16.4 Implement administrative redaction and the transactional withAdminAudit wrapper": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180263
+      }
+    ],
+    "16.5 Write property test for administrative bootstrap safety": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180337
+      }
+    ],
+    "16.6 Write property test for the append-only chained audit log and its action gate": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180409
+      }
+    ],
+    "17.1 Implement requireAdmin, requireAdminPage, and one non-disclosing denial envelope": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180482
+      }
+    ],
+    "17.2 Implement administrative denial rate limiting": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180558
+      }
+    ],
+    "17.3 Enforce state-changing methods and cross-origin denial on administrative commands": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180636
+      }
+    ],
+    "17.4 Write property test for persisted-state-only administrative authority": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180725
+      }
+    ],
+    "3.1 Extend repository discovery and manual-add flows with exact provenance": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180792
+      }
+    ],
+    "3.2 Implement server-only authenticated provider verification": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180867
+      }
+    ],
+    "3.3 Implement one canonical evidence eligibility filter across conclusions and ranking": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099180934
+      }
+    ],
+    "3.4 Enforce owner-scoped stores and non-disclosing API boundaries": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181000
+      }
+    ],
+    "3.5 Write property test for attribution eligibility filtering": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181068
+      }
+    ],
+    "3.6 Write property test for provider credential containment": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181137
+      }
+    ],
+    "3.7 Write property test for cross-surface evidence consistency": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181206
+      }
+    ],
+    "4.1 Extend deterministic detectors to emit canonical grounded findings": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181274
+      }
+    ],
+    "4.2 Implement complete citation construction, exact excerpts, and direct source links": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181366
+      }
+    ],
+    "4.3 Implement framework/context gates for interview questions": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181439
+      }
+    ],
+    "4.4 Implement centralized citation/question redaction and public-safe projection": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181505
+      }
+    ],
+    "4.5 Write property test for citation round-trip integrity": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181563
+      }
+    ],
+    "4.6 Write property test for attribution- and context-safe questions": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181634
+      }
+    ],
+    "4.7 Write property test for unsafe content removal": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181705
+      }
+    ],
+    "4.8 Write property test for untrusted-text policy containment": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181772
+      }
+    ],
+    "5.1 Extend bounded archive ingestion with stage accounting": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181831
+      }
+    ],
+    "5.2 Implement metric projection contracts with explicit denominators": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181903
+      }
+    ],
+    "5.3 Add synthetic archive and metric fixture builders": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099181971
+      }
+    ],
+    "5.4 Write property test for exact corpus accounting": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182039
+      }
+    ],
+    "5.5 Write property test for reproducible displayed metrics": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182105
+      }
+    ],
+    "5.6 Write property test for bounded non-executing archive ingestion": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182170
+      }
+    ],
+    "6.1 Implement the versioned provider-neutral AI port and deterministic-first orchestrator": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182238
+      }
+    ],
+    "6.2 Implement the single versioned pricing registry and configurable cost projections": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182323
+      }
+    ],
+    "6.3 Implement AI budgets, cache identity, retry/timeout bounds, and owner telemetry": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182399
+      }
+    ],
+    "6.4 Implement pilot tiers, entitlements, quotas, and atomic reservations": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182476
+      }
+    ],
+    "6.5 Write property test for deterministic-first fallback": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182541
+      }
+    ],
+    "6.6 Write property test for timeout and retry bounds": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182611
+      }
+    ],
+    "6.7 Write property test for cache identity and reuse": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182684
+      }
+    ],
+    "6.8 Write property test for pinned integer cost calculations and projections": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182752
+      }
+    ],
+    "6.9 Write property test for safe terminal telemetry": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182829
+      }
+    ],
+    "6.10 Write property test for atomic exactly-once quota reservations": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182897
+      }
+    ],
+    "Checkpoint A - Validate foundational services before workflow features": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099182964
+      }
+    ],
+    "7.1 Add owner-scoped immutable requisition versions and saved comparisons": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183044
+      }
+    ],
+    "7.2 Implement neutral matching, requisition-mismatch rejection, and deterministic draft review order": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183110
+      }
+    ],
+    "7.3 Implement version-bound Evidence-Checked Marks": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183174
+      }
+    ],
+    "7.4 Write property test for immutable owner/requisition binding and mismatch rejection": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183234
+      }
+    ],
+    "7.5 Write property test for neutral explainable stable ordering": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183303
+      }
+    ],
+    "7.6 Write property test for version-specific acknowledgement": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183373
+      }
+    ],
+    "8.1 Implement digest-only share lifecycle persistence": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183442
+      }
+    ],
+    "8.2 Implement fragment-token exchange and non-disclosing signed-out public access": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183509
+      }
+    ],
+    "8.3 Implement the constructive PII-safe external report projection": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183570
+      }
+    ],
+    "8.4 Write property test for token entropy and signed-out lifecycle": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183646
+      }
+    ],
+    "8.5 Write property test for read-only PII-safe projection": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183733
+      }
+    ],
+    "18.1 Add the Sharing Entitlement gate and the one-dossier-per-grant schema": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183787
+      }
+    ],
+    "18.2 Implement one-time token disclosure, expiry options, passcode digests, and guest email verification": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183862
+      }
+    ],
+    "18.3 Implement the share access log and the owner-scoped share management view": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183928
+      }
+    ],
+    "18.4 Build the reduced guest segment and its isolation posture": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099183992
+      }
+    ],
+    "18.5 Register the fail-closed enterprise sharing extension points": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184058
+      }
+    ],
+    "18.6 Write property test for entitlement-gated single-dossier share lifecycle": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184120
+      }
+    ],
+    "18.7 Write property test for reduced read-only single-candidate guest projection": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184180
+      }
+    ],
+    "18.8 Write property test for fail-closed enterprise extension points": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184252
+      }
+    ],
+    "19.1 Denormalize is_demo onto owned records at write time": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184340
+      }
+    ],
+    "19.2 Compute dual real and demo aggregates and keep designation forward-only": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184411
+      }
+    ],
+    "19.3 Write property test for forward-only demo designation and aggregate separation": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184477
+      }
+    ],
+    "9.1 Implement the recruiter-first dossier summary and expandable evidence detail": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184545
+      }
+    ],
+    "9.2 Implement complete translated robust-state view models": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184613
+      }
+    ],
+    "9.3 Complete English/Arabic localization and persistent document direction across the route inventory": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184677
+      }
+    ],
+    "9.4 Make all changed surfaces responsive and WCAG 2.2 AA operable": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184747
+      }
+    ],
+    "9.5 Write property test for safe robust-state projections": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184815
+      }
+    ],
+    "9.6 Write property test for technical-token bidi integrity": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184882
+      }
+    ],
+    "20.1 Add the administrative route structure, shell, and caching posture": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099184945
+      }
+    ],
+    "20.2 Implement dashboard metrics with explicit populations and denominators": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185025
+      }
+    ],
+    "20.3 Implement the paginated searchable account inventory and account detail view": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185089
+      }
+    ],
+    "20.4 Implement lifecycle commands and suspended/soft-deleted enforcement": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185157
+      }
+    ],
+    "20.5 Implement plan, credit, demo, share-revocation, and password-reset commands": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185227
+      }
+    ],
+    "20.6 Localize, mirror, and make the administrative console responsive and accessible": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185293
+      }
+    ],
+    "20.7 Write property test for single-valued lifecycle transitions and ownership preservation": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185355
+      }
+    ],
+    "20.8 Write property test for reproducible administrative metrics and stable pagination": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185430
+      }
+    ],
+    "21.1 Implement the separate signed grant, duration clamp, and server-side grant lookup": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185497
+      }
+    ],
+    "21.2 Implement principal resolution and the deny-by-default dangerous-action list": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185568
+      }
+    ],
+    "21.3 Render the root-layout impersonation banner and implement safe return": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185639
+      }
+    ],
+    "21.4 Write property test for bounded restorable impersonation": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185698
+      }
+    ],
+    "21.5 Write property test for secret-free administrative and impersonated surfaces": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185767
+      }
+    ],
+    "10.1 Implement bilingual public methodology": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185857
+      }
+    ],
+    "10.2 Implement bilingual value-led pilot presentation": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185916
+      }
+    ],
+    "10.3 Implement build metadata, health/diagnostics, and report traceability": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099185977
+      }
+    ],
+    "10.4 Write property test for traceability projections": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186045
+      }
+    ],
+    "11.1 Add attribution, taxonomy, detector, citation, and contradiction suites": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186116
+      }
+    ],
+    "11.2 Add provider-neutral AI and pilot-access integration suites": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186200
+      }
+    ],
+    "11.3 Add exact metrics, requisition, comparison, and review-order suites": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186270
+      }
+    ],
+    "11.4 Add owner-isolation and external-sharing security suites": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186334
+      }
+    ],
+    "11.5 Add repository/CV hostile-input security suites": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186403
+      }
+    ],
+    "11.6 Add dual-database migration and data-compatibility contract suites": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186472
+      }
+    ],
+    "11.7 Write property test for non-disclosing owner scope": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186545
+      }
+    ],
+    "22.1 Add admin authorization, bootstrap, audit, and lifecycle suites": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186631
+      }
+    ],
+    "22.2 Add impersonation, sharing, guest dossier, and demo isolation suites": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186699
+      }
+    ],
+    "22.3 Extend the Browser Matrix with administrative, banner, and guest coverage": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186770
+      }
+    ],
+    "Checkpoint B - Validate integrated domain and security regressions": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186837
+      }
+    ],
+    "12.1 Build isolated synthetic E2E fixtures and deterministic seeding": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186903
+      }
+    ],
+    "12.2 Automate the complete authenticated core workflow": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099186971
+      }
+    ],
+    "12.3 Automate deterministic fallback and robust-state workflows": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187038
+      }
+    ],
+    "12.4 Automate the full Browser Matrix and accessibility regressions": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187099
+      }
+    ],
+    "12.5 Automate public methodology, value, pilot, and build metadata regressions": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187169
+      }
+    ],
+    "23.1 Build the parameterized simulation project and its synthetic account fixtures": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187236
+      }
+    ],
+    "23.2 Automate steps 1-11 from onboarding through grounded questions": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187329
+      }
+    ],
+    "23.3 Automate steps 12-19 across comparison, sharing, telemetry, admin, demo, and impersonation": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187401
+      }
+    ],
+    "23.4 Automate the cross-cutting assertions, evidence capture, and blocked-check disclosure": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187477
+      }
+    ],
+    "13.1 Run lint and TypeScript checks in non-watch mode": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187545
+      }
+    ],
+    "13.2 Run all unit, property, integration, regression, security, and E2E suites": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187618
+      }
+    ],
+    "13.3 Run production build, dependency audit, and migration/data-compatibility matrix": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187692
+      }
+    ],
+    "13.4 Perform scoped diff, generated-artifact, and secret review": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187760
+      }
+    ],
+    "13.5 Run automated runtime browser verification against the production build": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187830
+      }
+    ],
+    "24.1 Execute verification-loop cycles until every criterion is implemented or disclosed": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187901
+      }
+    ],
+    "24.2 Enforce the persisted release-gate counter and severity triage thresholds": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099187968
+      }
+    ],
+    "24.3 Add build-metadata equivalence and the extended production smoke script": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188036
+      }
+    ],
+    "24.4 Write property test for the twice-consecutive defect-free release gate": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188134
+      }
+    ],
+    "24.5 Write property test for honest final-release evaluation and commit equivalence": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188205
+      }
+    ],
+    "Checkpoint C - Confirm the local launch gate": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188277
+      }
+    ],
+    "14.1 Update deployment compatibility and release-operation code/configuration": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188353
+      }
+    ],
+    "14.2 Implement explicit blocker handling and release-disclosure generation": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188435
+      }
+    ],
+    "14.3 Write property test for truthful complete release disclosure": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188509
+      }
+    ],
+    "14.4 Commit and push only the reviewed remediation changes on the existing branch": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188581
+      }
+    ],
+    "14.5 Deploy the pushed release commit to Vercel preview and run critical smoke": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188645
+      }
+    ],
+    "14.6 Promote the identical release commit to Vercel production and repeat critical smoke": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188716
+      }
+    ],
+    "14.7 Write property test for the same-commit launch gate": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188793
+      }
+    ],
+    "14.8 Perform the final requirement-by-requirement self-check and publish disclosure": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188888
+      }
+    ],
+    "25.1 Record the complete final-release evidence set": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099188951
+      }
+    ],
+    "25.2 Verify deployed-commit equivalence and run the extended production smoke": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099189018
+      }
+    ],
+    "25.3 Publish the honest final report and Demo-Readiness Verdict": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790099189086
+      }
+    ],
+    "1. Establish the repository baseline and execution safety rails": [
+      {
+        "executionId": "2b84e7dc-af74-4faa-9ca2-7ac83a94aae0",
+        "chatSessionId": "sess_7bfb7cb6-7e30-454d-b5e7-e11d00c0c021",
+        "timestamp": 1790101222403
+      }
+    ]
+  }
+}

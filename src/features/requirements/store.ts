@@ -2,7 +2,9 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Pool } from "pg";
+import { ensurePostgreSQLRemediationSchema } from "@/features/persistence/postgres-migrations";
 import { getPostgresPool } from "@/features/persistence/postgres";
+import { ensureRemediationSchema } from "@/features/persistence/sqlite-migrations";
 import type { ExtractedJobRequirement } from "@/types/analysis";
 
 export type RequirementImportance = ExtractedJobRequirement["importance"];
@@ -68,6 +70,7 @@ export class RequirementsStore implements RequirementsPersistence {
       const users = this.db.prepare("SELECT id FROM users ORDER BY created_at LIMIT 2").all() as unknown as Array<{ id: string }>;
       if (users.length === 1) this.db.prepare("UPDATE company_requirements SET owner_user_id = ? WHERE owner_user_id IS NULL").run(users[0].id);
     }
+    ensureRemediationSchema(this.db);
   }
 
   async list(ownerUserId: string): Promise<CompanyRequirement[]> {
@@ -96,10 +99,13 @@ class PostgresRequirementsStore implements RequirementsPersistence {
   constructor(private readonly pool: Pool) {}
 
   private initialize(): Promise<void> {
-    this.initialized ??= this.pool.query(`CREATE TABLE IF NOT EXISTS codeproof_company_requirements (
-      id TEXT NOT NULL, owner_user_id TEXT NOT NULL, requirement TEXT NOT NULL, importance TEXT NOT NULL,
-      category TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(owner_user_id, id)
-    )`).then(() => undefined);
+    this.initialized ??= (async () => {
+      await this.pool.query(`CREATE TABLE IF NOT EXISTS codeproof_company_requirements (
+        id TEXT NOT NULL, owner_user_id TEXT NOT NULL, requirement TEXT NOT NULL, importance TEXT NOT NULL,
+        category TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(owner_user_id, id)
+      )`);
+      await ensurePostgreSQLRemediationSchema(this.pool);
+    })();
     return this.initialized;
   }
 

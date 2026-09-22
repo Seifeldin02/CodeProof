@@ -3,7 +3,9 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Pool } from "pg";
+import { ensurePostgreSQLRemediationSchema } from "@/features/persistence/postgres-migrations";
 import { getPostgresPool } from "@/features/persistence/postgres";
+import { ensureRemediationSchema } from "@/features/persistence/sqlite-migrations";
 
 export interface AuthUser {
   id: string;
@@ -59,6 +61,7 @@ export class AuthStore implements AuthPersistence {
         created_at    TEXT NOT NULL
       );
     `);
+    ensureRemediationSchema(this.db);
   }
 
   async findByEmail(email: string): Promise<AuthUserWithPassword | null> {
@@ -85,14 +88,17 @@ class PostgresAuthStore implements AuthPersistence {
   constructor(private readonly pool: Pool) {}
 
   private initialize(): Promise<void> {
-    this.initialized ??= this.pool.query(`
-      CREATE TABLE IF NOT EXISTS codeproof_users (
-        id TEXT PRIMARY KEY,
-        email TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL
-      )
-    `).then(() => undefined);
+    this.initialized ??= (async () => {
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS codeproof_users (
+          id TEXT PRIMARY KEY,
+          email TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL
+        )
+      `);
+      await ensurePostgreSQLRemediationSchema(this.pool);
+    })();
     return this.initialized;
   }
 

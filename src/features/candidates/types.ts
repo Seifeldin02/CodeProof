@@ -1,4 +1,5 @@
 import type { CandidateRecord } from "@/features/hiring-analytics/types";
+import type { CanonicalLegacyAnalysisView } from "@/features/persistence/legacy-adapters";
 import type { AnalysisResult } from "@/types/analysis";
 
 export interface CandidateRepositoryAnalysis {
@@ -12,6 +13,8 @@ export interface CandidateRepositoryAnalysis {
   summary: string;
   analyzedAt: string;
   result: AnalysisResult;
+  /** Additive canonical compatibility view; legacy aggregate fields above remain unchanged. */
+  remediation?: CanonicalLegacyAnalysisView;
 }
 
 export interface CandidateDetail extends CandidateRecord {
