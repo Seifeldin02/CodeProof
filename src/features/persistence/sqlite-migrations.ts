@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import {
+  divergentAdminDiagnostic,
+  noMatchingAdminDiagnostic,
+  normalizeAdminBootstrap,
+  type AdminBootstrapDiagnostic,
+} from "@/features/admin/bootstrap";
 
 const DEFAULT_BACKFILL_BATCH_SIZE = 100;
 const MAX_BACKFILL_BATCH_SIZE = 1_000;
@@ -664,6 +670,10 @@ export interface EnsureRemediationSchemaOptions {
   readonly backfillBatchSize?: number;
   /** Test/diagnostic seam used to prove rollback. Production callers leave it unset. */
   readonly beforeMigration?: (migration: SQLiteMigrationInfo) => void;
+  /** Runs account validation and the idempotent ADMIN_EMAIL bootstrap in this transaction. */
+  readonly initializeAccounts?: boolean;
+  readonly adminEmail?: string;
+  readonly onAdminBootstrapDiagnostic?: (diagnostic: AdminBootstrapDiagnostic) => void;
 }
 
 interface SchemaVersionRow {
@@ -1065,6 +1075,37 @@ function ensureLedger(db: DatabaseSync): void {
   )`);
 }
 
+function initializeAccountSchema(
+  db: DatabaseSync,
+  options: EnsureRemediationSchemaOptions,
+): void {
+  const invalid = db.prepare(`SELECT id FROM users
+    WHERE role NOT IN ('RECRUITER', 'ADMIN')
+       OR lifecycle_state NOT IN ('active', 'suspended', 'soft_deleted')
+    LIMIT 1`).get();
+  if (invalid) throw new Error("Persisted account role or lifecycle state is invalid.");
+
+  const bootstrap = normalizeAdminBootstrap(options.adminEmail);
+  if (!bootstrap.normalizedEmail) {
+    if (bootstrap.unresolvedDiagnostic) options.onAdminBootstrapDiagnostic?.(bootstrap.unresolvedDiagnostic);
+    return;
+  }
+
+  const normalizedEmail = bootstrap.normalizedEmail;
+  const existingAdmins = db.prepare("SELECT id, email FROM users WHERE role = 'ADMIN' ORDER BY id").all() as unknown as Array<{ id: string; email: string }>;
+  if (existingAdmins.length > 0) {
+    const matchingAdmin = existingAdmins.some((account) => account.email.trim().toLowerCase() === normalizedEmail);
+    if (!matchingAdmin) options.onAdminBootstrapDiagnostic?.(divergentAdminDiagnostic(normalizedEmail));
+    return;
+  }
+
+  const result = db.prepare(`UPDATE users SET role = 'ADMIN'
+    WHERE lower(trim(email)) = ? AND role <> 'ADMIN'`).run(normalizedEmail);
+  if (Number(result.changes) === 0) {
+    options.onAdminBootstrapDiagnostic?.(noMatchingAdminDiagnostic(normalizedEmail));
+  }
+}
+
 /**
  * Applies every currently eligible SQLite remediation migration in one write-locked transaction.
  * Legacy anchors may be initialized by stores in any order; a table-dependent migration is recorded
@@ -1108,6 +1149,8 @@ export function ensureRemediationSchema(
         checksum: migration.checksum,
       });
     }
+
+    if (options.initializeAccounts) initializeAccountSchema(db, options);
 
     db.exec("COMMIT");
   } catch (error) {

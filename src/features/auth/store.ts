@@ -3,14 +3,29 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Pool } from "pg";
+import { assertCanonicalAccountAuthority } from "@/features/admin/account-schema";
 import { ensurePostgreSQLRemediationSchema } from "@/features/persistence/postgres-migrations";
 import { getPostgresPool } from "@/features/persistence/postgres";
 import { ensureRemediationSchema } from "@/features/persistence/sqlite-migrations";
+import { logger } from "@/services/observability/logger";
+import {
+  type AccountLifecycleState,
+  type AccountRole,
+} from "@/types/remediation";
+
+export const DEFAULT_PILOT_TIER_ID = "pilot-free";
 
 export interface AuthUser {
   id: string;
   email: string;
   createdAt: string;
+  role: AccountRole;
+  lifecycleState: AccountLifecycleState;
+  isDemo: boolean;
+  demoLabel: string | null;
+  companyName: string | null;
+  planTierId: string;
+  lastActivityAt: string | null;
 }
 
 export interface AuthUserWithPassword extends AuthUser {
@@ -28,6 +43,13 @@ interface UserRow {
   email: string;
   password_hash: string;
   created_at: string;
+  role: string;
+  lifecycle_state: string;
+  is_demo: number | boolean;
+  demo_label: string | null;
+  company_name: string | null;
+  plan_tier_id: string | null;
+  last_activity_at: string | null;
 }
 
 const SCRYPT_KEY_LENGTH = 64;
@@ -61,7 +83,14 @@ export class AuthStore implements AuthPersistence {
         created_at    TEXT NOT NULL
       );
     `);
-    ensureRemediationSchema(this.db);
+    ensureRemediationSchema(this.db, {
+      initializeAccounts: true,
+      adminEmail: process.env.ADMIN_EMAIL,
+      onAdminBootstrapDiagnostic: (diagnostic) => logger.warn(diagnostic.event, {
+        reason: diagnostic.reason,
+        emailDigestPrefix: diagnostic.emailDigestPrefix,
+      }),
+    });
   }
 
   async findByEmail(email: string): Promise<AuthUserWithPassword | null> {
@@ -70,12 +99,13 @@ export class AuthStore implements AuthPersistence {
   }
 
   async findById(id: string): Promise<AuthUser | null> {
-    const row = this.db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRow | undefined;
+    const row = this.db.prepare(`SELECT id, email, created_at, role, lifecycle_state, is_demo,
+      demo_label, company_name, plan_tier_id, last_activity_at FROM users WHERE id = ?`).get(id) as UserRow | undefined;
     return row ? mapUser(row) : null;
   }
 
   async createUser(email: string, password: string): Promise<AuthUser> {
-    const user: AuthUser = { id: randomUUID(), email: email.trim().toLowerCase(), createdAt: new Date().toISOString() };
+    const user = newAccount(randomUUID(), email, new Date().toISOString());
     this.db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
       .run(user.id, user.email, hashPassword(password), user.createdAt);
     return user;
@@ -97,7 +127,14 @@ class PostgresAuthStore implements AuthPersistence {
           created_at TIMESTAMPTZ NOT NULL
         )
       `);
-      await ensurePostgreSQLRemediationSchema(this.pool);
+      await ensurePostgreSQLRemediationSchema(this.pool, {
+        initializeAccounts: true,
+        adminEmail: process.env.ADMIN_EMAIL,
+        onAdminBootstrapDiagnostic: (diagnostic) => logger.warn(diagnostic.event, {
+          reason: diagnostic.reason,
+          emailDigestPrefix: diagnostic.emailDigestPrefix,
+        }),
+      });
     })();
     return this.initialized;
   }
@@ -105,7 +142,9 @@ class PostgresAuthStore implements AuthPersistence {
   async findByEmail(email: string): Promise<AuthUserWithPassword | null> {
     await this.initialize();
     const result = await this.pool.query<UserRow>(
-      "SELECT id, email, password_hash, created_at::text FROM codeproof_users WHERE email = $1",
+      `SELECT id, email, password_hash, created_at::text, role, lifecycle_state, is_demo,
+        demo_label, company_name, plan_tier_id, last_activity_at::text
+       FROM codeproof_users WHERE email = $1`,
       [email.trim().toLowerCase()],
     );
     return result.rows[0] ? mapUserWithPassword(result.rows[0]) : null;
@@ -114,7 +153,9 @@ class PostgresAuthStore implements AuthPersistence {
   async findById(id: string): Promise<AuthUser | null> {
     await this.initialize();
     const result = await this.pool.query<UserRow>(
-      "SELECT id, email, password_hash, created_at::text FROM codeproof_users WHERE id = $1",
+      `SELECT id, email, created_at::text, role, lifecycle_state, is_demo,
+        demo_label, company_name, plan_tier_id, last_activity_at::text
+       FROM codeproof_users WHERE id = $1`,
       [id],
     );
     return result.rows[0] ? mapUser(result.rows[0]) : null;
@@ -122,7 +163,7 @@ class PostgresAuthStore implements AuthPersistence {
 
   async createUser(email: string, password: string): Promise<AuthUser> {
     await this.initialize();
-    const user: AuthUser = { id: randomUUID(), email: email.trim().toLowerCase(), createdAt: new Date().toISOString() };
+    const user = newAccount(randomUUID(), email, new Date().toISOString());
     await this.pool.query(
       "INSERT INTO codeproof_users (id, email, password_hash, created_at) VALUES ($1, $2, $3, $4)",
       [user.id, user.email, hashPassword(password), user.createdAt],
@@ -132,11 +173,42 @@ class PostgresAuthStore implements AuthPersistence {
 }
 
 function mapUser(row: UserRow): AuthUser {
-  return { id: row.id, email: row.email, createdAt: new Date(row.created_at).toISOString() };
+  const authority = assertCanonicalAccountAuthority({
+    role: row.role,
+    lifecycleState: row.lifecycle_state,
+  });
+  return {
+    id: row.id,
+    email: row.email,
+    createdAt: new Date(row.created_at).toISOString(),
+    role: authority.role,
+    lifecycleState: authority.lifecycleState,
+    isDemo: Boolean(row.is_demo),
+    demoLabel: row.demo_label,
+    companyName: row.company_name,
+    planTierId: row.plan_tier_id ?? DEFAULT_PILOT_TIER_ID,
+    lastActivityAt: row.last_activity_at ? new Date(row.last_activity_at).toISOString() : null,
+  };
 }
 
 function mapUserWithPassword(row: UserRow): AuthUserWithPassword {
   return { ...mapUser(row), passwordHash: row.password_hash };
+}
+
+function newAccount(id: string, email: string, createdAt: string): AuthUser {
+  const authority = assertCanonicalAccountAuthority({ role: "RECRUITER", lifecycleState: "active" });
+  return {
+    id,
+    email: email.trim().toLowerCase(),
+    createdAt,
+    role: authority.role,
+    lifecycleState: authority.lifecycleState,
+    isDemo: false,
+    demoLabel: null,
+    companyName: null,
+    planTierId: DEFAULT_PILOT_TIER_ID,
+    lastActivityAt: null,
+  };
 }
 
 let cached: AuthPersistence | null = null;

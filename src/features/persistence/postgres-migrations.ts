@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from "pg";
+import {
+  divergentAdminDiagnostic,
+  noMatchingAdminDiagnostic,
+  normalizeAdminBootstrap,
+  type AdminBootstrapDiagnostic,
+} from "@/features/admin/bootstrap";
 
 const DEFAULT_BACKFILL_BATCH_SIZE = 100;
 const MAX_BACKFILL_BATCH_SIZE = 1_000;
@@ -754,6 +760,10 @@ export interface EnsurePostgreSQLRemediationSchemaOptions {
   readonly backfillBatchSize?: number;
   /** Test/diagnostic seam used to prove rollback. Production callers leave it unset. */
   readonly beforeMigration?: (migration: PostgreSQLMigrationInfo) => void;
+  /** Runs account validation and the idempotent ADMIN_EMAIL bootstrap under the migration lock. */
+  readonly initializeAccounts?: boolean;
+  readonly adminEmail?: string;
+  readonly onAdminBootstrapDiagnostic?: (diagnostic: AdminBootstrapDiagnostic) => void;
 }
 
 interface MigrationContext {
@@ -1195,6 +1205,37 @@ async function ensureLedger(client: PoolClient): Promise<void> {
   )`);
 }
 
+async function initializeAccountSchema(
+  client: PoolClient,
+  options: EnsurePostgreSQLRemediationSchemaOptions,
+): Promise<void> {
+  const invalid = await client.query(`SELECT id FROM codeproof_users
+    WHERE role NOT IN ('RECRUITER', 'ADMIN')
+       OR lifecycle_state NOT IN ('active', 'suspended', 'soft_deleted')
+    LIMIT 1`);
+  if (invalid.rowCount) throw new Error("Persisted account role or lifecycle state is invalid.");
+
+  const bootstrap = normalizeAdminBootstrap(options.adminEmail);
+  if (!bootstrap.normalizedEmail) {
+    if (bootstrap.unresolvedDiagnostic) options.onAdminBootstrapDiagnostic?.(bootstrap.unresolvedDiagnostic);
+    return;
+  }
+
+  const normalizedEmail = bootstrap.normalizedEmail;
+  const existingAdmins = await client.query<{ id: string; email: string }>(
+    "SELECT id, email FROM codeproof_users WHERE role = 'ADMIN' ORDER BY id",
+  );
+  if (existingAdmins.rows.length > 0) {
+    const matchingAdmin = existingAdmins.rows.some((account) => account.email.trim().toLowerCase() === normalizedEmail);
+    if (!matchingAdmin) options.onAdminBootstrapDiagnostic?.(divergentAdminDiagnostic(normalizedEmail));
+    return;
+  }
+
+  const result = await client.query(`UPDATE codeproof_users SET role = 'ADMIN'
+    WHERE lower(trim(email)) = $1 AND role <> 'ADMIN'`, [normalizedEmail]);
+  if (!result.rowCount) options.onAdminBootstrapDiagnostic?.(noMatchingAdminDiagnostic(normalizedEmail));
+}
+
 /**
  * Applies the PostgreSQL remediation schema in one transaction serialized by an advisory xact lock.
  * Any DDL, backfill, checksum, or ledger failure rolls back and prevents the calling store from
@@ -1241,6 +1282,8 @@ export async function ensurePostgreSQLRemediationSchema(
       );
       applied.set(migration.version, migration);
     }
+
+    if (options.initializeAccounts) await initializeAccountSchema(client, options);
 
     await client.query("COMMIT");
   } catch (error) {
