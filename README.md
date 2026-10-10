@@ -38,7 +38,7 @@ The recruiter workspace includes a persistent English/Arabic switch, global RTL 
 | Limited Evidence | Manifest, dependency, configuration, documentation, or trivial usage only. |
 | Insufficient Evidence | No grounded implementation evidence remains. |
 
-Candidate evidence indices use the visible weighting Strong=4, Good=3, Partial=2, Limited=1, Insufficient=0. They are not AI confidence scores.
+CodeProof does not rate people. Wherever a screen summarises a candidate, it shows how many skills the analysed code supports at each level, and says so plainly when no code was read. No screen shows a single number for a person.
 
 ## Run locally
 
@@ -96,7 +96,7 @@ The checked-in Replit configuration is deployment-ready, but a public demo is no
 - `src/services/github`: bounded public-archive download, ZIP safety validation, and file selection.
 - `src/features/repository-analysis`: static analysis, evidence scoring, patterns, strengths, complexity, caching, and orchestration.
 - `src/features/resume-matching`: PDF parsing, GitHub discovery, deterministic claim extraction, and evidence comparison.
-- `src/features/candidates`: account-scoped SQLite/PostgreSQL persistence and transparent evidence-index calculation.
+- `src/features/candidates`: account-scoped SQLite/PostgreSQL persistence and the evidence profile that screens show in place of a score.
 - `src/features/hiring-analytics`: Claude's explainable recruiter pipeline and hiring metrics.
 - `src/services/ai`: optional provider interface, strict schemas, injection boundaries, and evidence grounding.
 - `src/app`: the single Next.js recruiter application and server API.

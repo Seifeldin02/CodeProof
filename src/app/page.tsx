@@ -7,6 +7,7 @@ import Badge from "@/components/ui/Badge";
 import { CheckCircleIcon, GitBranchIcon, SearchCodeIcon, UsersIcon } from "@/components/ui/icons";
 import { computeFunnel } from "@/features/hiring-analytics/analytics";
 import { getCandidateStore } from "@/features/candidates/store";
+import { withEvidenceProfiles } from "@/features/candidates/evidence-profiles";
 import { getI18n } from "@/i18n/server";
 import { getCurrentUser } from "@/features/auth/session";
 import AuthLanding from "@/components/auth/AuthLanding";
@@ -23,15 +24,13 @@ export default async function DashboardPage() {
     ["PROOF", t("File-backed evidence"), t("Exact source references")],
     ["DECIDE", t("Recruiter review"), t("Compare and interview")],
   ] as const;
-  const candidates = await getCandidateStore().listCandidates(user.id);
+  const candidates = await withEvidenceProfiles(user.id, await getCandidateStore().listCandidates(user.id));
   const realCandidates = candidates.filter((candidate) => !candidate.isDemo);
   const demoCandidates = candidates.filter((candidate) => candidate.isDemo);
   const operatingCandidates = realCandidates.length ? realCandidates : candidates;
   const repositories = operatingCandidates.reduce((sum, candidate) => sum + (candidate.repositoryCount ?? 0), 0);
   const claims = operatingCandidates.reduce((sum, candidate) => sum + (candidate.verifiedClaimCount ?? 0), 0);
-  const averageEvidence = operatingCandidates.length
-    ? Math.round(operatingCandidates.reduce((sum, candidate) => sum + candidate.verifiedSkillScore, 0) / operatingCandidates.length)
-    : 0;
+  const withCodeRead = operatingCandidates.filter((candidate) => (candidate.evidence?.repositories ?? 0) > 0).length;
 
   return (
     <div className="space-y-6">
@@ -76,7 +75,7 @@ export default async function DashboardPage() {
         <KpiTile label={t("Candidates analyzed")} value={String(operatingCandidates.length)} hint={t(realCandidates.length ? "Real candidate records" : "Current workspace records")} icon={UsersIcon} />
         <KpiTile label={t("Repositories inspected")} value={String(repositories)} hint={t("Bounded public archives")} icon={GitBranchIcon} />
         <KpiTile label={t("CV claims grounded")} value={String(claims)} hint={t("Backed by source files")} icon={CheckCircleIcon} iconTone="positive" />
-        <KpiTile label={t("Average evidence index")} value={operatingCandidates.length ? String(averageEvidence) : "—"} hint={t("Categorical depth, not confidence")} icon={SearchCodeIcon} iconTone="positive" />
+        <KpiTile label={t("Candidates with code read")} value={operatingCandidates.length ? t("{count} of {total}", { count: withCodeRead, total: operatingCandidates.length }) : "—"} hint={t("The rest are unknown, not negative")} icon={SearchCodeIcon} iconTone="positive" />
       </div>
 
       {candidates.length === 0 ? (

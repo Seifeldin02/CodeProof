@@ -3,6 +3,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
 import { SearchCodeIcon } from "@/components/ui/icons";
 import { getCandidateStore } from "@/features/candidates/store";
+import { buildEvidenceProfile } from "@/features/candidates/evidence-profile";
 import type { EvidenceLevel } from "@/types/analysis";
 import { getI18n } from "@/i18n/server";
 import { requirePageUser } from "@/features/auth/page-guard";
@@ -29,7 +30,7 @@ export default async function CompareCandidatesPage() {
       name: record.name,
       role: record.role,
       isDemo: Boolean(record.isDemo),
-      evidenceIndex: record.verifiedSkillScore,
+      evidence: buildEvidenceProfile((detail?.analyses ?? []).map((analysis) => analysis.result.skills)),
       repositoryCount: record.repositoryCount ?? 0,
       groundedClaims: record.verifiedClaimCount ?? 0,
       topSkills: [...skills.values()].sort((a, b) => LEVEL_WEIGHT[b.level] - LEVEL_WEIGHT[a.level]).slice(0, 5),

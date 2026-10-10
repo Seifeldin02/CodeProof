@@ -4,14 +4,16 @@
  * Every metric is derived from `CandidateRecord[]` so the dashboard numbers
  * stay internally consistent — no hard-coded or fabricated scores.
  */
+import { evidenceGroup } from '@/features/candidates/evidence-profile';
 import {
   type CandidateRecord,
   type DerivedInsight,
+  type EvidenceGroup,
+  type EvidenceGroupOutcome,
   type FunnelStageMetric,
   type HiringSummary,
   PIPELINE_STAGES,
   type PipelineStage,
-  type SkillBandOutcome,
   SOURCE_CHANNELS,
   type SourceMetric,
   STAGE_LABELS,
@@ -163,35 +165,32 @@ export function computeSourceMetrics(candidates: CandidateRecord[]): SourceMetri
       hires: hires.length,
       hireRate: group.length === 0 ? 0 : round1((hires.length / group.length) * 100),
       avgTimeToHireDays: tths.length ? Math.round(avg(tths)) : null,
-      avgVerifiedScore: group.length ? Math.round(avg(group.map((c) => c.verifiedSkillScore))) : 0,
+      withCodeRead: group.filter((c) => evidenceGroup(c.evidence) !== 'no_code_read').length,
+      withStrongOrGood: group.filter((c) => evidenceGroup(c.evidence) === 'strong_or_good').length,
     };
   })
     .filter((m) => m.applicants > 0)
     .sort((a, b) => b.applicants - a.applicants);
 }
 
-/* ------------------- Verified skills vs. hiring outcome -------------------- */
+/* --------------------- Code evidence vs. hiring outcome --------------------- */
 
-const SKILL_BANDS = [
-  { band: '0–39', min: 0, max: 39 },
-  { band: '40–59', min: 40, max: 59 },
-  { band: '60–79', min: 60, max: 79 },
-  { band: '80–100', min: 80, max: 100 },
-];
+const EVIDENCE_GROUPS: EvidenceGroup[] = ['no_code_read', 'lighter_signals', 'strong_or_good'];
 
-export function computeSkillBands(candidates: CandidateRecord[]): SkillBandOutcome[] {
-  return SKILL_BANDS.map(({ band, min, max }) => {
-    const inBand = candidates.filter(
-      (c) => c.verifiedSkillScore >= min && c.verifiedSkillScore <= max,
-    );
-    const hired = inBand.filter((c) => c.outcome === 'hired').length;
+/**
+ * Observed outcomes by what the analysed code supports. Candidates are grouped
+ * by category, never by a number, and a candidate with no code read is its own
+ * group rather than the bottom of a scale.
+ */
+export function computeEvidenceGroups(candidates: CandidateRecord[]): EvidenceGroupOutcome[] {
+  return EVIDENCE_GROUPS.map((group) => {
+    const inGroup = candidates.filter((c) => evidenceGroup(c.evidence) === group);
+    const hired = inGroup.filter((c) => c.outcome === 'hired').length;
     return {
-      band,
-      min,
-      max,
-      candidates: inBand.length,
+      group,
+      candidates: inGroup.length,
       hired,
-      hireRate: inBand.length ? round1((hired / inBand.length) * 100) : 0,
+      hireRate: inGroup.length ? round1((hired / inGroup.length) * 100) : 0,
     };
   });
 }
@@ -226,16 +225,16 @@ export function deriveInsights(candidates: CandidateRecord[]): DerivedInsight[] 
     });
   }
 
-  const bands = computeSkillBands(candidates);
-  const topBand = bands.find((b) => b.min === 80);
-  const midBand = bands.find((b) => b.min === 40);
-  if (topBand && midBand && topBand.candidates >= 3 && midBand.hireRate > 0) {
-    const factor = round1(topBand.hireRate / midBand.hireRate);
+  const groups = computeEvidenceGroups(candidates);
+  const strongGroup = groups.find((g) => g.group === 'strong_or_good');
+  const lighterGroup = groups.find((g) => g.group === 'lighter_signals');
+  if (strongGroup && lighterGroup && strongGroup.candidates >= 3 && lighterGroup.hireRate > 0) {
+    const factor = round1(strongGroup.hireRate / lighterGroup.hireRate);
     if (factor >= 1.3) {
       insights.push({
         id: 'skills-signal',
         tone: 'positive',
-        text: `Candidates with an evidence index of at least 80 have an observed hire rate ${factor} times the 40-59 band in the current dataset.`,
+        text: `Candidates with strong or good code evidence have an observed hire rate ${factor} times that of candidates with lighter signals in the current dataset.`,
       });
     }
   }
