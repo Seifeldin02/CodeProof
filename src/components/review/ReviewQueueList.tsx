@@ -2,22 +2,15 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import EvidenceReviewedToggle from "./EvidenceReviewedToggle";
-import type { ReviewQueueEntry, ReviewTier, UnknownSignal } from "@/features/review-queue/queue";
+import type { ReviewQueueEntry, ReviewTier } from "@/features/review-queue/queue";
+import { NEXT_STEP_LABEL, nextStepReason, TIER_LABEL, UNKNOWN_LABEL } from "@/features/review-queue/wording";
 import { translate, type Locale, type TranslationValues } from "@/i18n/translations";
 
-const TIER: Record<ReviewTier, { label: string; tone: "positive" | "brand" | "warning" | "neutral" }> = {
-  review_first: { label: "Review first", tone: "positive" },
-  review: { label: "Review", tone: "brand" },
-  verify_in_interview: { label: "Verify in interview", tone: "warning" },
-  evidence_incomplete: { label: "Evidence incomplete", tone: "neutral" },
-};
-
-const UNKNOWN: Record<UnknownSignal, string> = {
-  no_repositories: "No repository analyzed yet",
-  failed_repositories: "{count} selected repositories could not be analyzed",
-  no_cv: "No CV text provided, so claim verification is unknown",
-  no_requirements: "No company requirements saved, so role fit is unknown",
-  sources_not_analyzed: "{count} portfolio or non-GitHub source(s) named on the CV cannot be read yet",
+const TIER_TONE: Record<ReviewTier, "positive" | "brand" | "warning" | "neutral"> = {
+  review_first: "positive",
+  review: "brand",
+  verify_in_interview: "warning",
+  evidence_incomplete: "neutral",
 };
 
 function Signal({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "positive" | "warning" }) {
@@ -27,7 +20,6 @@ function Signal({ children, tone = "neutral" }: { children: ReactNode; tone?: "n
 
 function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position: number; locale: Locale }) {
   const t = (key: string, values?: TranslationValues) => translate(locale, key, values);
-  const tier = TIER[entry.tier];
   const { requirements, claims } = entry;
   const supported = requirements ? requirements.strong + requirements.partial : 0;
 
@@ -39,7 +31,7 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <Link href={`/candidates/${entry.id}`} className="text-base font-semibold text-slate-950 hover:text-brand-700">{entry.name}</Link>
-              <Badge tone={tier.tone}>{t(tier.label)}</Badge>
+              <Badge tone={TIER_TONE[entry.tier]}>{t(TIER_LABEL[entry.tier])}</Badge>
               {entry.isDemo && <Badge tone="warning">{t("Demo")}</Badge>}
             </div>
             <p className="mt-1 text-xs text-slate-500">
@@ -83,6 +75,11 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
               {t("Cited files")}: <code dir="ltr" className="break-all text-start text-[10px] text-brand-700">{entry.citedFiles.join(" · ")}</code>
             </p>
           )}
+          <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/60 p-3">
+            <h4 className="text-[10px] font-semibold uppercase tracking-[.14em] text-brand-700">{t("Drafted next step")}</h4>
+            <p className="mt-1.5 text-sm font-semibold text-slate-900">{t(NEXT_STEP_LABEL[entry.nextStep])}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-600">{t(nextStepReason(entry))}</p>
+          </div>
         </div>
 
         <div>
@@ -93,7 +90,7 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
             <ul className="mt-2 space-y-1.5">
               {entry.unknowns.map((signal) => (
                 <li key={signal} className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs leading-5 text-slate-600">
-                  {t(UNKNOWN[signal], { count: signal === "sources_not_analyzed" ? entry.unanalyzedSources.length : entry.repositories.failed })}
+                  {t(UNKNOWN_LABEL[signal], { count: signal === "sources_not_analyzed" ? entry.unanalyzedSources.length : entry.repositories.failed })}
                   {signal === "sources_not_analyzed" && (
                     <span dir="ltr" className="mt-1 block break-all text-start text-[10px] text-slate-500">{entry.unanalyzedSources.join(" · ")}</span>
                   )}
