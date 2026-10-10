@@ -38,7 +38,7 @@ export default async function CandidateSharePage({ params }: { params: Promise<{
         <p className="mt-2 text-sm text-slate-400">{t(candidate.role)} · CodeProof</p>
         <dl className="mt-8 grid grid-cols-3 gap-2">
           <div><dt className="text-[9px] uppercase text-slate-500">{t("Strong or good skills")}</dt><dd className="mt-1 text-2xl font-semibold text-lime-300">{candidate.analyses.length ? [...skills.values()].filter((skill) => skill.level === "Strong Evidence" || skill.level === "Good Evidence").length : "—"}</dd></div>
-          <div><dt className="text-[9px] uppercase text-slate-500">{t("Verified repositories")}</dt><dd className="mt-1 text-2xl font-semibold">{candidate.analyses.length}</dd></div>
+          <div><dt className="text-[9px] uppercase text-slate-500">{t("Repositories inspected")}</dt><dd className="mt-1 text-2xl font-semibold">{candidate.analyses.length}</dd></div>
           <div><dt className="text-[9px] uppercase text-slate-500">{t("Grounded CV claims")}</dt><dd className="mt-1 text-2xl font-semibold">{candidate.verifiedClaimCount ?? 0}</dd></div>
         </dl>
       </header>
