@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import EvidenceResponseForm from "@/components/evidence/EvidenceResponseForm";
 import { getCandidateStore } from "@/features/candidates/store";
 import { findOpenRequest } from "@/features/evidence-requests/service";
 import { EVIDENCE_REQUEST_LIMITS } from "@/features/evidence-requests/types";
 import { getI18n } from "@/i18n/server";
-import { formatDateForLocale } from "@/i18n/translations";
+import { formatDateForLocale, isLocale } from "@/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +26,21 @@ function Shell({ children }: { children: React.ReactNode }) {
  * in the address is the only credential. Every link that cannot be used shows
  * the same message, whatever the reason.
  */
-export default async function EvidenceRequestPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
+export default async function EvidenceRequestPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ opened?: string | string[] }> }) {
+  const [{ token }, { opened }] = await Promise.all([params, searchParams]);
   const { locale, t } = await getI18n();
   const found = await findOpenRequest(token);
   const candidate = found ? await getCandidateStore().getCandidate(found.request.ownerUserId, found.request.candidateId) : null;
+  const usable = Boolean(found && candidate && found.status !== "expired" && found.status !== "revoked");
 
-  if (!found || !candidate || found.status === "expired" || found.status === "revoked") {
+  // The link a recruiter sends starts at ./open, which stores the language they
+  // chose. A first-time visitor who arrives here directly is sent there once.
+  // Only a usable link does this, so an unusable one looks the same as any other.
+  if (usable && found && found.request.locale !== locale && opened !== "1" && !isLocale((await cookies()).get("codeproof-locale")?.value)) {
+    redirect(`/evidence/${token}/open?lang=${found.request.locale}`);
+  }
+
+  if (!found || !candidate || !usable) {
     return (
       <Shell>
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-card sm:p-9">

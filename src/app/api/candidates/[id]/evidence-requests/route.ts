@@ -45,7 +45,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
   const opened = await openEvidenceRequest(user.id, id, locale);
   return Response.json(
-    { request: opened.request, path: `/evidence/${opened.token}?lang=${locale}` },
+    { request: opened.request, path: `/evidence/${opened.token}/open?lang=${locale}` },
     { status: 201, headers: NO_STORE },
   );
 }
