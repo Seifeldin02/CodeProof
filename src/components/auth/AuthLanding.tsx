@@ -1,3 +1,4 @@
+import Link from "next/link";
 import SignInForm from "./SignInForm";
 import { CheckCircleIcon, SearchCodeIcon, ShieldCheckIcon } from "@/components/ui/icons";
 
@@ -26,6 +27,11 @@ export default function AuthLanding({ t }: { t: (key: string) => string }) {
             </div>
           ))}
         </div>
+        <p className="mt-6 text-sm text-slate-600">
+          <Link href="/trust" className="inline-flex min-h-11 items-center font-semibold text-brand-700 hover:text-brand-500">
+            {t("See the rules CodeProof follows and what we measured")} <span className="directional-icon ms-1">→</span>
+          </Link>
+        </p>
       </section>
 
       <section className="surface-card rounded-[28px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_28px_80px_rgba(15,23,42,.12)] sm:p-8">

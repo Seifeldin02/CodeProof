@@ -29,7 +29,10 @@ export default function Sidebar() {
         <div className="rounded-xl border border-white/[.07] bg-white/[.035] p-3.5">
           <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.14em] text-lime-300"><span className="live-dot" /> {t("Safe analysis")}</div>
           <p className="text-[11px] leading-relaxed text-slate-500">{t("Public code is inspected as bounded text data. Repository code is never executed.")}</p>
-          <Link href="/about" className="mt-3 inline-flex text-[11px] font-semibold text-slate-300 hover:text-lime-300">{t("How it works")} <span className="directional-icon ms-1">→</span></Link>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+            <Link href="/about" className="inline-flex text-[11px] font-semibold text-slate-300 hover:text-lime-300">{t("How it works")} <span className="directional-icon ms-1">→</span></Link>
+            <Link href="/trust" className="inline-flex text-[11px] font-semibold text-slate-300 hover:text-lime-300">{t("Trust sheet")} <span className="directional-icon ms-1">→</span></Link>
+          </div>
         </div>
       </div>
     </aside>

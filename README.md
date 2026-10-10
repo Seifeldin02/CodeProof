@@ -13,6 +13,13 @@ CodeProof is an evidence-based developer hiring platform. A recruiter uploads a 
 
 The core flow needs no `GITHUB_TOKEN` and no `OPENAI_API_KEY`.
 
+## What the recruiter does with the evidence
+
+- **Review queue (`/review`).** A drafted order with its rules written out. Each candidate gets a drafted next step: interview on the evidence, review then decide, test or verify, or ask for evidence. Candidates whose code shows skills their CV never mentions are listed at the top. The order reads repository evidence only: CV wording and names never move anyone, and equal evidence is settled by who was added first. The order can be exported as a spreadsheet.
+- **Candidate's own evidence.** A CV with no readable repository can still be saved, with no code read. The recruiter can send any candidate a private link (`/evidence/<token>`) where the candidate reads what will happen to what they share, agrees to it, lists public repositories or other links, says that their work is confidential, and can prove that a GitHub account is theirs by publishing a short code in a public gist. CodeProof sends no email: the recruiter copies the link and a ready message.
+- **CV coverage check (`/cv-coverage`).** Counts, for a batch of CVs, how many name code that can be read. Nothing is stored and no candidate is created.
+- **Trust sheet (`/trust`).** A public page with the rules the product follows, what was measured about them and what was not. Its figures come from `npm run trust:measure`.
+
 The recruiter workspace includes a persistent English/Arabic switch, global RTL behavior, responsive phone/tablet layouts, and a printable/shareable candidate report. The permanent product contract is documented in [`docs/HARD_REQUIREMENTS.md`](docs/HARD_REQUIREMENTS.md).
 
 ## Safety boundaries
@@ -27,6 +34,9 @@ The recruiter workspace includes a persistent English/Arabic switch, global RTL 
 - Every implementation claim and interview prompt retains exact source-file references.
 - Missing evidence is reported as a gap, never as proof that a candidate lacks a skill.
 - Every candidate, report, company requirement, and hiring metric is private to the authenticated recruiter account that created it. Product routes and data APIs require sign-in.
+- An evidence request link carries 256 random bits and is shown once. Only its digest is stored. It accepts one answer, expires after seven days, can be closed by the recruiter, and is replaced by a newer one. The answer endpoint is rate limited and answers every unusable link the same way.
+- The account proof fetches one fixed host (`gist.githubusercontent.com`) with a path built from validated parts, refuses redirects and reads at most 64 KB. It shows control of an account, not who wrote each commit, and is labelled that way.
+- Nothing a candidate sends or proves changes the review order. Only analysed code does.
 
 ## Evidence method
 
@@ -76,6 +86,8 @@ npm run verify
 npm audit
 ```
 
+`npm run trust:measure` repeats the measurement behind the trust sheet. It downloads a fixed set of public repositories, analyses each one five times with AI off, checks that every cited file exists in the archive, runs the manipulation checks and writes `src/features/trust/measurements.json`. It needs network access, so it is not part of `npm test`. Run it again whenever the engine version changes; until then the trust sheet says the figures are from an earlier engine.
+
 ## Replit
 
 1. Import the `development` branch.
@@ -98,6 +110,10 @@ The checked-in Replit configuration is deployment-ready, but a public demo is no
 - `src/features/resume-matching`: PDF parsing, GitHub discovery, deterministic claim extraction, and evidence comparison.
 - `src/features/candidates`: account-scoped SQLite/PostgreSQL persistence and the evidence profile that screens show in place of a score.
 - `src/features/hiring-analytics`: Claude's explainable recruiter pipeline and hiring metrics.
+- `src/features/review-queue`: the drafted review order, its next steps and its wording.
+- `src/features/evidence-requests`: private links for a candidate's own evidence, the account proof, and the claims noted from a CV.
+- `src/features/cv-coverage`: the link census behind the CV coverage check.
+- `src/features/trust`: the manipulation checks and the recorded trust measurement.
 - `src/services/ai`: optional provider interface, strict schemas, injection boundaries, and evidence grounding.
 - `src/app`: the single Next.js recruiter application and server API.
 
@@ -105,7 +121,9 @@ The checked-in Replit configuration is deployment-ready, but a public demo is no
 
 - Public GitHub repositories only.
 - Source archives do not include stars, issue counts, private repositories, or profile repository listings.
-- Profile-only CVs require manual public repository selection.
+- A GitHub profile's repositories cannot be listed. For a profile-only CV, paste repository URLs or send the candidate an evidence request.
+- Intake is one CV at a time. The coverage check reads a batch, but it only counts links.
+- The account proof shows that a GitHub account is the candidate's. Nothing shows who wrote a particular file, because archives carry no history.
 - Scanned/image-only PDFs require pasted text because OCR is not included.
 - Archives beyond the safety limits are rejected instead of partially analyzed.
 - SQLite is local-only; ephemeral deployments require `DATABASE_URL` or `POSTGRES_URL`.
