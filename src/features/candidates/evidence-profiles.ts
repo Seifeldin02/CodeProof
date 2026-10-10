@@ -2,7 +2,7 @@ import { getPostgresPool } from "@/features/persistence/postgres";
 import type { CandidateRecord, EvidenceProfile } from "@/features/hiring-analytics/types";
 import type { SkillEvidence } from "@/types/analysis";
 import { buildEvidenceProfile, EMPTY_EVIDENCE_PROFILE } from "./evidence-profile";
-import { CandidateStore, getCandidateStore } from "./store";
+import { getCandidateStore, type CandidateStore } from "./store";
 
 /**
  * Read model for list screens. A list of candidates needs each one's evidence
@@ -40,9 +40,12 @@ async function skillRows(ownerUserId: string): Promise<SkillRow[]> {
     );
     return result.rows;
   }
-  const store = getCandidateStore();
-  if (!(store instanceof CandidateStore)) return [];
-  return store.db.prepare(
+  // The store is shared through `globalThis`, and each server bundle carries its
+  // own copy of the class, so `instanceof` is false across routes. The SQLite
+  // store is the one that exposes its connection.
+  const { db } = getCandidateStore() as Partial<CandidateStore>;
+  if (!db) return [];
+  return db.prepare(
     `SELECT a.candidate_id, json_extract(a.analysis_json, '$.skills') AS skills
      FROM candidate_analyses a
      JOIN candidates c ON c.id = a.candidate_id
