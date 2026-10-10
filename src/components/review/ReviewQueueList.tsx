@@ -3,8 +3,8 @@ import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import EvidenceReviewedToggle from "./EvidenceReviewedToggle";
 import type { ReviewQueueEntry, ReviewTier } from "@/features/review-queue/queue";
-import { NEXT_STEP_LABEL, nextStepReason, TIER_LABEL, UNKNOWN_LABEL } from "@/features/review-queue/wording";
-import { translate, type Locale, type TranslationValues } from "@/i18n/translations";
+import { NEXT_STEP_LABEL, nextStepReason, TIER_LABEL, UNKNOWN_LABEL, unknownValues } from "@/features/review-queue/wording";
+import { formatDateForLocale, translate, type Locale, type TranslationValues } from "@/i18n/translations";
 
 const TIER_TONE: Record<ReviewTier, "positive" | "brand" | "warning" | "neutral"> = {
   review_first: "positive",
@@ -61,6 +61,11 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
                 {t("The CV undersells the code:")} <span className="tech-ltr font-medium">{entry.undersold.join(", ")}</span>
               </Signal>
             )}
+            {entry.confirmedRepositories > 0 && (
+              <Signal tone="positive">
+                {t("The candidate proved the GitHub account behind {count} of {total} analyzed repositories is theirs", { count: entry.confirmedRepositories, total: entry.repositories.analyzed })}
+              </Signal>
+            )}
             {requirements && requirements.unsupportedNames.length > 0 && (
               <Signal tone="warning">
                 {t("No repository evidence yet for:")} <span className="tech-ltr font-medium">{requirements.unsupportedNames.join(", ")}</span>
@@ -79,6 +84,11 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
             <h4 className="text-[10px] font-semibold uppercase tracking-[.14em] text-brand-700">{t("Drafted next step")}</h4>
             <p className="mt-1.5 text-sm font-semibold text-slate-900">{t(NEXT_STEP_LABEL[entry.nextStep])}</p>
             <p className="mt-1 text-xs leading-5 text-slate-600">{t(nextStepReason(entry))}</p>
+            {entry.nextStep === "ask_for_evidence" && !entry.evidenceRequestedAt && (
+              <Link href={`/candidates/${entry.id}#candidate-evidence`} className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-brand-700 hover:text-brand-500">
+                {t("Ask the candidate for evidence")} <span className="directional-icon ms-1">→</span>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -90,7 +100,7 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
             <ul className="mt-2 space-y-1.5">
               {entry.unknowns.map((signal) => (
                 <li key={signal} className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs leading-5 text-slate-600">
-                  {t(UNKNOWN_LABEL[signal], { count: signal === "sources_not_analyzed" ? entry.unanalyzedSources.length : entry.repositories.failed })}
+                  {t(UNKNOWN_LABEL[signal], unknownValues(entry, signal, (iso) => formatDateForLocale(locale, iso)))}
                   {signal === "sources_not_analyzed" && (
                     <span dir="ltr" className="mt-1 block break-all text-start text-[10px] text-slate-500">{entry.unanalyzedSources.join(" · ")}</span>
                   )}

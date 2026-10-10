@@ -8,7 +8,15 @@ describe("review queue wording", () => {
   });
 
   it("does not claim role fit when no company requirements are saved", () => {
-    expect(nextStepReason({ nextStep: "review_then_decide", requirements: null })).toContain("Role fit is unknown");
-    expect(nextStepReason({ nextStep: "review_then_decide", requirements: { judged: 2, strong: 1, partial: 0, unsupported: 1, unsupportedNames: ["Go"] } })).toContain("part of the role");
+    const base = { tier: "review" as const, evidenceRequestedAt: null };
+    expect(nextStepReason({ ...base, nextStep: "review_then_decide", requirements: null })).toContain("Role fit is unknown");
+    expect(nextStepReason({ ...base, nextStep: "review_then_decide", requirements: { judged: 2, strong: 1, partial: 0, unsupported: 1, unsupportedNames: ["Go"] } })).toContain("part of the role");
+  });
+
+  it("says when an answer is awaited and when the candidate's work is confidential", () => {
+    const incomplete = { tier: "evidence_incomplete" as const, requirements: null };
+    expect(nextStepReason({ ...incomplete, nextStep: "ask_for_evidence", evidenceRequestedAt: "2026-10-10T00:00:00.000Z" })).toContain("has not arrived yet");
+    expect(nextStepReason({ ...incomplete, nextStep: "ask_for_evidence", evidenceRequestedAt: null })).toContain("Ask the candidate");
+    expect(nextStepReason({ ...incomplete, nextStep: "test_or_verify", evidenceRequestedAt: null })).toContain("confidential");
   });
 });

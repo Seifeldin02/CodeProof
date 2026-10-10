@@ -2,7 +2,8 @@
 
 import { useI18n } from "@/components/i18n/LocaleProvider";
 import type { ReviewQueueEntry } from "@/features/review-queue/queue";
-import { NEXT_STEP_LABEL, TIER_LABEL, UNKNOWN_LABEL } from "@/features/review-queue/wording";
+import { NEXT_STEP_LABEL, TIER_LABEL, UNKNOWN_LABEL, unknownValues } from "@/features/review-queue/wording";
+import { formatDateForLocale } from "@/i18n/translations";
 import { toCsv } from "@/lib/csv";
 
 /**
@@ -11,7 +12,7 @@ import { toCsv } from "@/lib/csv";
  * file is built in the browser from what is on screen; nothing is sent anywhere.
  */
 export default function ExportQueueButton({ entries }: { entries: ReviewQueueEntry[] }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
 
   function download(): void {
     const header = [
@@ -30,7 +31,7 @@ export default function ExportQueueButton({ entries }: { entries: ReviewQueueEnt
       entry.strongSkills,
       entry.undersold.join("; "),
       entry.requirements?.unsupportedNames.join("; ") ?? "",
-      entry.unknowns.map((signal) => t(UNKNOWN_LABEL[signal], { count: signal === "sources_not_analyzed" ? entry.unanalyzedSources.length : entry.repositories.failed })).join("; "),
+      entry.unknowns.map((signal) => t(UNKNOWN_LABEL[signal], unknownValues(entry, signal, (iso) => formatDateForLocale(locale, iso)))).join("; "),
       entry.citedFiles.join("; "),
       entry.evidenceReviewedAt ? t("Yes") : t("No"),
     ]);

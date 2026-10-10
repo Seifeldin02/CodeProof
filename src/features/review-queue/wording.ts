@@ -1,3 +1,4 @@
+import type { TranslationValues } from "@/i18n/translations";
 import type { NextStep, ReviewQueueEntry, ReviewTier, UnknownSignal } from "./queue";
 
 /**
@@ -21,8 +22,22 @@ export const UNKNOWN_LABEL: Record<UnknownSignal, string> = {
   failed_repositories: "{count} selected repositories could not be analyzed",
   no_cv: "No CV text provided, so claim verification is unknown",
   no_requirements: "No company requirements saved, so role fit is unknown",
-  sources_not_analyzed: "{count} portfolio or non-GitHub source(s) named on the CV cannot be read yet",
+  sources_not_analyzed: "{count} portfolio or non-GitHub source(s) the candidate named cannot be read yet",
+  evidence_requested: "You asked the candidate for evidence on {date}. No answer yet",
+  work_confidential: "The candidate says their work is confidential, so code evidence is unknown",
 };
+
+/** The placeholder values each unknown label needs. */
+export function unknownValues(
+  entry: Pick<ReviewQueueEntry, "unanalyzedSources" | "repositories" | "evidenceRequestedAt">,
+  signal: UnknownSignal,
+  formatDate: (iso: string) => string,
+): TranslationValues {
+  if (signal === "sources_not_analyzed") return { count: entry.unanalyzedSources.length };
+  if (signal === "failed_repositories") return { count: entry.repositories.failed };
+  if (signal === "evidence_requested") return { date: entry.evidenceRequestedAt ? formatDate(entry.evidenceRequestedAt) : "" };
+  return {};
+}
 
 export const NEXT_STEP_ORDER: NextStep[] = ["interview_on_evidence", "review_then_decide", "test_or_verify", "ask_for_evidence"];
 
@@ -42,6 +57,8 @@ export const NEXT_STEP_MEANING: Record<NextStep, string> = {
 };
 
 const REVIEW_WITHOUT_REQUIREMENTS = "Role fit is unknown because no company requirements are saved. Open the dossier, then choose an interview or a test.";
+const WAITING_FOR_ANSWER = "You asked the candidate for their own evidence. Their answer has not arrived yet.";
+const CONFIDENTIAL_WORK = "The candidate says their work is confidential. A test or an interview is the way to learn more.";
 
 const NEXT_STEP_REASON: Record<NextStep, string> = {
   interview_on_evidence: "Every required requirement has repository evidence. The test can be skipped; use the drafted questions in the interview.",
@@ -50,8 +67,11 @@ const NEXT_STEP_REASON: Record<NextStep, string> = {
   ask_for_evidence: "No code has been read. Ask the candidate for their own evidence, or send your test.",
 };
 
-export function nextStepReason(entry: Pick<ReviewQueueEntry, "nextStep" | "requirements">): string {
-  return entry.nextStep === "review_then_decide" && !entry.requirements ? REVIEW_WITHOUT_REQUIREMENTS : NEXT_STEP_REASON[entry.nextStep];
+export function nextStepReason(entry: Pick<ReviewQueueEntry, "nextStep" | "requirements" | "tier" | "evidenceRequestedAt">): string {
+  if (entry.nextStep === "review_then_decide" && !entry.requirements) return REVIEW_WITHOUT_REQUIREMENTS;
+  if (entry.nextStep === "ask_for_evidence" && entry.evidenceRequestedAt) return WAITING_FOR_ANSWER;
+  if (entry.nextStep === "test_or_verify" && entry.tier === "evidence_incomplete") return CONFIDENTIAL_WORK;
+  return NEXT_STEP_REASON[entry.nextStep];
 }
 
 /** Every key above, for the translation coverage check. */
@@ -62,4 +82,6 @@ export const REVIEW_QUEUE_WORDING: string[] = [
   ...Object.values(NEXT_STEP_MEANING),
   ...Object.values(NEXT_STEP_REASON),
   REVIEW_WITHOUT_REQUIREMENTS,
+  WAITING_FOR_ANSWER,
+  CONFIDENTIAL_WORK,
 ];

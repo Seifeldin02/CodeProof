@@ -2,6 +2,8 @@ import type { CandidateDetail } from "@/features/candidates/types";
 import type { Role } from "@/features/hiring-analytics/types";
 import { matchJobDescription } from "@/features/job-matching/match";
 import type { ExtractedJobRequirement, JobRequirementMatch } from "@/types/analysis";
+import type { CandidateEvidenceContext } from "@/features/evidence-requests/service";
+import { repositoryOwnerConfirmed } from "@/features/evidence-requests/types";
 
 /**
  * Drafts the order in which a recruiter should open candidate dossiers.
@@ -25,7 +27,14 @@ import type { ExtractedJobRequirement, JobRequirementMatch } from "@/types/analy
 
 export type ReviewTier = "review_first" | "review" | "verify_in_interview" | "evidence_incomplete";
 
-export type UnknownSignal = "no_repositories" | "failed_repositories" | "no_cv" | "no_requirements" | "sources_not_analyzed";
+export type UnknownSignal =
+  | "no_repositories"
+  | "failed_repositories"
+  | "no_cv"
+  | "no_requirements"
+  | "sources_not_analyzed"
+  | "evidence_requested"
+  | "work_confidential";
 
 /**
  * The drafted next step for the recruiter. Code evidence decides who can go
@@ -40,6 +49,11 @@ const NEXT_STEP: Record<ReviewTier, NextStep> = {
   verify_in_interview: "test_or_verify",
   evidence_incomplete: "ask_for_evidence",
 };
+
+/** A candidate who already said their work is confidential is not asked again. */
+function nextStepFor(tier: ReviewTier, evidence: CandidateEvidenceContext | undefined): NextStep {
+  return tier === "evidence_incomplete" && evidence?.confidential ? "test_or_verify" : NEXT_STEP[tier];
+}
 
 export interface RequirementCoverage {
   /** Requirements the order is judged against: the required ones, or all when none are marked required. */
@@ -69,10 +83,14 @@ export interface ReviewQueueEntry {
   /** Strong/Good skills the CV never mentions: the code says more than the résumé. */
   undersold: string[];
   repositories: { analyzed: number; failed: number };
-  /** Portfolio / non-GitHub links from the CV that CodeProof cannot read yet. */
+  /** Portfolio / non-GitHub links from the CV or from the candidate that CodeProof cannot read yet. */
   unanalyzedSources: string[];
   /** Up to four source files that back the strongest evidence. */
   citedFiles: string[];
+  /** Analysed repositories that sit under a GitHub account the candidate proved is theirs. */
+  confirmedRepositories: number;
+  /** When an evidence request was sent that the candidate has not answered yet. */
+  evidenceRequestedAt: string | null;
   unknowns: UnknownSignal[];
   evidenceReviewedAt: string | null;
 }
@@ -132,7 +150,11 @@ function tierFor(entry: Pick<ReviewQueueEntry, "repositories" | "requirements">)
   return "verify_in_interview";
 }
 
-export function buildReviewEntry(candidate: CandidateDetail, requirements: ExtractedJobRequirement[]): ReviewQueueEntry {
+export function buildReviewEntry(
+  candidate: CandidateDetail,
+  requirements: ExtractedJobRequirement[],
+  evidence?: CandidateEvidenceContext,
+): ReviewQueueEntry {
   const analyzed = candidate.repositoryOutcomes.filter((outcome) => outcome.status === "analyzed").length;
   const failed = candidate.repositoryOutcomes.filter((outcome) => outcome.status === "failed").length;
 
@@ -159,13 +181,15 @@ export function buildReviewEntry(candidate: CandidateDetail, requirements: Extra
   const undersold = claims ? [...strongSkillMap.keys()].filter((skill) => !mentions(claimText, skill)).sort() : [];
 
   const requirementCoverage = coverage(candidate, requirements);
-  const unanalyzedSources = candidate.unanalyzedSources ?? [];
+  const unanalyzedSources = [...new Set([...(candidate.unanalyzedSources ?? []), ...(evidence?.otherLinks ?? [])])];
   const unknowns: UnknownSignal[] = [];
   if (analyzed === 0) unknowns.push("no_repositories");
   if (failed > 0) unknowns.push("failed_repositories");
   if (!claims) unknowns.push("no_cv");
   if (!requirementCoverage) unknowns.push("no_requirements");
   if (unanalyzedSources.length > 0) unknowns.push("sources_not_analyzed");
+  if (evidence?.requestedAt) unknowns.push("evidence_requested");
+  if (evidence?.confidential) unknowns.push("work_confidential");
 
   const repositories = { analyzed, failed };
   const tier = tierFor({ repositories, requirements: requirementCoverage });
@@ -176,7 +200,7 @@ export function buildReviewEntry(candidate: CandidateDetail, requirements: Extra
     isDemo: Boolean(candidate.isDemo),
     appliedAt: candidate.appliedAt,
     tier,
-    nextStep: NEXT_STEP[tier],
+    nextStep: nextStepFor(tier, evidence),
     requirements: requirementCoverage,
     strongSkills: strongSkillMap.size,
     claims,
@@ -184,6 +208,8 @@ export function buildReviewEntry(candidate: CandidateDetail, requirements: Extra
     repositories,
     unanalyzedSources,
     citedFiles: [...new Set([...strongSkillMap.values()].flat())].slice(0, 4),
+    confirmedRepositories: candidate.repositoryOutcomes.filter((outcome) => outcome.status === "analyzed" && repositoryOwnerConfirmed(outcome.repositoryUrl, evidence?.confirmedLogins ?? [])).length,
+    evidenceRequestedAt: evidence?.requestedAt ?? null,
     unknowns,
     evidenceReviewedAt: candidate.evidenceReviewedAt ?? null,
   };
@@ -213,8 +239,12 @@ export function compareReviewEntries(a: ReviewQueueEntry, b: ReviewQueueEntry): 
   return a.appliedAt.localeCompare(b.appliedAt) || a.id.localeCompare(b.id);
 }
 
-export function buildReviewQueue(candidates: CandidateDetail[], requirements: ExtractedJobRequirement[]): ReviewQueue {
-  const entries = candidates.map((candidate) => buildReviewEntry(candidate, requirements)).sort(compareReviewEntries);
+export function buildReviewQueue(
+  candidates: CandidateDetail[],
+  requirements: ExtractedJobRequirement[],
+  evidenceByCandidate: ReadonlyMap<string, CandidateEvidenceContext> = new Map(),
+): ReviewQueue {
+  const entries = candidates.map((candidate) => buildReviewEntry(candidate, requirements, evidenceByCandidate.get(candidate.id))).sort(compareReviewEntries);
   return {
     entries,
     requirementsSaved: requirements.length > 0,

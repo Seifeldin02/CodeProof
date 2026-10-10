@@ -1,5 +1,6 @@
 import { authenticateRequest, denyCrossOrigin } from "@/features/auth/guard";
 import { getCandidateStore } from "@/features/candidates/store";
+import { getEvidenceRequestStore } from "@/features/evidence-requests/store";
 import { PIPELINE_STAGES, type CandidateOutcome } from "@/features/hiring-analytics/types";
 
 export const runtime = "nodejs";
@@ -51,6 +52,8 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   if (user instanceof Response) return user;
   const { id } = await context.params;
   const deleted = await getCandidateStore().deleteCandidate(user.id, id);
+  // Evidence requests, answers and CV notes belong to the candidate and go with them.
+  if (deleted) await getEvidenceRequestStore().deleteForCandidate(user.id, id);
   return deleted
     ? new Response(null, { status: 204 })
     : Response.json({ error: { code: "NOT_FOUND", message: "Candidate not found." } }, { status: 404 });

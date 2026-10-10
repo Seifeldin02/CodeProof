@@ -169,3 +169,44 @@ describe("portfolio and non-GitHub sources", () => {
     expect(entry.unanalyzedSources).toEqual([]);
   });
 });
+
+describe("a candidate's own evidence", () => {
+  const context = { requestedAt: null, confidential: false, confirmedLogins: [] as string[], otherLinks: [] as string[] };
+
+  it("reports a waiting request as unknown and keeps the step at asking", () => {
+    const entry = buildReviewEntry(candidate("Waiting", []), requirements, { ...context, requestedAt: "2026-10-09T00:00:00.000Z" });
+    expect(entry.unknowns).toContain("evidence_requested");
+    expect(entry.evidenceRequestedAt).toBe("2026-10-09T00:00:00.000Z");
+    expect(entry.nextStep).toBe("ask_for_evidence");
+  });
+
+  it("does not ask again once the candidate has said their work is confidential", () => {
+    const entry = buildReviewEntry(candidate("Private", []), requirements, { ...context, confidential: true });
+    expect(entry.tier).toBe("evidence_incomplete");
+    expect(entry.unknowns).toContain("work_confidential");
+    expect(entry.nextStep).toBe("test_or_verify");
+  });
+
+  it("counts repositories under an account the candidate proved is theirs", () => {
+    const mine = candidate("Owner", [analysis([["TypeScript", "Strong Evidence"]])]);
+    expect(buildReviewEntry(mine, requirements, { ...context, confirmedLogins: ["ACME"] }).confirmedRepositories).toBe(1);
+    expect(buildReviewEntry(mine, requirements, { ...context, confirmedLogins: ["someone-else"] }).confirmedRepositories).toBe(0);
+    expect(buildReviewEntry(mine, requirements).confirmedRepositories).toBe(0);
+  });
+
+  it("lists links the candidate sent that cannot be read as unknown sources", () => {
+    const entry = buildReviewEntry(candidate("Links", [], 0, { unanalyzedSources: ["https://amina.dev"] }), requirements, { ...context, otherLinks: ["https://gitlab.com/amina/api", "https://amina.dev"] });
+    expect(entry.unanalyzedSources).toEqual(["https://amina.dev", "https://gitlab.com/amina/api"]);
+    expect(entry.unknowns).toContain("sources_not_analyzed");
+  });
+
+  it("never moves a candidate because of what they sent or proved, only because of the code that was read", () => {
+    const first = candidate("First", [analysis([["TypeScript", "Strong Evidence"]])], 0, { appliedAt: "2026-01-01" });
+    const second = candidate("Second", [analysis([["TypeScript", "Strong Evidence"]])], 0, { appliedAt: "2026-01-02" });
+    const queue = buildReviewQueue([second, first], requirements, new Map([
+      ["second", { requestedAt: null, confidential: false, confirmedLogins: ["acme"], otherLinks: ["https://gitlab.com/x/y"] }],
+    ]));
+    expect(queue.entries.map((entry) => entry.name)).toEqual(["First", "Second"]);
+    expect(queue.entries[1].confirmedRepositories).toBe(1);
+  });
+});

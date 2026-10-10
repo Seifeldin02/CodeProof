@@ -8,6 +8,9 @@ import RepositoryOutcomeList from "@/components/candidates/RepositoryOutcomeList
 import PipelineEditor from "@/components/candidates/PipelineEditor";
 import DeleteCandidateButton from "@/components/candidates/DeleteCandidateButton";
 import EvidenceReviewedToggle from "@/components/review/EvidenceReviewedToggle";
+import CandidateEvidencePanel from "@/components/evidence/CandidateEvidencePanel";
+import { CLAIM_QUESTION_KEY, claimQuestionSkills } from "@/features/evidence-requests/message";
+import { getEvidenceRequestStore } from "@/features/evidence-requests/store";
 import { getCandidateStore } from "@/features/candidates/store";
 import { buildEvidenceProfile, strongOrGoodSkills } from "@/features/candidates/evidence-profile";
 import { getI18n } from "@/i18n/server";
@@ -21,6 +24,11 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
   const [{ locale, t }, user] = await Promise.all([getI18n(), requirePageUser(`/candidates/${id}`)]);
   const candidate = await getCandidateStore().getCandidate(user.id, id);
   if (!candidate) notFound();
+  const evidenceStore = getEvidenceRequestStore();
+  const [evidenceRequests, cvNotes] = await Promise.all([evidenceStore.listForCandidate(user.id, id), evidenceStore.getCvNotes(user.id, id)]);
+  const analyzedRepositories = candidate.repositoryOutcomes.filter((outcome) => outcome.status === "analyzed").map((outcome) => outcome.repositoryUrl);
+  const confirmedLogins = [...new Set(evidenceRequests.flatMap((request) => request.response?.confirmedAccounts.map((account) => account.login) ?? []))];
+  const claimSkills = analyzedRepositories.length === 0 ? claimQuestionSkills(cvNotes?.claims ?? []) : [];
   const skillCount = candidate.analyses.reduce((sum, analysis) => sum + analysis.result.skills.length, 0);
   const evidence = buildEvidenceProfile(candidate.analyses.map((analysis) => analysis.result.skills));
   return (
@@ -28,7 +36,21 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
       <div className="flex flex-wrap items-center justify-between gap-3"><Link href="/candidates" className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-brand-700"><span className="directional-icon">←</span> {t("Back to candidates")}</Link><div className="flex flex-wrap items-center gap-3"><DeleteCandidateButton candidateId={candidate.id} candidateName={candidate.name} /><Link href={`/candidates/${candidate.id}/share`} className="inline-flex min-h-11 items-center text-xs font-semibold text-brand-700 hover:text-brand-500">{t("Export / share report")}</Link><Link href="/compare" className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-brand-700 hover:text-brand-500">{t("Compare this candidate")} <span className="directional-icon">→</span></Link></div></div>
       <section className="hero-grid overflow-hidden rounded-[28px] bg-slate-950 text-white shadow-[0_24px_60px_rgba(15,23,42,.18)]"><div className="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-end lg:p-8"><div><div className="flex flex-wrap gap-2"><Badge tone="brand">{t(candidate.role)}</Badge>{candidate.isDemo && <Badge tone="warning">{t("Demo data")}</Badge>}<Badge tone="positive">{t("File-grounded")}</Badge></div><h1 className="mt-4 text-3xl font-semibold tracking-[-.045em] sm:text-5xl">{candidate.name}</h1><p className="mt-3 text-sm text-slate-400">{t("Candidate evidence dossier")} · {t("created {date}", { date: formatDateForLocale(locale, candidate.appliedAt) })}</p></div><dl className="grid grid-cols-3 gap-2"><div className="rounded-xl border border-lime-300/20 bg-lime-300/[.06] p-3 sm:p-4"><dt className="text-[8px] uppercase tracking-wider text-slate-500 sm:text-[9px]">{t("Strong or good skills")}</dt><dd className="mt-1 text-2xl font-semibold text-lime-300 sm:text-3xl">{candidate.analyses.length ? strongOrGoodSkills(evidence) : "—"}</dd></div><div className="rounded-xl border border-white/10 bg-white/[.04] p-3 sm:p-4"><dt className="text-[8px] uppercase tracking-wider text-slate-500 sm:text-[9px]">{t("Repositories")}</dt><dd className="mt-1 text-2xl font-semibold sm:text-3xl">{candidate.repositoryCount ?? 0}</dd></div><div className="rounded-xl border border-white/10 bg-white/[.04] p-3 sm:p-4"><dt className="text-[8px] uppercase tracking-wider text-slate-500 sm:text-[9px]">{t("Skill signals")}</dt><dd className="mt-1 text-2xl font-semibold sm:text-3xl">{skillCount}</dd></div></dl></div><div className="border-t border-white/10 bg-white/[.025] px-6 py-3 text-xs text-slate-500 lg:px-8">{t("CodeProof does not rate people. These counts describe the code that was read, and every skill names its files.")}</div></section>
       <div className="grid gap-5 lg:grid-cols-[.35fr_.65fr]"><Card title={t("Pipeline progress")} subtitle={t("Candidate stage history")}><StageTimeline events={candidate.stageHistory} /></Card><div className="grid gap-5"><Card title={t("Recruiter summary")} subtitle={t("Evidence available for review")}><div className="grid gap-4 sm:grid-cols-3"><div><span className="text-xs text-slate-400">{t("CV claims grounded")}</span><strong className="mt-1 block text-2xl text-slate-900">{candidate.verifiedClaimCount ?? 0}</strong></div><div><span className="text-xs text-slate-400">{t("Repository reports")}</span><strong className="mt-1 block text-2xl text-slate-900">{candidate.analyses.length}</strong></div><div><span className="text-xs text-slate-400">{t("Current stage")}</span><strong className="mt-1 block text-lg text-slate-900">{t(candidate.furthestStage === "code_review" ? "Code Review" : candidate.furthestStage[0].toUpperCase() + candidate.furthestStage.slice(1))}</strong></div></div></Card><Card title={t("Update candidate status")} subtitle={t("Keep pipeline analytics accurate")}><PipelineEditor candidateId={candidate.id} initialStage={candidate.furthestStage} initialOutcome={candidate.outcome} /></Card><Card title={t("Evidence check")} subtitle={t("Confirm you opened the cited files before deciding")}><EvidenceReviewedToggle candidateId={candidate.id} reviewedAt={candidate.evidenceReviewedAt ?? null} /><p className="mt-3 text-[11px] leading-5 text-slate-400">{t("The mark is cleared automatically when new repository evidence is added.")}</p></Card></div></div>
-      <section><div className="mb-4"><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-brand-700">{t("Analysis status")}</p><h2 className="mt-2 text-xl font-semibold tracking-[-.025em] text-slate-950">{t("Selected repository outcomes")}</h2><p className="mt-1 text-xs text-slate-500">{t("Every selected repository remains visible, including exact failures.")}</p></div><RepositoryOutcomeList candidateId={candidate.id} outcomes={candidate.repositoryOutcomes} />
+      <section><div className="mb-4"><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-brand-700">{t("Analysis status")}</p><h2 className="mt-2 text-xl font-semibold tracking-[-.025em] text-slate-950">{t("Selected repository outcomes")}</h2><p className="mt-1 text-xs text-slate-500">{t("Every selected repository remains visible, including exact failures.")}</p></div>{candidate.repositoryOutcomes.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <strong className="text-sm text-slate-900">{t("No code has been read for this candidate yet")}</strong>
+              <span className="rounded-full border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t("Unknown, not negative")}</span>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-500">{t("The CV named no public repository that CodeProof can read. That says nothing about the candidate's ability. Ask them for their own evidence below, or use your test.")}</p>
+            {(cvNotes?.profiles.length ?? 0) > 0 && (
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                {t("GitHub profile named on the CV:")} <bdi dir="ltr" className="break-all font-medium text-slate-700">{cvNotes?.profiles.join(", ")}</bdi>. {t("A profile's repositories cannot be listed without the candidate, so ask which ones to read.")}
+              </p>
+            )}
+          </div>
+        )}
+        <RepositoryOutcomeList candidateId={candidate.id} outcomes={candidate.repositoryOutcomes} confirmedLogins={confirmedLogins} />
         {(candidate.unanalyzedSources?.length ?? 0) > 0 && (
           <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -44,6 +66,17 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
           </div>
         )}
       </section>
+      <CandidateEvidencePanel candidateId={candidate.id} candidateName={candidate.name} requests={evidenceRequests} analyzedRepositories={analyzedRepositories} />
+      {claimSkills.length > 0 && (
+        <section aria-labelledby="claim-questions-heading" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-amber-700">{t("Drafted from the CV, not from code")}</p>
+          <h2 id="claim-questions-heading" className="mt-2 text-xl font-semibold tracking-[-.025em] text-slate-950">{t("Questions to ask about what the CV claims")}</h2>
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">{t("No code was read, so these questions come only from skills the CV lists. They check a claim in conversation; they are not evidence.")}</p>
+          <ol className="mt-4 space-y-2">
+            {claimSkills.map((skill) => <li key={skill} className="rounded-xl border border-slate-200 p-3 text-sm leading-6 text-slate-800">{t(CLAIM_QUESTION_KEY, { skill })}</li>)}
+          </ol>
+        </section>
+      )}
       <section><div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-brand-700">{t("Project portfolio")}</p><h2 className="mt-2 text-xl font-semibold tracking-[-.025em] text-slate-950">{t("Repository evidence")}</h2></div><span className="text-xs text-slate-400">{t("Select a project for focused review")}</span></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{candidate.analyses.map((analysis) => <Link key={analysis.id} href={`/candidates/${candidate.id}/projects/${analysis.id}`} className="interactive-card group overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-card"><div className="flex items-start justify-between gap-4"><span className="rounded-lg bg-brand-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-brand-700">{localizeAnalysisText(locale, analysis.projectType)}</span><span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">{t("Strong or good: {count}", { count: strongOrGoodSkills(buildEvidenceProfile([analysis.result.skills])) })}</span></div><h3 className="tech-ltr mt-7 text-base font-semibold text-slate-900 group-hover:text-brand-700">{analysis.repositoryName}</h3><p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">{locale === "ar" ? `${localizeAnalysisText(locale, analysis.projectType)}. ${analysis.result.strengths.slice(0,2).map((strength) => localizeAnalysisText(locale, strength.title)).join("، ")}.` : analysis.summary}</p><div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3 text-[10px] text-slate-400"><span>{t("{patterns} patterns · {files} files", { patterns: analysis.result.patterns.length, files: analysis.result.selectedFiles.length })}</span><span className="font-semibold text-brand-700 transition-transform group-hover:translate-x-1">{t("Inspect")} <span className="directional-icon">→</span></span></div></Link>)}</div></section>
       <div className="space-y-6">{candidate.analyses.map((analysis) => <CandidateEvidenceReport key={analysis.id} analysis={analysis} locale={locale} />)}</div>
     </div>

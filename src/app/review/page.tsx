@@ -8,6 +8,8 @@ import ExportQueueButton from "@/components/review/ExportQueueButton";
 import ReviewQueueList from "@/components/review/ReviewQueueList";
 import { requirePageUser } from "@/features/auth/page-guard";
 import { getCandidateStore } from "@/features/candidates/store";
+import { evidenceContextByCandidate } from "@/features/evidence-requests/service";
+import { getEvidenceRequestStore } from "@/features/evidence-requests/store";
 import type { CandidateDetail } from "@/features/candidates/types";
 import { getRequirementsStore, toExtractedRequirements } from "@/features/requirements/store";
 import { buildReviewQueue } from "@/features/review-queue/queue";
@@ -19,10 +21,14 @@ export const dynamic = "force-dynamic";
 export default async function ReviewQueuePage() {
   const [{ locale, t }, user] = await Promise.all([getI18n(), requirePageUser("/review")]);
   const store = getCandidateStore();
-  const [records, requirements] = await Promise.all([store.listCandidates(user.id), getRequirementsStore().list(user.id)]);
+  const [records, requirements, evidenceRequests] = await Promise.all([
+    store.listCandidates(user.id),
+    getRequirementsStore().list(user.id),
+    getEvidenceRequestStore().listForOwner(user.id),
+  ]);
   const details = (await Promise.all(records.map((record) => store.getCandidate(user.id, record.id))))
     .filter((detail): detail is CandidateDetail => detail !== null);
-  const queue = buildReviewQueue(details, toExtractedRequirements(requirements));
+  const queue = buildReviewQueue(details, toExtractedRequirements(requirements), evidenceContextByCandidate(evidenceRequests));
 
   const undersold = queue.entries.filter((entry) => entry.undersold.length > 0);
 
