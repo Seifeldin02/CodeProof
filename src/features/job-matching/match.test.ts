@@ -17,3 +17,12 @@ describe("matchJobDescription", () => {
     expect(result.scoringMethod).toContain("No opaque fit score");
   });
 });
+
+describe("files cited for a requirement", () => {
+  it("cites no file when a language was only counted by file extension", () => {
+    const technologies: TechnologySignal[] = [{ name: "TypeScript", category: "language", evidence: ["Archive file-extension statistics"], source: "Deterministic Fact" }];
+    const result = matchJobDescription("Required: TypeScript", technologies, [], null);
+    expect(result.partialMatches).toHaveLength(1);
+    expect(result.partialMatches[0].files).toEqual([]);
+  });
+});

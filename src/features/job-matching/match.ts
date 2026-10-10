@@ -1,3 +1,4 @@
+import { technologyEvidencePaths } from "@/features/repository-analysis/evidence-scoring";
 import type {
   ExtractedJobRequirement,
   JobMatch,
@@ -71,7 +72,7 @@ export function matchJobDescription(
         source,
         support: "Partial match",
         explanation: "The available repository or résumé evidence supports part of this requirement, but not its full expected depth.",
-        files: skill?.evidence.map((item) => item.file) ?? technology?.evidence.map((item) => item.split(": ")[0]).filter((path) => path !== "GitHub language statistics") ?? resumeClaim?.files ?? [],
+        files: skill?.evidence.map((item) => item.file) ?? (technology ? technologyEvidencePaths(technology) : resumeClaim?.files ?? []),
       };
     }
     return {

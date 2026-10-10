@@ -18,3 +18,15 @@ describe("verifyResumeClaims", () => {
     expect(result.disclaimer).toContain("does not mean");
   });
 });
+
+describe("files cited for a claim", () => {
+  it("cites no file when a language was only counted by file extension", () => {
+    const languageOnly: TechnologySignal[] = [
+      { name: "Ruby", category: "language", evidence: ["Archive file-extension statistics"], source: "Deterministic Fact" },
+      { name: "React", category: "framework", evidence: ["package.json: react", "src/App.tsx"], source: "Deterministic Fact" },
+    ];
+    const result = verifyResumeClaims("Ruby, React", languageOnly, []);
+    expect(result.claims.find((item) => item.claim === "Ruby")).toMatchObject({ support: "Supported", files: [] });
+    expect(result.claims.find((item) => item.claim === "React")?.files).toEqual(["package.json", "src/App.tsx"]);
+  });
+});

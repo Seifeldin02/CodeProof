@@ -8,6 +8,18 @@ export const EVIDENCE_LEVEL_METHOD = {
   "Insufficient Evidence": "No grounded implementation evidence remains after validation.",
 } satisfies Record<EvidenceLevel, string>;
 
+/**
+ * How a language is detected: by counting file extensions across the archive.
+ * That is a fact about the repository, not a file, so it must never be shown
+ * where a cited file is expected.
+ */
+export const LANGUAGE_STATISTICS_EVIDENCE = "Archive file-extension statistics";
+
+/** The file paths behind a technology signal, without entries that are not files. */
+export function technologyEvidencePaths(technology: Pick<TechnologySignal, "evidence">): string[] {
+  return technology.evidence.map((item) => item.split(": ")[0]).filter((path) => path !== LANGUAGE_STATISTICS_EVIDENCE);
+}
+
 const LEVEL_RANK: Record<EvidenceLevel, number> = {
   "Insufficient Evidence": 0,
   "Limited Evidence": 1,
