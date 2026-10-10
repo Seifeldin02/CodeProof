@@ -810,6 +810,10 @@ const ar: Record<string, string> = {
   "Files that do not use a tool are not counted as evidence for it.": "الملفات التي لا تستخدم الأداة لا تُحتسب دليلاً عليها.",
   "A repository named on a CV is labelled as unchecked until the candidate proves the account is theirs.": "المستودع المذكور في السيرة يوصف بأنه غير متحقق منه إلى أن يثبت المرشح أن الحساب يخصه.",
   "A candidate with no code read is listed as unknown, with no negative mark.": "المرشح الذي لم يُقرأ له كود يُدرج على أنه مجهول، دون أي علامة سلبية.",
+  "Implementation evidence directly supports this requirement.": "أدلة التنفيذ تدعم هذا المتطلب مباشرة.",
+  "The available repository or résumé evidence supports part of this requirement, but not its full expected depth.": "الأدلة المتاحة من المستودع أو السيرة الذاتية تدعم جزءاً من هذا المتطلب، لا عمقه المتوقع كاملاً.",
+  "No supporting evidence was found in this repository. This is not evidence that the candidate lacks the skill.": "لم يُعثر على أدلة داعمة في هذا المستودع. هذا ليس دليلاً على أن المرشح يفتقر إلى المهارة.",
+  "No opaque fit score is used. Requirements are classified independently from implementation evidence, deterministic signals, and résumé claims.": "لا تُستخدم درجة ملاءمة غامضة. يُصنَّف كل متطلب على حدة استناداً إلى أدلة التنفيذ والإشارات الحتمية وادعاءات السيرة الذاتية.",
 };
 
 export type TranslationValues = Record<string, string | number>;
@@ -958,6 +962,8 @@ export function localizeAnalysisText(locale: Locale, text: string): string {
     [/^(.+) The cited files are the repository evidence for this prompt\.$/, (_all, summary) => `${localizeAnalysisText(locale, summary)} الملفات المذكورة هي دليل المستودع لهذا السؤال.`],
     [/^Grounded in meaningful (.+) usage selected from the repository, not the dependency list alone\.$/, (_all, technology) => `يستند إلى استخدام فعلي لـ ${technology} محدد من المستودع، لا إلى قائمة الاعتمادات وحدها.`],
     [/^Grounded in a selected representative source file\.$/, () => "يستند إلى ملف مصدر تمثيلي محدد."],
+    [/^(\d+) of (\d+) explicitly required skills have at least partial evidence\. Review each evidence trail and unsupported requirement before making a decision\.$/, (_all, supported, total) => `لدى ${supported} من ${total} من المهارات المطلوبة صراحةً أدلة جزئية على الأقل. راجع مسار كل دليل وكل متطلب غير مدعوم قبل اتخاذ القرار.`],
+    [/^(\d+) strong and (\d+) partial matches were found\. The description did not clearly label required skills\.$/, (_all, strong, partial) => `عدد التطابقات القوية ${strong} وعدد التطابقات الجزئية ${partial}. لم يحدد الوصف المهارات المطلوبة بوضوح.`],
   ];
   for (const [pattern, replacement] of replacements) {
     const match = text.match(pattern);
