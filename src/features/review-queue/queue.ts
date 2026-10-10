@@ -185,7 +185,8 @@ export function buildReviewEntry(
   const unknowns: UnknownSignal[] = [];
   if (analyzed === 0) unknowns.push("no_repositories");
   if (failed > 0) unknowns.push("failed_repositories");
-  if (!claims) unknowns.push("no_cv");
+  // A CV whose claims were noted at intake was provided; it just has no code to be checked against yet.
+  if (!claims && !evidence?.cvNoted) unknowns.push("no_cv");
   if (!requirementCoverage) unknowns.push("no_requirements");
   if (unanalyzedSources.length > 0) unknowns.push("sources_not_analyzed");
   if (evidence?.requestedAt) unknowns.push("evidence_requested");

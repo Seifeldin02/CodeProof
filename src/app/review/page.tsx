@@ -21,14 +21,16 @@ export const dynamic = "force-dynamic";
 export default async function ReviewQueuePage() {
   const [{ locale, t }, user] = await Promise.all([getI18n(), requirePageUser("/review")]);
   const store = getCandidateStore();
-  const [records, requirements, evidenceRequests] = await Promise.all([
+  const evidenceStore = getEvidenceRequestStore();
+  const [records, requirements, evidenceRequests, cvNotedIds] = await Promise.all([
     store.listCandidates(user.id),
     getRequirementsStore().list(user.id),
-    getEvidenceRequestStore().listForOwner(user.id),
+    evidenceStore.listForOwner(user.id),
+    evidenceStore.listCvNotedCandidateIds(user.id),
   ]);
   const details = (await Promise.all(records.map((record) => store.getCandidate(user.id, record.id))))
     .filter((detail): detail is CandidateDetail => detail !== null);
-  const queue = buildReviewQueue(details, toExtractedRequirements(requirements), evidenceContextByCandidate(evidenceRequests));
+  const queue = buildReviewQueue(details, toExtractedRequirements(requirements), evidenceContextByCandidate(evidenceRequests, cvNotedIds));
 
   const undersold = queue.entries.filter((entry) => entry.undersold.length > 0);
 

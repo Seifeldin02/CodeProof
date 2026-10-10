@@ -814,6 +814,7 @@ const ar: Record<string, string> = {
   "The available repository or résumé evidence supports part of this requirement, but not its full expected depth.": "الأدلة المتاحة من المستودع أو السيرة الذاتية تدعم جزءاً من هذا المتطلب، لا عمقه المتوقع كاملاً.",
   "No supporting evidence was found in this repository. This is not evidence that the candidate lacks the skill.": "لم يُعثر على أدلة داعمة في هذا المستودع. هذا ليس دليلاً على أن المرشح يفتقر إلى المهارة.",
   "No opaque fit score is used. Requirements are classified independently from implementation evidence, deterministic signals, and résumé claims.": "لا تُستخدم درجة ملاءمة غامضة. يُصنَّف كل متطلب على حدة استناداً إلى أدلة التنفيذ والإشارات الحتمية وادعاءات السيرة الذاتية.",
+  "No code has been read for this candidate yet, so they are listed after candidates whose code was read, in the order they applied.": "لم يُقرأ أي كود لهذا المرشح بعد، لذلك يأتي بعد المرشحين الذين قُرئ كودهم، بحسب ترتيب التقديم.",
 };
 
 export type TranslationValues = Record<string, string | number>;

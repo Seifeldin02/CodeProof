@@ -118,12 +118,18 @@ describe("what the queue and the pipeline learn from a candidate's own evidence"
       request({ id: "r2", candidateId: "c2", answeredAt: "2026-10-09T01:00:00.000Z", response: { ...response, confidential: true, otherLinks: ["https://gitlab.com/x/y"], confirmedAccounts: [{ login: "Amina", confirmedAt: "2026-10-09T01:00:00.000Z" }] } }),
       request({ id: "r3", candidateId: "c2", answeredAt: "2026-10-09T02:00:00.000Z", response: { ...response, otherLinks: ["https://gitlab.com/x/y"], confirmedAccounts: [{ login: "amina", confirmedAt: "2026-10-09T02:00:00.000Z" }] } }),
       request({ id: "r4", candidateId: "c3", expiresAt: "2026-10-09T12:00:00.000Z" }),
-    ], NOW);
+    ], [], NOW);
 
-    expect(contexts.get("c1")).toEqual({ requestedAt: "2026-10-09T00:00:00.000Z", confidential: false, confirmedLogins: [], otherLinks: [] });
-    expect(contexts.get("c2")).toEqual({ requestedAt: null, confidential: true, confirmedLogins: ["Amina"], otherLinks: ["https://gitlab.com/x/y"] });
+    expect(contexts.get("c1")).toEqual({ requestedAt: "2026-10-09T00:00:00.000Z", confidential: false, confirmedLogins: [], otherLinks: [], cvNoted: false });
+    expect(contexts.get("c2")).toEqual({ requestedAt: null, confidential: true, confirmedLogins: ["Amina"], otherLinks: ["https://gitlab.com/x/y"], cvNoted: false });
     // An expired request is no longer waiting for anything.
     expect(contexts.get("c3")?.requestedAt).toBeNull();
+  });
+
+  it("remembers which candidates had their CV claims noted, with or without a request", () => {
+    const contexts = evidenceContextByCandidate([request({ id: "r1" })], ["c1", "c9"], NOW);
+    expect(contexts.get("c1")).toMatchObject({ cvNoted: true, requestedAt: "2026-10-09T00:00:00.000Z" });
+    expect(contexts.get("c9")).toEqual({ requestedAt: null, confidential: false, confirmedLogins: [], otherLinks: [], cvNoted: true });
   });
 
   it("keeps the claims of a CV, not the CV, so later code can be checked against them", () => {

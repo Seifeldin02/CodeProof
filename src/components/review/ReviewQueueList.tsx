@@ -48,7 +48,10 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
         <div>
           <h4 className="text-[10px] font-semibold uppercase tracking-[.14em] text-slate-400">{t("Why this position")}</h4>
           <ul className="mt-2 space-y-1.5">
-            {requirements && requirements.judged > 0 && (
+            {entry.repositories.analyzed === 0 && (
+              <Signal>{t("No code has been read for this candidate yet, so they are listed after candidates whose code was read, in the order they applied.")}</Signal>
+            )}
+            {requirements && requirements.judged > 0 && entry.repositories.analyzed > 0 && (
               <Signal tone={requirements.unsupported === 0 ? "positive" : "neutral"}>
                 {t("{supported} of {judged} requirements have repository evidence ({strong} strong)", { supported, judged: requirements.judged, strong: requirements.strong })}
               </Signal>

@@ -156,12 +156,20 @@ export interface CandidateEvidenceContext {
   confirmedLogins: string[];
   /** Links the candidate sent that CodeProof cannot read. */
   otherLinks: string[];
+  /** The claims on the candidate's CV were noted at intake, although no code could be checked against them yet. */
+  cvNoted: boolean;
 }
 
-export function evidenceContextByCandidate(requests: readonly EvidenceRequest[], now = Date.now()): Map<string, CandidateEvidenceContext> {
+export function evidenceContextByCandidate(
+  requests: readonly EvidenceRequest[],
+  cvNotedCandidateIds: readonly string[] = [],
+  now = Date.now(),
+): Map<string, CandidateEvidenceContext> {
+  const empty = (): CandidateEvidenceContext => ({ requestedAt: null, confidential: false, confirmedLogins: [], otherLinks: [], cvNoted: false });
   const contexts = new Map<string, CandidateEvidenceContext>();
+  for (const candidateId of cvNotedCandidateIds) contexts.set(candidateId, { ...empty(), cvNoted: true });
   for (const request of requests) {
-    const context = contexts.get(request.candidateId) ?? { requestedAt: null, confidential: false, confirmedLogins: [], otherLinks: [] };
+    const context = contexts.get(request.candidateId) ?? empty();
     if (evidenceRequestStatus(request, now) === "pending" && (!context.requestedAt || request.createdAt > context.requestedAt)) context.requestedAt = request.createdAt;
     if (request.response?.confidential) context.confidential = true;
     for (const link of request.response?.otherLinks ?? []) if (!context.otherLinks.includes(link)) context.otherLinks.push(link);

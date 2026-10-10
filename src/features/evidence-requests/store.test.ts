@@ -80,6 +80,8 @@ describe("evidence request persistence", () => {
     await store.saveCvNotes("owner-a", "candidate-1", { claims: [{ claim: "TypeScript", category: "technology" }], profiles: ["https://github.com/amina"] });
 
     expect(await store.getCvNotes("owner-b", "candidate-1")).toBeNull();
+    expect(await store.listCvNotedCandidateIds("owner-a")).toEqual(["candidate-1"]);
+    expect(await store.listCvNotedCandidateIds("owner-b")).toEqual([]);
     expect(await store.getCvNotes("owner-a", "candidate-1")).toEqual({ claims: [{ claim: "TypeScript", category: "technology" }], profiles: ["https://github.com/amina"] });
 
     await store.deleteForCandidate("owner-b", "candidate-1");

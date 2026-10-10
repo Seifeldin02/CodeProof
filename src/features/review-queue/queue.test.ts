@@ -171,7 +171,7 @@ describe("portfolio and non-GitHub sources", () => {
 });
 
 describe("a candidate's own evidence", () => {
-  const context = { requestedAt: null, confidential: false, confirmedLogins: [] as string[], otherLinks: [] as string[] };
+  const context = { requestedAt: null, confidential: false, confirmedLogins: [] as string[], otherLinks: [] as string[], cvNoted: false };
 
   it("reports a waiting request as unknown and keeps the step at asking", () => {
     const entry = buildReviewEntry(candidate("Waiting", []), requirements, { ...context, requestedAt: "2026-10-09T00:00:00.000Z" });
@@ -194,6 +194,11 @@ describe("a candidate's own evidence", () => {
     expect(buildReviewEntry(mine, requirements).confirmedRepositories).toBe(0);
   });
 
+  it("does not say that no CV was provided when its claims were noted at intake", () => {
+    expect(buildReviewEntry(candidate("Saved", []), requirements, { ...context, cvNoted: true }).unknowns).toEqual(["no_repositories"]);
+    expect(buildReviewEntry(candidate("Unknown", []), requirements).unknowns).toEqual(["no_repositories", "no_cv"]);
+  });
+
   it("lists links the candidate sent that cannot be read as unknown sources", () => {
     const entry = buildReviewEntry(candidate("Links", [], 0, { unanalyzedSources: ["https://amina.dev"] }), requirements, { ...context, otherLinks: ["https://gitlab.com/amina/api", "https://amina.dev"] });
     expect(entry.unanalyzedSources).toEqual(["https://amina.dev", "https://gitlab.com/amina/api"]);
@@ -204,7 +209,7 @@ describe("a candidate's own evidence", () => {
     const first = candidate("First", [analysis([["TypeScript", "Strong Evidence"]])], 0, { appliedAt: "2026-01-01" });
     const second = candidate("Second", [analysis([["TypeScript", "Strong Evidence"]])], 0, { appliedAt: "2026-01-02" });
     const queue = buildReviewQueue([second, first], requirements, new Map([
-      ["second", { requestedAt: null, confidential: false, confirmedLogins: ["acme"], otherLinks: ["https://gitlab.com/x/y"] }],
+      ["second", { requestedAt: null, confidential: false, confirmedLogins: ["acme"], otherLinks: ["https://gitlab.com/x/y"], cvNoted: false }],
     ]));
     expect(queue.entries.map((entry) => entry.name)).toEqual(["First", "Second"]);
     expect(queue.entries[1].confirmedRepositories).toBe(1);

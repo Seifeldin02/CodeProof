@@ -52,6 +52,8 @@ export interface EvidenceRequestPersistence {
   revoke(ownerUserId: string, requestId: string): Promise<boolean>;
   saveCvNotes(ownerUserId: string, candidateId: string, notes: CandidateCvNotes): Promise<void>;
   getCvNotes(ownerUserId: string, candidateId: string): Promise<CandidateCvNotes | null>;
+  /** Candidates whose CV claims were noted at intake, for screens that list many candidates. */
+  listCvNotedCandidateIds(ownerUserId: string): Promise<string[]>;
   deleteForCandidate(ownerUserId: string, candidateId: string): Promise<void>;
 }
 
@@ -175,6 +177,11 @@ export class EvidenceRequestStore implements EvidenceRequestPersistence {
       .get(candidateId, ownerUserId) as NotesRow | undefined);
   }
 
+  async listCvNotedCandidateIds(ownerUserId: string): Promise<string[]> {
+    const rows = this.db.prepare("SELECT candidate_id FROM candidate_cv_notes WHERE owner_user_id = ?").all(ownerUserId) as unknown as Array<{ candidate_id: string }>;
+    return rows.map((row) => row.candidate_id);
+  }
+
   async deleteForCandidate(ownerUserId: string, candidateId: string): Promise<void> {
     this.db.prepare("DELETE FROM evidence_requests WHERE owner_user_id = ? AND candidate_id = ?").run(ownerUserId, candidateId);
     this.db.prepare("DELETE FROM candidate_cv_notes WHERE owner_user_id = ? AND candidate_id = ?").run(ownerUserId, candidateId);
@@ -273,6 +280,12 @@ class PostgresEvidenceRequestStore implements EvidenceRequestPersistence {
     await this.initialize();
     const result = await this.pool.query<NotesRow>("SELECT claims_json, profiles_json FROM codeproof_candidate_cv_notes WHERE candidate_id=$1 AND owner_user_id=$2", [candidateId, ownerUserId]);
     return mapNotes(result.rows[0]);
+  }
+
+  async listCvNotedCandidateIds(ownerUserId: string): Promise<string[]> {
+    await this.initialize();
+    const result = await this.pool.query<{ candidate_id: string }>("SELECT candidate_id FROM codeproof_candidate_cv_notes WHERE owner_user_id=$1", [ownerUserId]);
+    return result.rows.map((row) => row.candidate_id);
   }
 
   async deleteForCandidate(ownerUserId: string, candidateId: string): Promise<void> {
