@@ -22,7 +22,7 @@ export default function Card({
   const hasHeader = Boolean(title || action);
   return (
     <section
-      className={`surface-card flex flex-col rounded-2xl border border-slate-200/80 bg-white/95 shadow-card ${className ?? ''}`}
+      className={`surface-card flex min-w-0 flex-col rounded-2xl border border-slate-200/80 bg-white/95 shadow-card ${className ?? ''}`}
     >
       {hasHeader && (
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4.5">
