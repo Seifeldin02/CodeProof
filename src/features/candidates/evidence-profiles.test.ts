@@ -17,6 +17,19 @@ function result(repository: string, skills: Array<[string, EvidenceLevel]>): Ana
   } as unknown as AnalysisResult;
 }
 
+/**
+ * A schema that ties a candidate's repositories to an account row needs the
+ * owner to exist first. A schema without an accounts table needs nothing.
+ */
+function openStore(...owners: string[]): CandidateStore {
+  const store = new CandidateStore(":memory:");
+  if (store.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'").get()) {
+    const insert = store.db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)");
+    for (const owner of owners) insert.run(owner, `${owner}@example.invalid`, `test-hash-${owner}`, "2026-01-01T00:00:00.000Z");
+  }
+  return store;
+}
+
 describe("evidence profiles for list screens", () => {
   afterEach(() => {
     (shared.codeproofCandidateStore as CandidateStore | undefined)?.db.close();
@@ -24,7 +37,7 @@ describe("evidence profiles for list screens", () => {
   });
 
   it("reads each candidate's profile in one owner-scoped pass", async () => {
-    const store = new CandidateStore(":memory:");
+    const store = openStore("owner-a", "owner-b");
     shared.codeproofCandidateStore = store;
     const withCode = await store.createCandidate("owner-a", {
       name: "With code",
@@ -45,7 +58,7 @@ describe("evidence profiles for list screens", () => {
 
   it("works with a store that is not an instance of this module's class", async () => {
     // Each server bundle has its own copy of the class, so the shared store can fail `instanceof`.
-    const real = new CandidateStore(":memory:");
+    const real = openStore("owner-a");
     const created = await real.createCandidate("owner-a", { name: "Bundled", role: "Backend Engineer", results: [result("api", [["Go", "Good Evidence"]])] });
     shared.codeproofCandidateStore = { ...real, db: real.db, listCandidates: real.listCandidates.bind(real) } as unknown as CandidatePersistence;
 
