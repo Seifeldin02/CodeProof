@@ -555,7 +555,7 @@ const ar: Record<string, string> = {
   "Ask for evidence": "اطلب أدلة",
   "The code covers every required requirement. The test can be skipped.": "يغطي الكود كل المتطلبات الإلزامية. يمكن الاستغناء عن الاختبار.",
   "Some evidence. Open the dossier, then choose an interview or a test.": "توجد بعض الأدلة. افتح الملف ثم اختر مقابلة أو اختباراً.",
-  "Code was read, but not for the required requirements.": "قُرئ الكود، لكنه لا يخص المتطلبات الإلزامية.",
+  "The code does not cover what the role requires, or the work is confidential.": "الكود لا يغطي ما يتطلبه الدور، أو العمل سري.",
   "No code has been read yet.": "لم يُقرأ أي كود بعد.",
   "Every required requirement has repository evidence. The test can be skipped; use the drafted questions in the interview.": "لكل متطلب إلزامي أدلة من المستودعات. يمكن الاستغناء عن الاختبار؛ استخدم الأسئلة المقترحة في المقابلة.",
   "The code supports part of the role. Open the dossier, then choose an interview or a test.": "يدعم الكود جزءاً من متطلبات الدور. افتح الملف ثم اختر مقابلة أو اختباراً.",
@@ -815,6 +815,7 @@ const ar: Record<string, string> = {
   "No supporting evidence was found in this repository. This is not evidence that the candidate lacks the skill.": "لم يُعثر على أدلة داعمة في هذا المستودع. هذا ليس دليلاً على أن المرشح يفتقر إلى المهارة.",
   "No opaque fit score is used. Requirements are classified independently from implementation evidence, deterministic signals, and résumé claims.": "لا تُستخدم درجة ملاءمة غامضة. يُصنَّف كل متطلب على حدة استناداً إلى أدلة التنفيذ والإشارات الحتمية وادعاءات السيرة الذاتية.",
   "No code has been read for this candidate yet, so they are listed after candidates whose code was read, in the order they applied.": "لم يُقرأ أي كود لهذا المرشح بعد، لذلك يأتي بعد المرشحين الذين قُرئ كودهم، بحسب ترتيب التقديم.",
+  "Drafted order": "الترتيب المقترح",
 };
 
 export type TranslationValues = Record<string, string | number>;

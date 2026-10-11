@@ -52,7 +52,7 @@ export const NEXT_STEP_LABEL: Record<NextStep, string> = {
 export const NEXT_STEP_MEANING: Record<NextStep, string> = {
   interview_on_evidence: "The code covers every required requirement. The test can be skipped.",
   review_then_decide: "Some evidence. Open the dossier, then choose an interview or a test.",
-  test_or_verify: "Code was read, but not for the required requirements.",
+  test_or_verify: "The code does not cover what the role requires, or the work is confidential.",
   ask_for_evidence: "No code has been read yet.",
 };
 
