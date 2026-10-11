@@ -195,7 +195,7 @@ export default function CandidateEvidencePanel({ candidateId, candidateName, req
                         <h3 className="text-xs font-semibold text-slate-900">{t("Repositories the candidate sent")}</h3>
                         <ul className="mt-2 space-y-2">
                           {response.repositories.map((repositoryUrl) => {
-                            const inDossier = analyzedRepositories.includes(repositoryUrl);
+                            const inDossier = analyzedRepositories.some((url) => url.toLowerCase() === repositoryUrl.toLowerCase());
                             const key = `analyze:${repositoryUrl}`;
                             return (
                               <li key={repositoryUrl} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">

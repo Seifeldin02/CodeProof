@@ -40,7 +40,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   const analyzed = candidate.repositoryOutcomes.filter((outcome) => outcome.status === "analyzed");
-  if (analyzed.some((outcome) => outcome.repositoryUrl === repositoryUrl)) {
+  const requested = repositoryUrl.toLowerCase();
+  if (analyzed.some((outcome) => outcome.repositoryUrl.toLowerCase() === requested)) {
     return Response.json({ error: { code: "ALREADY_ANALYZED", message: "This repository is already in the dossier." } }, { status: 409 });
   }
   if (analyzed.length >= EVIDENCE_REQUEST_LIMITS.repositoriesPerCandidate) {

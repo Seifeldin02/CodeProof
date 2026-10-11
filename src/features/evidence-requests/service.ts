@@ -73,7 +73,8 @@ function normalizeOtherLink(value: string): string | null {
   try {
     const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
     if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(url.hostname)) return null;
+    // The last label is letters, or the ASCII form of a non-Latin one such as an Arabic-script domain.
+    if (!/^[a-z0-9.-]+\.(?:[a-z]{2,}|xn--[a-z0-9-]{2,})$/i.test(url.hostname)) return null;
     return `https://${url.hostname.toLowerCase()}${url.pathname.replace(/\/+$/, "")}`;
   } catch {
     return null;
@@ -99,7 +100,8 @@ export async function answerEvidenceRequest(
   for (const value of answer.repositories.filter(Boolean)) {
     const repository = normalizeRepository(value);
     if (!repository) return { ok: false, code: "INVALID_REPOSITORY" };
-    if (!repositories.includes(repository)) repositories.push(repository);
+    // GitHub ignores letter case in owner and repository names.
+    if (!repositories.some((item) => item.toLowerCase() === repository.toLowerCase())) repositories.push(repository);
   }
   const otherLinks: string[] = [];
   for (const value of answer.otherLinks.filter(Boolean)) {

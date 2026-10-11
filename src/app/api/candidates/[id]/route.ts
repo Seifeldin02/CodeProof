@@ -51,9 +51,11 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   const user = await authenticateRequest();
   if (user instanceof Response) return user;
   const { id } = await context.params;
+  // Evidence requests, answers and CV notes belong to the candidate and go with
+  // them. They are removed first: if the second step fails, nothing the candidate
+  // sent is left behind without its record. Both steps are scoped to this account.
+  await getEvidenceRequestStore().deleteForCandidate(user.id, id);
   const deleted = await getCandidateStore().deleteCandidate(user.id, id);
-  // Evidence requests, answers and CV notes belong to the candidate and go with them.
-  if (deleted) await getEvidenceRequestStore().deleteForCandidate(user.id, id);
   return deleted
     ? new Response(null, { status: 204 })
     : Response.json({ error: { code: "NOT_FOUND", message: "Candidate not found." } }, { status: 404 });

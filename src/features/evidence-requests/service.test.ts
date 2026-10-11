@@ -89,6 +89,25 @@ describe("answering an evidence request", () => {
     store.db.close();
   });
 
+  it("treats the same repository in another letter case as one, and accepts an Arabic-script domain", async () => {
+    const { store, request, token } = await opened();
+    expect(await answerEvidenceRequest(token, {
+      ...base,
+      repositories: ["https://github.com/Amina-Hassan/API", "github.com/amina-hassan/api"],
+      otherLinks: ["https://موقع.السعودية/أعمالي", "http://10.0.0.1/admin"],
+    }, { store, now: NOW })).toEqual({ ok: false, code: "INVALID_LINK" });
+
+    expect(await answerEvidenceRequest(token, {
+      ...base,
+      repositories: ["https://github.com/Amina-Hassan/API", "github.com/amina-hassan/api"],
+      otherLinks: ["https://موقع.السعودية/work"],
+    }, { store, now: NOW })).toEqual({ ok: true });
+    const stored = await store.get("owner-a", request.id);
+    expect(stored?.response?.repositories).toEqual(["https://github.com/Amina-Hassan/API"]);
+    expect(stored?.response?.otherLinks).toEqual(["https://xn--4gbrim.xn--mgberp4a5d4ar/work"]);
+    store.db.close();
+  });
+
   it("records a confirmed account only when the gist really contains this request's code", async () => {
     const { store, request, token } = await opened();
     const gistUrl = "https://gist.github.com/amina-hassan/0123456789abcdef0123456789abcdef";
