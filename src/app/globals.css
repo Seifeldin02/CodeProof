@@ -102,6 +102,10 @@ html[dir="rtl"] .workspace-sidebar { border-right-width: 0; border-left: 1px sol
 html[dir="rtl"] .workspace-sidebar [class*="left-0"] { left: auto; right: 0; }
 html[dir="rtl"] .workspace-sidebar a:hover { transform: translateX(-2px); }
 html[dir="rtl"] [class*="tracking-["] { letter-spacing: 0; }
+/* Arabic letters join, so spacing them apart breaks the word; and the smallest label sizes, drawn for Latin capitals, are too small to read in Arabic. */
+html[dir="rtl"] [class*="tracking-wide"]:not([dir="ltr"]):not(code):not(.tech-ltr) { letter-spacing: 0; }
+html[dir="rtl"] [class*="text-[9px]"]:not([dir="ltr"]):not(code):not(.tech-ltr),
+html[dir="rtl"] [class*="text-[10px]"]:not([dir="ltr"]):not(code):not(.tech-ltr) { font-size: 11px; }
 html[dir="rtl"] .route-enter { transform-origin: right top; }
 @media print {
   .no-print, .workspace-sidebar, header[role="banner"] { display: none !important; }
