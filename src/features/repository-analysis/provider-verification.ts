@@ -21,6 +21,8 @@ type FetchLike = typeof fetch;
 export interface ContributionVerificationRequest {
   readonly repositoryUrl: string;
   readonly credential: string | null;
+  /** Account control established by this candidate's owner-scoped evidence response. */
+  readonly confirmedCandidateLogins: readonly string[];
 }
 
 export interface ContributionVerificationResult {
@@ -50,6 +52,7 @@ export class GitHubContributionVerificationProvider implements ContributionVerif
     const verifiedAt = new Date().toISOString();
     const credential = request.credential?.trim() || null;
     if (!credential) return incompleteResult(verifiedAt, false);
+    if (request.confirmedCandidateLogins.length === 0) return incompleteResult(verifiedAt, true);
 
     const repository = parseGitHubRepositoryUrl(request.repositoryUrl);
     const headers = {
@@ -66,6 +69,11 @@ export class GitHubContributionVerificationProvider implements ContributionVerif
       });
       if (!identityResponse.ok) return incompleteResult(verifiedAt, true);
       const identity = GitHubIdentitySchema.parse(await identityResponse.json());
+      // A workspace/operator credential is not a candidate identity. Its proof
+      // can only be used when the candidate already demonstrated account control.
+      if (!request.confirmedCandidateLogins.some((login) => login.toLowerCase() === identity.login.toLowerCase())) {
+        return incompleteResult(verifiedAt, true);
+      }
 
       const repositoryResponse = await this.fetcher(
         `https://api.github.com/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repository)}`,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { authenticateRequest, denyCrossOrigin } from "@/features/auth/guard";
 import { getCandidateStore } from "@/features/candidates/store";
+import { getEvidenceRequestStore } from "@/features/evidence-requests/store";
 import { GitHubContributionVerificationProvider } from "@/features/repository-analysis/provider-verification";
 import { parseGitHubRepositoryUrl } from "@/services/github";
 
@@ -28,9 +29,14 @@ export async function POST(
       return Response.json({ error: { code: "RESOURCE_UNAVAILABLE" } }, { status: 404 });
     }
 
+    const requests = await getEvidenceRequestStore().listForCandidate(user.id, id);
+    const confirmedCandidateLogins = requests.flatMap((evidenceRequest) =>
+      evidenceRequest.response?.confirmedAccounts.map((account) => account.login) ?? [],
+    );
     const verification = await new GitHubContributionVerificationProvider().verify({
       repositoryUrl,
       credential: process.env.GITHUB_TOKEN?.trim() || null,
+      confirmedCandidateLogins,
     });
     const updated = await store.verifyRepositoryAttribution(user.id, id, repositoryUrl, verification);
     if (!updated) return Response.json({ error: { code: "RESOURCE_UNAVAILABLE" } }, { status: 404 });

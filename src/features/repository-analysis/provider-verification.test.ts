@@ -15,6 +15,7 @@ describe("authenticated provider verification containment", () => {
     const result = await new GitHubContributionVerificationProvider(fetcher).verify({
       repositoryUrl: "https://github.com/candidate/project",
       credential: canary,
+      confirmedCandidateLogins: ["candidate"],
     });
 
     expect(result.proof).toMatchObject({
@@ -35,6 +36,7 @@ describe("authenticated provider verification containment", () => {
     const result = await new GitHubContributionVerificationProvider(fetcher).verify({
       repositoryUrl: "https://github.com/candidate/project",
       credential: null,
+      confirmedCandidateLogins: [],
     });
     expect(fetcher).not.toHaveBeenCalled();
     expect(result.proof.providerConfigured).toBe(false);
@@ -47,8 +49,30 @@ describe("authenticated provider verification containment", () => {
     const result = await new GitHubContributionVerificationProvider(fetcher).verify({
       repositoryUrl: "https://github.com/candidate/project",
       credential: canary,
+      confirmedCandidateLogins: ["candidate"],
     });
     expect(result.proof.hasAuthenticatedProviderIdentity).toBe(false);
     expect(JSON.stringify(result)).not.toContain(canary);
+  });
+
+  it("does not use an operator credential as an unconfirmed candidate's proof", async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    const result = await new GitHubContributionVerificationProvider(fetcher).verify({
+      repositoryUrl: "https://github.com/operator/project", credential: "synthetic-operator-token", confirmedCandidateLogins: [],
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(result.proof.hasAuthenticatedProviderIdentity).toBe(false);
+    expect(result.proof.immutableContributionRevision).toBeNull();
+  });
+
+  it("rejects the operator identity even when it contributed to the selected repository", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({ id: 42, login: "operator" }));
+    const result = await new GitHubContributionVerificationProvider(fetcher).verify({
+      repositoryUrl: "https://github.com/operator/project", credential: "synthetic-operator-token", confirmedCandidateLogins: ["candidate"],
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result.proof.hasAuthenticatedProviderIdentity).toBe(false);
+    expect(result.proof.hasRepositoryOwnershipProof).toBe(false);
+    expect(result.proof.immutableContributionRevision).toBeNull();
   });
 });
