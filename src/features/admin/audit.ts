@@ -214,7 +214,9 @@ function postgresRow(row: Record<string, unknown>): AdminAuditEntry {
   return AdminAuditEntrySchema.parse({
     id: row.id,
     sequence: Number(row.sequence),
-    occurredAt: new Date(String(row.occurred_at)).toISOString(),
+    // The driver returns a timestamp as a Date, whose string form has no
+    // milliseconds. They are part of the hashed entry, so they must survive.
+    occurredAt: (row.occurred_at instanceof Date ? row.occurred_at : new Date(String(row.occurred_at))).toISOString(),
     actorUserId: row.actor_user_id,
     actorRole: row.actor_role,
     impersonatedUserId: row.impersonated_user_id,
