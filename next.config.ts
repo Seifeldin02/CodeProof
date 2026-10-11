@@ -7,9 +7,22 @@ const framePolicy = process.env.REPL_ID
   ? "frame-ancestors 'self' https://replit.com https://*.replit.com"
   : "frame-ancestors 'self'";
 
+// PDF.js loads its native canvas and worker dynamically, outside static traces.
+// Include only their package assets, and only on routes that parse CV PDFs.
+const pdfRuntimeAssets = [
+  "node_modules/@napi-rs/canvas*/**/*",
+  "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+];
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  serverExternalPackages: ["pdf-parse", "yauzl"],
+  serverExternalPackages: ["pdf-parse", "@napi-rs/canvas", "yauzl"],
+  outputFileTracingIncludes: {
+    "/api/analyze": pdfRuntimeAssets,
+    "/api/cv/discover": pdfRuntimeAssets,
+    "/api/candidates/analyze": pdfRuntimeAssets,
+    "/api/candidates/intake": pdfRuntimeAssets,
+  },
   async headers() {
     return [{
       source: "/:path*",
