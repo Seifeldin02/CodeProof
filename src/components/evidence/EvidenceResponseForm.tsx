@@ -30,16 +30,19 @@ export default function EvidenceResponseForm({ token, preferredLocale, verificat
   const alertRef = useRef<HTMLParagraphElement>(null);
   const doneRef = useRef<HTMLHeadingElement>(null);
 
-  // A first-time visitor has no stored language, so the page opens in the one
-  // the recruiter chose for them. A choice the visitor already made is kept.
+  // The link normally arrives through ./open, which stores the recruiter's
+  // language before the page renders. This covers a visitor who reached the page
+  // some other way with no language set at all. A language already set, by the
+  // visitor or by an earlier link, is kept, so the page never changes language
+  // after it has loaded.
   useEffect(() => {
-    let stored: string | null = null;
+    let languageKnown = true;
     try {
-      stored = window.localStorage.getItem("codeproof-locale");
+      languageKnown = Boolean(window.localStorage.getItem("codeproof-locale")) || /(?:^|;\s*)codeproof-locale=/.test(document.cookie);
     } catch {
-      stored = "unavailable";
+      // Storage is blocked, so nothing can be remembered: leave the language as it is.
     }
-    if (!stored && preferredLocale !== locale) setLocale(preferredLocale);
+    if (!languageKnown && preferredLocale !== locale) setLocale(preferredLocale);
     // Runs once on arrival: later changes belong to the visitor.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
