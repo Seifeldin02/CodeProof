@@ -20,8 +20,8 @@ The product offers whatever the deployment can deliver:
 | A mail provider and Twilio | Codes by email, and by text message to a mobile number the person has already confirmed on their account page. |
 
 `next dev` with no mail provider shows the code on the sign-in page instead of
-sending it, so the flow can be tried locally. That never happens in a
-production build.
+sending it, so the flow can be tried locally, and keeps the password form
+beside it. A code is never shown on screen in a production build.
 
 A code is six digits, works once, lasts 10 minutes and allows 5 wrong guesses.
 A new one can be requested after 60 seconds, up to 5 in 30 minutes for one

@@ -57,10 +57,11 @@ export function signInOptions(env: Environment = process.env): SignInOptions {
     ? "provider"
     : env.NODE_ENV === "development" ? "development" : "off";
   const emailCode = emailCodeMode !== "off";
-  // Passwords step aside once codes can be delivered. An operator can force
-  // either behaviour, for example to keep people signing in during a mail outage.
+  // Passwords step aside once a mail provider can deliver codes. Showing the
+  // code on screen in development is not delivery, so both ways in stay there.
+  // An operator can force either behaviour, for example during a mail outage.
   const forced = env.CODEPROOF_PASSWORD_SIGN_IN?.trim().toLowerCase();
-  const password = forced === "true" ? true : forced === "false" ? false : !emailCode;
+  const password = forced === "true" ? true : forced === "false" ? false : emailCodeMode !== "provider";
   return {
     emailCode,
     emailCodeMode,

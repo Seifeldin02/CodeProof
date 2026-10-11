@@ -68,11 +68,11 @@ export default async function AccountPage() {
           </dl>
         </Card>
 
-        <Card title={t("Signing in")} subtitle={t("No password is needed")}>
+        <Card title={t("Signing in")} subtitle={options.password ? undefined : t("No password is needed")}>
           <ul className="divide-y divide-slate-100 text-sm">
             <li className={ROW}>
               <span className="text-slate-800">{t("A code by email")}</span>
-              <Badge tone={options.emailCode ? "positive" : "neutral"}>{options.emailCode ? t("On") : t("Not set up on this site")}</Badge>
+              <Badge tone={options.emailCodeMode === "provider" ? "positive" : "neutral"}>{options.emailCodeMode === "provider" ? t("On") : t("Not set up on this site")}</Badge>
             </li>
             <li className={ROW}>
               <span className="text-slate-800">Google</span>
@@ -86,7 +86,7 @@ export default async function AccountPage() {
             </li>
           </ul>
           {options.sms && <div className="mt-5 border-t border-slate-100 pt-5"><PhoneForm phone={profile.phone} /></div>}
-          {options.password && <p className="mt-4 text-xs leading-5 text-slate-600">{t("This site cannot send codes yet, so it signs you in with your email address and password.")}</p>}
+          {options.password && options.emailCodeMode !== "provider" && <p className="mt-4 text-xs leading-5 text-slate-600">{t("This site cannot send codes yet, so it signs you in with your email address and password.")}</p>}
         </Card>
       </div>
 
