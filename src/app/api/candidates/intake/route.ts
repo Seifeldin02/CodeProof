@@ -53,7 +53,8 @@ export async function POST(request: Request): Promise<Response> {
       isDemo: text(form, "isDemo") === "true",
     });
 
-    const candidate = await getCandidateStore().createCandidate(user.id, {
+    const store = getCandidateStore();
+    const created = await store.createCandidate(user.id, {
       name: parsed.candidateName,
       role: parsed.role,
       results: [],
@@ -61,6 +62,9 @@ export async function POST(request: Request): Promise<Response> {
       isDemo: parsed.isDemo,
       unanalyzedSources: discovered.otherSources.map((source) => source.url),
     });
+    // A new record starts at code review, because one is normally created by
+    // reading code. No code was read here, so this one stays at screening.
+    const candidate = (await store.updatePipeline(user.id, created.id, "screening", "in_progress")) ?? created;
     await getEvidenceRequestStore().saveCvNotes(user.id, candidate.id, cvNotesFromResume(resumeText));
     return Response.json({ candidate }, { status: 201 });
   } catch (error) {
