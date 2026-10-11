@@ -81,7 +81,9 @@ describe("Feature: codeproof-audit-remediation, Property 34: Administrative boot
       }
       db.close();
     }
-  });
+    // 256 databases are built and migrated here. Alone that takes about two
+    // seconds; beside the rest of the suite it runs past the default five.
+  }, 30_000);
 
   it("reports divergence without demoting an admin or elevating a second account", () => {
     const db = legacyAccounts(2);
