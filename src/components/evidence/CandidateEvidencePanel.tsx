@@ -123,7 +123,7 @@ export default function CandidateEvidencePanel({ candidateId, candidateName, req
           {t(busy === "create" ? "Creating…" : "Create a private link")}
         </button>
       </div>
-      <p className="mt-2 text-[11px] leading-5 text-slate-400">{t("A new link closes any earlier one that is still waiting. CodeProof does not send messages: you send the link yourself.")}</p>
+      <p className="mt-2 text-[11px] leading-5 text-slate-500">{t("A new link closes any earlier one that is still waiting. CodeProof does not send messages: you send the link yourself.")}</p>
 
       {created && (
         <div className="mt-5 rounded-2xl border border-brand-200 bg-brand-50/60 p-4">

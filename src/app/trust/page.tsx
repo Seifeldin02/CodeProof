@@ -137,12 +137,12 @@ export default async function TrustPage() {
 
             <details className="mt-6 rounded-xl border border-slate-200 bg-slate-50">
               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-semibold text-slate-800">
-                {t("The repositories that were read")} <span className="font-mono text-[10px] font-normal text-slate-400">{measurements.repositories.length} +</span>
+                {t("The repositories that were read")} <span className="font-mono text-[10px] font-normal text-slate-500">{measurements.repositories.length} +</span>
               </summary>
               <div className="overflow-x-auto border-t border-slate-200 bg-white" tabIndex={0} role="region" aria-label={t("The repositories that were read")}>
                 <table className="w-full min-w-[520px] text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 text-start text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    <tr className="border-b border-slate-100 text-start text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                       <th className="px-4 py-2.5">{t("Repository")}</th>
                       <th className="px-4 py-2.5 text-end">{t("Runs")}</th>
                       <th className="px-4 py-2.5 text-end">{t("Identical")}</th>

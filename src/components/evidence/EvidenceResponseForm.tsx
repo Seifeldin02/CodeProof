@@ -134,7 +134,7 @@ export default function EvidenceResponseForm({ token, preferredLocale, verificat
       </div>
 
       <fieldset className="border-t border-slate-100 pt-5">
-        <legend className="text-base font-semibold text-slate-950">{t("Show that the GitHub account is yours")} <span className="text-xs font-normal text-slate-400">{t("optional")}</span></legend>
+        <legend className="text-base font-semibold text-slate-950">{t("Show that the GitHub account is yours")} <span className="text-xs font-normal text-slate-500">{t("optional")}</span></legend>
         <ol className="mt-2 list-decimal space-y-1.5 ps-5 text-xs leading-5 text-slate-600">
           <li>{t("Open gist.github.com while signed in to GitHub.")}</li>
           <li>{t("Create a public gist that contains this code:")} <code dir="ltr" className="tech-ltr select-all rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-slate-900">{verificationCode}</code></li>
@@ -148,7 +148,7 @@ export default function EvidenceResponseForm({ token, preferredLocale, verificat
       </fieldset>
 
       <label className="block border-t border-slate-100 pt-5 text-xs font-semibold text-slate-600">
-        {t("Anything the hiring team should know")} <span className="font-normal text-slate-400">{t("optional")}</span>
+        {t("Anything the hiring team should know")} <span className="font-normal text-slate-500">{t("optional")}</span>
         <textarea value={note} maxLength={noteLimit} onChange={(event) => setNote(event.target.value)} className="mt-2 min-h-24 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm font-normal leading-6 outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-50" />
       </label>
 

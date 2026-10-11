@@ -30,7 +30,7 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
           <span aria-hidden="true" className="tnum grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 font-mono text-sm font-semibold text-white">{position}</span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <Link href={`/candidates/${entry.id}`} className="text-base font-semibold text-slate-950 hover:text-brand-700">{entry.name}</Link>
+              <h3 className="text-base font-semibold"><Link href={`/candidates/${entry.id}`} className="text-slate-950 hover:text-brand-700">{entry.name}</Link></h3>
               <Badge tone={TIER_TONE[entry.tier]}>{t(TIER_LABEL[entry.tier])}</Badge>
               {entry.isDemo && <Badge tone="warning">{t("Demo")}</Badge>}
             </div>
@@ -46,7 +46,7 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div>
-          <h4 className="text-[10px] font-semibold uppercase tracking-[.14em] text-slate-400">{t("Why this position")}</h4>
+          <h4 className="text-[10px] font-semibold uppercase tracking-[.14em] text-slate-500">{t("Why this position")}</h4>
           <ul className="mt-2 space-y-1.5">
             {entry.repositories.analyzed === 0 && (
               <Signal>{t("No code has been read for this candidate yet, so they are listed after candidates whose code was read, in the order they applied.")}</Signal>
@@ -96,7 +96,7 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
         </div>
 
         <div>
-          <h4 className="text-[10px] font-semibold uppercase tracking-[.14em] text-slate-400">{t("Unknown, not negative")}</h4>
+          <h4 className="text-[10px] font-semibold uppercase tracking-[.14em] text-slate-500">{t("Unknown, not negative")}</h4>
           {entry.unknowns.length === 0 ? (
             <p className="mt-2 text-xs leading-5 text-slate-500">{t("Every input was available for this candidate.")}</p>
           ) : (

@@ -35,7 +35,8 @@ export default function Topbar({ user }: { user: AuthUser }) {
       <div className="flex items-center gap-3">
         <span className="hidden sm:inline-flex"><Badge tone="positive">{t("Free deterministic engine")}</Badge></span>
         <LanguageToggle />
-        <button type="button" onClick={logout} disabled={loggingOut} aria-label={t("Sign out")} className="group flex min-h-11 items-center gap-2 rounded-xl px-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" title={t("Sign out")}>
+        <button type="button" onClick={logout} disabled={loggingOut} className="group flex min-h-11 items-center gap-2 rounded-xl px-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" title={t("Sign out")}>
+          <span className="sr-only">{t("Sign out")}: </span>
           <span className="hidden max-w-40 truncate text-xs text-slate-500 xl:block" dir="ltr">{user.email}</span>
           <span className="avatar-ring grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-xs font-semibold text-white group-hover:bg-brand-700">{initials}</span>
         </button>

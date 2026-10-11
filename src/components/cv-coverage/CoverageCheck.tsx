@@ -185,7 +185,7 @@ export default function CoverageCheck() {
           <ol className="mt-3 divide-y divide-slate-100">
             {rows.map((row, index) => (
               <li key={`${row.name}-${index}`} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-xs">
-                <span className="flex min-w-0 items-center gap-2"><span className="tnum font-mono text-[10px] text-slate-400">{index + 1}</span><bdi className="break-all text-slate-700">{row.name}</bdi></span>
+                <span className="flex min-w-0 items-center gap-2"><span className="tnum font-mono text-[10px] text-slate-500">{index + 1}</span><bdi className="break-all text-slate-700">{row.name}</bdi></span>
                 <span className={row.status === "failed" ? "font-semibold text-amber-800" : row.category === "repository" ? "font-semibold text-emerald-700" : "text-slate-600"}>
                   {row.status === "queued" && t("Waiting")}
                   {row.status === "reading" && t("Reading…")}

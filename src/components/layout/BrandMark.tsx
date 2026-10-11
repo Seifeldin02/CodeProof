@@ -14,7 +14,7 @@ export default function BrandMark({ compact = false }: { compact?: boolean }) {
       {!compact && (
         <div className="leading-tight">
           <div className="text-sm font-semibold tracking-tight text-white">CodeProof</div>
-          <div className="text-[11px] font-medium text-slate-500">{t("Evidence hiring")}</div>
+          <div className="text-[11px] font-medium text-slate-400">{t("Evidence hiring")}</div>
         </div>
       )}
     </div>
