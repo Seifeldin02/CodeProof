@@ -11,6 +11,14 @@ Read this together with [`HARD_REQUIREMENTS.md`](HARD_REQUIREMENTS.md).
 | `CODEPROOF_DB_PATH` | Optional local/container | Changes the SQLite file used when PostgreSQL is absent. Use only on a persistent volume in production. |
 | `CODEPROOF_ALLOW_SIGNUP` | Optional | Registration is public by default. Set `false` only for a closed pilot. |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | Optional | Enables the grounded AI provider. The deterministic core remains free. |
+| `ADMIN_EMAIL` | Optional | The already-registered account that may open the owner administration pages. |
+| `CODEPROOF_MAIL_FROM` with `RESEND_API_KEY` or `BREVO_API_KEY` | Optional | Sign-in by a 6-digit emailed code instead of a password. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional | Google sign-in. |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | Optional, paid | Codes by text message to a confirmed mobile number. |
+| `CODEPROOF_PUBLIC_URL` | Optional | The deployment's own address, when a proxy does not forward the original host. |
+
+Sign-in by code, Google sign-in, organisations and owner administration are
+set up as described in [`ACCOUNTS.md`](ACCOUNTS.md).
 
 Generate a session secret:
 
@@ -78,5 +86,6 @@ stage, confirm Hiring Insights changes, sign out, and sign back in.
 ## Remaining production considerations
 
 - Retention periods and account-level data export/deletion should be reviewed against the applicable privacy policy before processing applicants at scale.
-- Every account currently has recruiter permissions; team organizations and role-based access are not implemented.
+- Organisations have two roles, admin and recruiter. Finer permissions are not implemented.
+- A session lasts seven days and cannot be ended early from the server, except by suspending or removing the account.
 - Authentication has a per-instance limiter. High-traffic production should add a shared edge rate limiter.

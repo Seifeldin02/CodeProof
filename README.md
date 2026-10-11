@@ -59,6 +59,9 @@ Optional configuration is documented in `.env.example`:
 - `CODEPROOF_DB_PATH` changes the local SQLite candidate-database path.
 - `CODEPROOF_SESSION_SECRET` signs session cookies. Required in production.
 - `CODEPROOF_ALLOW_SIGNUP=false` closes public registration for a private pilot. Registration is open by default.
+- `CODEPROOF_MAIL_FROM` with `RESEND_API_KEY` or `BREVO_API_KEY` switches sign-in to a 6-digit emailed code.
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` add Google sign-in.
+- `ADMIN_EMAIL` names the account that may open the owner administration pages.
 
 ## Accounts
 
@@ -66,6 +69,15 @@ The public landing page supports sign-in and account creation. Each recruiter
 gets an isolated candidate workspace and account-derived Hiring Insights.
 Passwords are hashed with scrypt and sessions use Secure, HttpOnly, signed
 cookies. No third-party authentication service or paid API is required.
+
+When a mail provider is configured, people sign in with a 6-digit code sent to
+their email address instead of a password, and Google sign-in can be added
+beside it. Recruiters can be grouped into a company or a recruitment agency:
+its admin invites recruiters within a seat limit and can read every member's
+candidates, while each recruiter's candidates stay their own. The people who
+run CodeProof manage accounts, organisations and their subscriptions from the
+owner administration pages under `/admin`. All of this is optional and is
+described in [`docs/ACCOUNTS.md`](docs/ACCOUNTS.md).
 
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for production setup.
 
