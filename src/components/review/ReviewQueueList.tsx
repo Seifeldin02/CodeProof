@@ -35,7 +35,7 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
               {entry.isDemo && <Badge tone="warning">{t("Demo")}</Badge>}
             </div>
             <p className="mt-1 text-xs text-slate-500">
-              {t(entry.role)} · {entry.repositories.analyzed === 1 ? t("1 repository analyzed") : t("{count} repositories analyzed", { count: entry.repositories.analyzed })}
+              {t(entry.role)} · {entry.repositories.inspected === 1 ? t("1 repository analyzed") : t("{count} repositories analyzed", { count: entry.repositories.inspected })}
             </p>
           </div>
         </div>
@@ -48,7 +48,7 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
         <div>
           <h4 className="text-[10px] font-semibold uppercase tracking-[.14em] text-slate-500">{t("Why this position")}</h4>
           <ul className="mt-2 space-y-1.5">
-            {entry.repositories.analyzed === 0 && (
+            {entry.repositories.inspected === 0 && (
               <Signal>{t("No code has been read for this candidate yet, so they are listed after candidates whose code was read, in the order they applied.")}</Signal>
             )}
             {requirements && requirements.judged > 0 && entry.repositories.analyzed > 0 && (
@@ -66,7 +66,7 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
             )}
             {entry.confirmedRepositories > 0 && (
               <Signal tone="positive">
-                {t("The candidate proved the GitHub account behind {count} of {total} analyzed repositories is theirs", { count: entry.confirmedRepositories, total: entry.repositories.analyzed })}
+                {t("The candidate proved the GitHub account behind {count} of {total} analyzed repositories is theirs", { count: entry.confirmedRepositories, total: entry.repositories.inspected })}
               </Signal>
             )}
             {requirements && requirements.unsupportedNames.length > 0 && (

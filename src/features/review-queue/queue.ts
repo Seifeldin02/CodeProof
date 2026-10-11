@@ -30,6 +30,7 @@ export type ReviewTier = "review_first" | "review" | "verify_in_interview" | "ev
 
 export type UnknownSignal =
   | "no_repositories"
+  | "unverified_attribution"
   | "failed_repositories"
   | "no_cv"
   | "no_requirements"
@@ -52,8 +53,8 @@ const NEXT_STEP: Record<ReviewTier, NextStep> = {
 };
 
 /** A candidate who already said their work is confidential is not asked again. */
-function nextStepFor(tier: ReviewTier, evidence: CandidateEvidenceContext | undefined): NextStep {
-  return tier === "evidence_incomplete" && evidence?.confidential ? "test_or_verify" : NEXT_STEP[tier];
+function nextStepFor(tier: ReviewTier, evidence: CandidateEvidenceContext | undefined, inspected: number): NextStep {
+  return tier === "evidence_incomplete" && (evidence?.confidential || inspected > 0) ? "test_or_verify" : NEXT_STEP[tier];
 }
 
 export interface RequirementCoverage {
@@ -83,7 +84,7 @@ export interface ReviewQueueEntry {
   claims: { grounded: number; unverified: number } | null;
   /** Strong/Good skills the CV never mentions: the code says more than the résumé. */
   undersold: string[];
-  repositories: { analyzed: number; failed: number };
+  repositories: { analyzed: number; inspected: number; failed: number };
   /** Portfolio / non-GitHub links from the CV or from the candidate that CodeProof cannot read yet. */
   unanalyzedSources: string[];
   /** Up to four source files that back the strongest evidence. */
@@ -158,6 +159,7 @@ export function buildReviewEntry(
 ): ReviewQueueEntry {
   const eligibleAnalyses = eligibleCandidateAnalyses(candidate);
   const analyzed = eligibleAnalyses.length;
+  const inspected = candidate.analyses.length;
   const failed = candidate.repositoryOutcomes.filter((outcome) => outcome.status === "failed").length;
 
   const strongSkillMap = new Map<string, string[]>();
@@ -185,7 +187,8 @@ export function buildReviewEntry(
   const requirementCoverage = coverage(candidate, requirements);
   const unanalyzedSources = [...new Set([...(candidate.unanalyzedSources ?? []), ...(evidence?.otherLinks ?? [])])];
   const unknowns: UnknownSignal[] = [];
-  if (analyzed === 0) unknowns.push("no_repositories");
+  if (inspected === 0) unknowns.push("no_repositories");
+  else if (analyzed === 0) unknowns.push("unverified_attribution");
   if (failed > 0) unknowns.push("failed_repositories");
   // A CV whose claims were noted at intake was provided; it just has no code to be checked against yet.
   if (!claims && !evidence?.cvNoted) unknowns.push("no_cv");
@@ -194,7 +197,7 @@ export function buildReviewEntry(
   if (evidence?.requestedAt) unknowns.push("evidence_requested");
   if (evidence?.confidential) unknowns.push("work_confidential");
 
-  const repositories = { analyzed, failed };
+  const repositories = { analyzed, inspected, failed };
   const tier = tierFor({ repositories, requirements: requirementCoverage });
   return {
     id: candidate.id,
@@ -203,7 +206,7 @@ export function buildReviewEntry(
     isDemo: Boolean(candidate.isDemo),
     appliedAt: candidate.appliedAt,
     tier,
-    nextStep: nextStepFor(tier, evidence),
+    nextStep: nextStepFor(tier, evidence, inspected),
     requirements: requirementCoverage,
     strongSkills: strongSkillMap.size,
     claims,

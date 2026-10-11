@@ -35,7 +35,7 @@ export default async function ReviewQueuePage() {
   const undersold = queue.entries.filter((entry) => entry.undersold.length > 0);
 
   const rules = [
-    t("Candidates with at least one analyzed repository come first. The rest are listed as evidence incomplete."),
+    t("Candidates with verified contribution evidence come first. Unverified contributions stay unknown until reviewed."),
     t("Among them: strong evidence for required company requirements, then partial evidence, then strong or good skill evidence."),
     t("What a CV says is checked and shown, but it never changes the order. Listing more technologies moves nobody up, and names are not used. Equal evidence is settled by who was added first."),
     t("A missing input is reported as unknown. It never lowers a candidate; it only means the evidence cannot raise them yet."),

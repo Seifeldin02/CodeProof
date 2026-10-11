@@ -12,6 +12,7 @@ export function GET() {
   return NextResponse.json({
     status: ready ? "ok" : "degraded",
     engineVersion: ANALYSIS_ENGINE_VERSION,
+    buildCommit: process.env.CODEPROOF_BUILD_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA || null,
     paidApisRequired: false,
     persistence: postgresConfigured ? "postgres" : "sqlite",
     durablePersistence,

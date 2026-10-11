@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Badge from "@/components/ui/Badge";
 import type { CvDiscovery, DiscoveredRepository } from "@/features/resume-matching/discovery";
@@ -18,6 +18,8 @@ interface PortfolioScan {
   claims: Array<{ claim: string }>;
 }
 type ScanState = { status: "scanning" } | { status: "done"; scan: PortfolioScan } | { status: "failed"; message: string };
+
+const subscribeToHydration = () => () => {};
 
 // The portfolio points at a synthetic sample page published in this repository,
 // so the scan reads a real public page without casting a real person as an
@@ -48,6 +50,8 @@ function canonicalRepository(value: string): DiscoveredRepository | null {
 }
 
 export default function AnalyzeCandidateWorkflow() {
+  // A file selection made before event handlers attach would otherwise be lost.
+  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const router = useRouter();
   const { t, locale } = useI18n();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -204,7 +208,7 @@ export default function AnalyzeCandidateWorkflow() {
 
         {!discovery ? <div className="mt-6 space-y-5">
           <label className="group block cursor-pointer rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/80 px-6 py-10 text-center transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-brand-50/60 hover:shadow-[0_16px_34px_rgba(15,23,42,.06)]">
-            <input type="file" className="sr-only" accept="application/pdf,.pdf" onChange={(event) => { setResumeFile(event.target.files?.[0] ?? null); setIsDemo(false); }} />
+            <input type="file" disabled={!hydrated} className="sr-only" accept="application/pdf,.pdf" onChange={(event) => { setResumeFile(event.target.files?.[0] ?? null); setIsDemo(false); }} />
             <span className="evidence-node mx-auto grid h-12 w-12 place-items-center rounded-xl bg-white text-xl text-brand-700 shadow-sm transition-transform duration-300 group-hover:-translate-y-1">↑</span><strong className="mt-4 block text-sm text-slate-900">{t("Choose a text-based PDF")}</strong><span className="mt-1 block text-xs text-slate-500">{t("Maximum 5 MB. Files are parsed server-side and never executed.")}</span>{resumeFile && <span className="tech-ltr mt-3 inline-flex rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-800">{resumeFile.name}</span>}
           </label>
           <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[.15em] text-slate-400"><span className="h-px flex-1 bg-slate-200" />{t("or paste CV text")}<span className="h-px flex-1 bg-slate-200" /></div>

@@ -167,6 +167,10 @@ describe("review queue", () => {
     expect(entry.claims).toBeNull();
     expect(entry.requirements).toMatchObject({ strong: 0, partial: 0, unsupported: 2 });
     expect(entry.tier).toBe("evidence_incomplete");
+    expect(entry.repositories).toMatchObject({ analyzed: 0, inspected: 1 });
+    expect(entry.unknowns).toContain("unverified_attribution");
+    expect(entry.unknowns).not.toContain("no_repositories");
+    expect(entry.nextStep).toBe("test_or_verify");
   });
 });
 

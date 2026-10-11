@@ -45,4 +45,12 @@ describe("GET /api/health", () => {
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toMatchObject({ status: "degraded", durablePersistence: false });
   });
+  it("exposes only the deployed commit identifier, not environment credentials", async () => {
+    vi.stubEnv("CODEPROOF_BUILD_COMMIT", "0123456789abcdef0123456789abcdef01234567");
+    vi.stubEnv("CODEPROOF_SESSION_SECRET", "synthetic-test-only-secret");
+    const body = await GET().json();
+    expect(body.buildCommit).toBe("0123456789abcdef0123456789abcdef01234567");
+    expect(JSON.stringify(body)).not.toContain("synthetic-test-only-secret");
+    expect(body.paidApisRequired).toBe(false);
+  });
 });

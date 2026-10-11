@@ -139,6 +139,7 @@ html[dir="rtl"] .chart-bar { transform-origin: right; }
 .avatar-ring { box-shadow: 0 0 0 3px white, 0 0 0 4px rgba(45,140,96,.22); }
 
 .hero-grid { position: relative; isolation: isolate; }
+.hero-grid::before, .hero-grid::after { pointer-events: none; }
 .hero-grid::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .18; background-image: linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px); background-size: 34px 34px; mask-image: radial-gradient(circle at 78% 40%, black, transparent 55%); }
 .hero-grid::after { content: ""; position: absolute; width: 360px; height: 360px; right: -120px; top: -170px; border-radius: 999px; border: 1px solid rgba(185,255,107,.22); box-shadow: 0 0 80px rgba(185,255,107,.08), inset 0 0 80px rgba(185,255,107,.05); }
 .evidence-node { position: relative; }

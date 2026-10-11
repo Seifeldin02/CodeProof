@@ -107,6 +107,8 @@ export interface CreateCandidateInput {
   results: AnalysisResult[];
   failures?: RepositoryFailure[];
   isDemo?: boolean;
+  /** CV-only intake must not manufacture a completed code-review stage. */
+  initialStage?: "screening" | "code_review";
   /** Portfolio / non-GitHub links from the CV. Recorded, never analyzed. */
   unanalyzedSources?: string[];
   repositorySelections?: RepositorySelection[];
@@ -329,6 +331,7 @@ export class CandidateStore implements CandidatePersistence {
   constructor(databasePath = process.env.CODEPROOF_DB_PATH ?? path.join(process.cwd(), ".data", "codeproof.db")) {
     if (databasePath !== ":memory:") mkdirSync(path.dirname(databasePath), { recursive: true });
     this.db = new DatabaseSync(databasePath);
+    this.db.exec("PRAGMA busy_timeout = 5000");
     this.db.exec("PRAGMA foreign_keys = ON;");
     if (databasePath !== ":memory:") this.db.exec("PRAGMA journal_mode = WAL;");
     this.createSchema();
@@ -560,17 +563,18 @@ export class CandidateStore implements CandidatePersistence {
   async createCandidate(ownerUserId: string, input: CreateCandidateInput): Promise<CandidateDetail> {
     const id = randomUUID();
     const now = new Date().toISOString();
+    const initialStage = input.initialStage ?? "code_review";
     this.db.exec("BEGIN");
     try {
       this.db.prepare(`INSERT INTO candidates
         (id, owner_user_id, name, role, source, evidence_index, applied_at, outcome, furthest_stage, is_demo, repository_count, verified_claim_count, unanalyzed_sources)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         id, ownerUserId, input.name, input.role, "CodeProof", 0, now,
-        "in_progress", "code_review", input.isDemo ? 1 : 0, input.results.length + (input.failures?.length ?? 0), 0,
+        "in_progress", initialStage, input.isDemo ? 1 : 0, input.results.length + (input.failures?.length ?? 0), 0,
         JSON.stringify(input.unanalyzedSources ?? []),
       );
       const insertStage = this.db.prepare("INSERT INTO stage_events (candidate_id, stage, entered_at) VALUES (?, ?, ?)");
-      for (const stage of PIPELINE_STAGES.slice(0, 3)) insertStage.run(id, stage, now);
+      for (const stage of PIPELINE_STAGES.slice(0, PIPELINE_STAGES.indexOf(initialStage) + 1)) insertStage.run(id, stage, now);
       for (const result of input.results) {
         this.insertAnalysis(id, resultWithAttribution(result, selectionFor(input, result.repository.url)));
       }
@@ -983,17 +987,18 @@ class PostgresCandidateStore implements CandidatePersistence {
     await this.initialize();
     const id = randomUUID();
     const now = new Date().toISOString();
+    const initialStage = input.initialStage ?? "code_review";
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
       await client.query(`INSERT INTO codeproof_candidates
         (id,owner_user_id,name,role,source,evidence_index,applied_at,outcome,furthest_stage,is_demo,repository_count,verified_claim_count,unanalyzed_sources)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [
-        id, ownerUserId, input.name, input.role, "CodeProof", 0, now, "in_progress", "code_review",
+        id, ownerUserId, input.name, input.role, "CodeProof", 0, now, "in_progress", initialStage,
         Boolean(input.isDemo), input.results.length + (input.failures?.length ?? 0), 0,
         JSON.stringify(input.unanalyzedSources ?? []),
       ]);
-      for (const stage of PIPELINE_STAGES.slice(0, 3)) {
+      for (const stage of PIPELINE_STAGES.slice(0, PIPELINE_STAGES.indexOf(initialStage) + 1)) {
         await client.query("INSERT INTO codeproof_stage_events (candidate_id,stage,entered_at) VALUES ($1,$2,$3)", [id, stage, now]);
       }
       for (const result of input.results) {

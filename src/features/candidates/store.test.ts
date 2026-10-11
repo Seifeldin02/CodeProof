@@ -76,6 +76,17 @@ function canonicalResult(suffix = "1"): AnalysisResult {
 }
 
 describe("candidate evidence persistence", () => {
+  it("does not record code review for a CV-only intake", async () => {
+    const store = new CandidateStore(":memory:");
+    seedOwners(store);
+    const candidate = await store.createCandidate("owner-a", {
+      name: "CV-only candidate", role: "Backend Engineer", results: [], initialStage: "screening",
+    });
+    expect(candidate.furthestStage).toBe("screening");
+    expect(candidate.stageHistory.map((event) => event.stage)).toEqual(["applied", "screening"]);
+    expect(candidate.analyses).toEqual([]);
+    store.db.close();
+  });
   it("computes a transparent weighted evidence index", () => {
     expect(calculateEvidenceIndex([result(["Strong Evidence", "Good Evidence", "Limited Evidence"])] )).toBe(67);
     expect(calculateEvidenceIndex([result([])])).toBe(0);

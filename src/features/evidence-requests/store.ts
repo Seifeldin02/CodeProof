@@ -100,6 +100,7 @@ export class EvidenceRequestStore implements EvidenceRequestPersistence {
   constructor(databasePath = process.env.CODEPROOF_DB_PATH ?? path.join(process.cwd(), ".data", "codeproof.db")) {
     if (databasePath !== ":memory:") mkdirSync(path.dirname(databasePath), { recursive: true });
     this.db = new DatabaseSync(databasePath);
+    this.db.exec("PRAGMA busy_timeout = 5000");
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS evidence_requests (
         id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL, candidate_id TEXT NOT NULL, token_digest TEXT NOT NULL UNIQUE,

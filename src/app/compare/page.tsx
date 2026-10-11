@@ -34,6 +34,7 @@ export default async function CompareCandidatesPage() {
       isDemo: Boolean(record.isDemo),
       evidence: buildEvidenceProfile((detail?.analyses ?? []).map((analysis) => analysis.result.skills)),
       repositoryCount: record.repositoryCount ?? 0,
+      attributionPending: (detail?.analyses.length ?? 0) > eligibleAnalyses.length,
       groundedClaims: record.verifiedClaimCount ?? 0,
       topSkills: [...skills.values()].sort((a, b) => LEVEL_WEIGHT[b.level] - LEVEL_WEIGHT[a.level]).slice(0, 5),
       patternCategories: [...new Set(eligibleAnalyses.flatMap((analysis) => analysis.result.patterns.map((pattern) => pattern.category)))],

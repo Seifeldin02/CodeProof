@@ -8,6 +8,12 @@ export function isLocale(value: string | undefined | null): value is Locale {
 }
 
 const ar: Record<string, string> = {
+  "Candidates with verified contribution evidence come first. Unverified contributions stay unknown until reviewed.": "تظهر أولاً ملفات المرشحين الذين لديهم أدلة مساهمة موثّقة. وتظل المساهمات غير المتحقّق منها غير معروفة حتى مراجعتها.",
+  "Repository evidence supports the requirements. Review it before deciding whether an additional test is needed.": "تدعم أدلة المستودع المتطلبات. راجعها قبل تحديد الحاجة إلى اختبار إضافي.",
+  "Contribution, requirements, or confidential work need human verification.": "تحتاج المساهمة أو المتطلبات أو الأعمال السرية إلى تحقق بشري.",
+  "The requirements have repository evidence. Check the citations and use the drafted questions; you decide whether a test is needed.": "توجد أدلة من المستودع تدعم المتطلبات. تحقّق من المصادر واستخدم الأسئلة المقترحة؛ وأنت من يقرر الحاجة إلى اختبار.",
+  "Repository code was inspected, but the candidate's contribution is not verified": "تم فحص كود المستودع، لكن مساهمة المرشح لم تُتحقق بعد",
+  "Code was inspected. Verify the candidate's contribution before treating it as their skill evidence.": "تم فحص الكود. تحقّق من مساهمة المرشح قبل اعتباره دليلاً على مهاراته.",
   ...ACCOUNTS_AR,
   "Criteria": "المعايير",
   "Evaluation setup": "إعداد التقييم",

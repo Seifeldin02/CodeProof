@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { translate } from "@/i18n/translations";
-import { nextStepReason, REVIEW_QUEUE_WORDING } from "./wording";
+import { nextStepReason, NEXT_STEP_MEANING, REVIEW_QUEUE_WORDING } from "./wording";
 
 describe("review queue wording", () => {
+  it("keeps assessment decisions human and distinguishes inspected code from verified contribution", () => {
+    expect(NEXT_STEP_MEANING.interview_on_evidence).not.toContain("can be skipped");
+    expect(nextStepReason({ nextStep: "test_or_verify", tier: "evidence_incomplete", requirements: null, evidenceRequestedAt: null, unknowns: ["unverified_attribution"] })).toContain("Verify the candidate's contribution");
+  });
   it("has an Arabic entry for every label, since these keys are looked up dynamically", () => {
     expect(REVIEW_QUEUE_WORDING.filter((key) => translate("ar", key) === key)).toEqual([]);
   });
