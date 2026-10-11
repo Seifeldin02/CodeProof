@@ -1,3 +1,5 @@
+import { ACCOUNTS_AR } from "./accounts-ar";
+
 export const LOCALES = ["en", "ar"] as const;
 export type Locale = (typeof LOCALES)[number];
 
@@ -6,6 +8,7 @@ export function isLocale(value: string | undefined | null): value is Locale {
 }
 
 const ar: Record<string, string> = {
+  ...ACCOUNTS_AR,
   "Criteria": "المعايير",
   "Evaluation setup": "إعداد التقييم",
   "Company requirements": "متطلبات الشركة",

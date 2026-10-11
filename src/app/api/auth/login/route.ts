@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { getAuthStore, hashPassword, verifyPassword } from "@/features/auth/store";
-import { createSessionToken, SESSION_COOKIE, sessionCookieOptions, sessionSecretConfigured } from "@/features/auth/session";
+import { SESSION_COOKIE, sessionCookieOptions, sessionSecretConfigured } from "@/features/auth/session";
 import { denyCrossOrigin } from "@/features/auth/guard";
 import { authRateLimited, clearAuthAttempts } from "@/features/auth/rate-limit";
+import { finishSignIn } from "@/features/auth/finish-sign-in";
+import { signInOptions } from "@/features/auth/options";
 
 export const runtime = "nodejs";
 
@@ -20,6 +22,13 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json(
       { error: { code: "SESSION_NOT_CONFIGURED", message: "Sign-in is unavailable until the server sets CODEPROOF_SESSION_SECRET." } },
       { status: 503 },
+    );
+  }
+  // Passwords are the fallback for a deployment that cannot deliver sign-in codes.
+  if (!signInOptions().password) {
+    return NextResponse.json(
+      { error: { code: "PASSWORD_SIGN_IN_DISABLED", message: "Sign in with a code sent to your email address." } },
+      { status: 403 },
     );
   }
   let email = "";
@@ -50,8 +59,17 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  // Checked after the password, so a wrong guess learns nothing about the account's state.
+  if (user.lifecycleState !== "active") {
+    return NextResponse.json(
+      { error: { code: "ACCOUNT_UNAVAILABLE", message: "This account is not available. Contact support." } },
+      { status: 403 },
+    );
+  }
+
   clearAuthAttempts(request, email);
-  const response = NextResponse.json({ user: { id: user.id, email: user.email } });
-  response.cookies.set(SESSION_COOKIE, createSessionToken(user.id), sessionCookieOptions());
+  const finished = await finishSignIn({ user, method: "password", next: "/" });
+  const response = NextResponse.json({ user: { id: user.id, email: user.email }, destination: finished.destination });
+  response.cookies.set(SESSION_COOKIE, finished.sessionToken, sessionCookieOptions());
   return response;
 }

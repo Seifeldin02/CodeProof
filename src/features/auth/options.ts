@@ -24,6 +24,28 @@ export interface SignInOptions {
 
 type Environment = Record<string, string | undefined>;
 
+/** What the sign-in form needs to know. Nothing here is secret. */
+export interface SignInFormOptions {
+  emailCode: boolean;
+  development: boolean;
+  google: boolean;
+  sms: boolean;
+  password: boolean;
+  signup: boolean;
+}
+
+export function signInFormOptions(env: Environment = process.env): SignInFormOptions {
+  const options = signInOptions(env);
+  return {
+    emailCode: options.emailCode,
+    development: options.emailCodeMode === "development",
+    google: options.google,
+    sms: options.sms,
+    password: options.password,
+    signup: options.signup,
+  };
+}
+
 export function googleClient(env: Environment = process.env): { clientId: string; clientSecret: string } | null {
   const clientId = env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = env.GOOGLE_CLIENT_SECRET?.trim();

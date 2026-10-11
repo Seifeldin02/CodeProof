@@ -1,5 +1,6 @@
 import SignInForm from "./SignInForm";
 import { CheckCircleIcon, SearchCodeIcon, ShieldCheckIcon } from "@/components/ui/icons";
+import { signInFormOptions } from "@/features/auth/options";
 
 export default function AuthLanding({ t }: { t: (key: string) => string }) {
   const points = [
@@ -32,7 +33,7 @@ export default function AuthLanding({ t }: { t: (key: string) => string }) {
         <span className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-950 text-lime-300"><ShieldCheckIcon className="h-6 w-6" /></span>
         <h2 className="mt-5 text-2xl font-semibold tracking-[-.03em] text-slate-950">{t("Sign in or create your account")}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">{t("Your candidates, reports, requirements, and hiring analytics stay isolated to your account.")}</p>
-        <div className="mt-7"><SignInForm canRegister nextPath="/" /></div>
+        <div className="mt-7"><SignInForm options={signInFormOptions()} nextPath="/" /></div>
       </section>
     </div>
   );

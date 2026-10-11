@@ -92,9 +92,15 @@ export function sessionCookieOptions(maxAge: number = SESSION_MAX_AGE_SECONDS) {
   };
 }
 
-/** The signed-in recruiter, or null. Safe to call from server components. */
+/**
+ * The signed-in recruiter, or null. Safe to call from server components.
+ *
+ * An account that was suspended or removed is treated as signed out on its
+ * very next request, even though its cookie has not expired.
+ */
 export async function getCurrentUser(): Promise<AuthUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   const userId = readSessionToken(token);
-  return userId ? await getAuthStore().findById(userId) : null;
+  const user = userId ? await getAuthStore().findById(userId) : null;
+  return user && user.lifecycleState === "active" ? user : null;
 }
