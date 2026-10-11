@@ -89,7 +89,7 @@ which is why it is the default above.
 
 ## Honesty guardrails for the script
 
-- Do **not** claim an accuracy percentage. There is no eval harness yet, so "right about 80% of the time" is a guess from the worksheet, not a measurement.
+- Do **not** claim an accuracy percentage. What has been measured is on the trust sheet (`/trust`, recorded by `npm run trust:measure`): the same result on each of 5 runs for 12 public repositories, every cited file present, and 7 of 7 manipulation checks. You may quote those. None of them is an accuracy figure, so "right about 80% of the time" is still a guess from the worksheet, not a measurement.
 - Do **not** say a portfolio is *analysed as evidence*. It is fetched and read for the
   repositories it links; the page's own prose becomes candidate claims pending verification.
 - Do **not** say "a hundred a week" as though measured. Intake is one candidate at a time today.
