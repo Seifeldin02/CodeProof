@@ -10,7 +10,8 @@ import Badge from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import { CheckCircleIcon, ClockIcon, SearchCodeIcon, TrendingUpIcon, UsersIcon } from "@/components/ui/icons";
-import { computeFunnel, computeSkillBands, computeSourceMetrics, computeStageDropOff, computeSummary, deriveInsights } from "@/features/hiring-analytics/analytics";
+import { computeEvidenceGroups, computeFunnel, computeSourceMetrics, computeStageDropOff, computeSummary, deriveInsights } from "@/features/hiring-analytics/analytics";
+import { withEvidenceProfiles } from "@/features/candidates/evidence-profiles";
 import { getCandidateStore } from "@/features/candidates/store";
 import { getI18n } from "@/i18n/server";
 import { requirePageUser } from "@/features/auth/page-guard";
@@ -20,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 export default async function HiringInsightsPage() {
   const [{ t }, user] = await Promise.all([getI18n(), requirePageUser("/insights")]);
-  const candidates = await getCandidateStore().listCandidates(user.id);
+  const candidates = await withEvidenceProfiles(user.id, await getCandidateStore().listCandidates(user.id));
   const realCandidates = candidates.filter((candidate) => !candidate.isDemo);
   const demoCandidates = candidates.filter((candidate) => candidate.isDemo);
   const activeCandidates = realCandidates.length ? realCandidates : demoCandidates;
@@ -43,7 +44,7 @@ export default async function HiringInsightsPage() {
         {realCandidates.length ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-800"><span><strong>{t("Live evidence view.")}</strong> {t(realCandidates.length === 1 ? "Every metric below is derived from {count} persisted candidate record." : "Every metric below is derived from {count} persisted candidate records.", { count: realCandidates.length })}</span>{demoCandidates.length > 0 && <span className="font-semibold">{t(demoCandidates.length === 1 ? "{count} demo record excluded" : "{count} demo records excluded", { count: demoCandidates.length })}</span>}</div> : <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800"><strong>{t("Synthetic demo view.")}</strong> {t("These metrics come only from clearly labeled sample candidate records and must not be treated as real hiring outcomes.")}</div>}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><KpiTile label={t("Total candidates")} value={String(summary.totalCandidates)} icon={UsersIcon} /><KpiTile label={t("Active pipeline")} value={String(summary.activePipeline)} icon={TrendingUpIcon} /><KpiTile label={t("Hires")} value={String(summary.hires)} icon={CheckCircleIcon} iconTone="positive" /><KpiTile label={t("Avg time to hire")} value={summary.avgTimeToHireDays === null ? "—" : t("{count} days", { count: summary.avgTimeToHireDays })} icon={ClockIcon} /></div>
         <div className="grid gap-5 xl:grid-cols-[1.05fr_.95fr]"><Card title={t("Repository evidence coverage")} subtitle={t("Signals connected to analyzed candidate projects")}><EvidenceCoverage data={coverage} /></Card><Card title={t("Hiring funnel")} subtitle={t("Candidates reaching each recorded stage")}><HiringFunnel data={computeFunnel(activeCandidates)} /></Card></div>
-        <div className="grid gap-5 xl:grid-cols-2"><Card title={t("Resolved stage drop-off")} subtitle={t("Rejected or withdrawn records only; active candidates are excluded")}><StageDropoff data={computeStageDropOff(activeCandidates)} /></Card><Card title={t("Evidence and outcomes")} subtitle={t("Observed outcomes by transparent evidence index")}><SkillsVsOutcome data={computeSkillBands(activeCandidates)} /></Card></div>
+        <div className="grid gap-5 xl:grid-cols-2"><Card title={t("Resolved stage drop-off")} subtitle={t("Rejected or withdrawn records only; active candidates are excluded")}><StageDropoff data={computeStageDropOff(activeCandidates)} /></Card><Card title={t("Evidence and outcomes")} subtitle={t("Observed outcomes by what the analysed code supports")}><SkillsVsOutcome data={computeEvidenceGroups(activeCandidates)} /></Card></div>
         <div className="grid gap-5 xl:grid-cols-[1.15fr_.85fr]"><Card title={t("Source quality")} subtitle={t("Performance by candidate source")}><SourceQualityTable data={computeSourceMetrics(activeCandidates)} /></Card><Card title={t("Explainable hiring signals")} subtitle={t("Rule-based observations over the current pipeline")}><DerivedInsights items={deriveInsights(activeCandidates)} /></Card></div>
       </>}
     </div>

@@ -105,10 +105,47 @@ describe("review queue", () => {
     const reviewed = candidate("Checked", [analysis([["TypeScript", "Strong Evidence"]])], 0, { evidenceReviewedAt: "2026-02-01T00:00:00.000Z" });
 
     const queue = buildReviewQueue([empty, weaker, noCv, withCv, reviewed], requirements);
-    expect(queue.entries.map((entry) => entry.name)).toEqual(["With CV", "Checked", "No CV", "Weaker", "Empty"]);
+    // The three candidates with the same repository evidence tie, whatever their CVs say.
+    expect(queue.entries.map((entry) => entry.name)).toEqual(["Checked", "No CV", "With CV", "Weaker", "Empty"]);
     expect(queue.entries.at(-1)?.tier).toBe("evidence_incomplete");
-    expect(queue.summary).toEqual({ ready: 4, incomplete: 1, reviewed: 1, demo: 0 });
+    expect(queue.summary).toMatchObject({ ready: 4, incomplete: 1, reviewed: 1, demo: 0 });
     expect(queue.requirementsSaved).toBe(true);
+  });
+
+  it("never lets the wording of a CV move a candidate up", () => {
+    const code: Array<[string, Level]> = [["TypeScript", "Strong Evidence"], ["Docker", "Good Evidence"]];
+    const plain = candidate("Plain", [analysis(code, resume([["TypeScript", "Supported"]]))], 0, { appliedAt: "2026-01-01" });
+    const keywords = candidate("Keywords", [analysis(code, resume([["TypeScript", "Supported"], ["Docker", "Supported"], ["Kubernetes", "No Repository Evidence"], ["AWS", "No Repository Evidence"]]))], 0, { appliedAt: "2026-01-02" });
+    const silent = candidate("Silent", [analysis(code, resume([]))], 0, { appliedAt: "2026-01-03" });
+
+    const queue = buildReviewQueue([keywords, silent, plain], requirements);
+    expect(queue.entries.map((entry) => entry.name)).toEqual(["Plain", "Keywords", "Silent"]);
+    expect(queue.entries.map((entry) => entry.claims?.grounded)).toEqual([1, 2, 0]);
+    // The CV that undersells the code is flagged, not pushed down.
+    expect(queue.entries[2].undersold).toEqual(["Docker", "TypeScript"]);
+    expect(queue.summary.undersold).toBe(2);
+  });
+
+  it("settles equal evidence by who was added first, never by name", () => {
+    const later = candidate("Aaron", [analysis([["TypeScript", "Strong Evidence"]])], 0, { appliedAt: "2026-03-02" });
+    const earlier = candidate("Zainab", [analysis([["TypeScript", "Strong Evidence"]])], 0, { appliedAt: "2026-03-01" });
+    expect(buildReviewQueue([later, earlier], requirements).entries.map((entry) => entry.name)).toEqual(["Zainab", "Aaron"]);
+  });
+
+  it("drafts the next step from the evidence and never from a missing input alone", () => {
+    const covered = candidate("Covered", [analysis([["TypeScript", "Strong Evidence"], ["PostgreSQL", "Good Evidence"]])]);
+    const partly = candidate("Partly", [analysis([["TypeScript", "Strong Evidence"]])]);
+    const elsewhere = candidate("Elsewhere", [analysis([["React", "Strong Evidence"]])]);
+    const noCode = candidate("No code", []);
+
+    const queue = buildReviewQueue([noCode, elsewhere, partly, covered], requirements);
+    expect(Object.fromEntries(queue.entries.map((entry) => [entry.name, entry.nextStep]))).toEqual({
+      Covered: "interview_on_evidence",
+      Partly: "review_then_decide",
+      Elsewhere: "test_or_verify",
+      "No code": "ask_for_evidence",
+    });
+    expect(queue.summary.nextSteps).toEqual({ interview_on_evidence: 1, review_then_decide: 1, test_or_verify: 1, ask_for_evidence: 1 });
   });
 
   it("falls back to a single review tier when no requirements are saved", () => {
@@ -146,12 +183,13 @@ describe("portfolio and non-GitHub sources", () => {
   });
 
   it("never lowers a candidate who has unreadable sources", () => {
-    // "Amina" wins the name tiebreak, so if an unreadable source carried any
-    // penalty at all she would fall to second and this assertion would fail.
+    // Amina was added first, so she wins the tie. If an unreadable source carried
+    // any penalty at all she would fall to second and this assertion would fail.
     const withSources = candidate("Amina", [analysis([["TypeScript", "Strong Evidence"]])], 0, {
       unanalyzedSources: ["https://amina.dev"],
+      appliedAt: "2026-01-01",
     });
-    const without = candidate("Zara", [analysis([["TypeScript", "Strong Evidence"]])]);
+    const without = candidate("Zara", [analysis([["TypeScript", "Strong Evidence"]])], 0, { appliedAt: "2026-01-02" });
     const queue = buildReviewQueue([without, withSources], requirements);
     expect(queue.entries.map((item) => item.name)).toEqual(["Amina", "Zara"]);
     expect(queue.entries[0].tier).toBe(queue.entries[1].tier);
@@ -161,5 +199,51 @@ describe("portfolio and non-GitHub sources", () => {
     const entry = buildReviewEntry(candidate("Plain", [analysis([["TypeScript", "Strong Evidence"]])]), requirements);
     expect(entry.unknowns).not.toContain("sources_not_analyzed");
     expect(entry.unanalyzedSources).toEqual([]);
+  });
+});
+
+describe("a candidate's own evidence", () => {
+  const context = { requestedAt: null, confidential: false, confirmedLogins: [] as string[], otherLinks: [] as string[], cvNoted: false };
+
+  it("reports a waiting request as unknown and keeps the step at asking", () => {
+    const entry = buildReviewEntry(candidate("Waiting", []), requirements, { ...context, requestedAt: "2026-10-09T00:00:00.000Z" });
+    expect(entry.unknowns).toContain("evidence_requested");
+    expect(entry.evidenceRequestedAt).toBe("2026-10-09T00:00:00.000Z");
+    expect(entry.nextStep).toBe("ask_for_evidence");
+  });
+
+  it("does not ask again once the candidate has said their work is confidential", () => {
+    const entry = buildReviewEntry(candidate("Private", []), requirements, { ...context, confidential: true });
+    expect(entry.tier).toBe("evidence_incomplete");
+    expect(entry.unknowns).toContain("work_confidential");
+    expect(entry.nextStep).toBe("test_or_verify");
+  });
+
+  it("counts repositories under an account the candidate proved is theirs", () => {
+    const mine = candidate("Owner", [analysis([["TypeScript", "Strong Evidence"]])]);
+    expect(buildReviewEntry(mine, requirements, { ...context, confirmedLogins: ["ACME"] }).confirmedRepositories).toBe(1);
+    expect(buildReviewEntry(mine, requirements, { ...context, confirmedLogins: ["someone-else"] }).confirmedRepositories).toBe(0);
+    expect(buildReviewEntry(mine, requirements).confirmedRepositories).toBe(0);
+  });
+
+  it("does not say that no CV was provided when its claims were noted at intake", () => {
+    expect(buildReviewEntry(candidate("Saved", []), requirements, { ...context, cvNoted: true }).unknowns).toEqual(["no_repositories"]);
+    expect(buildReviewEntry(candidate("Unknown", []), requirements).unknowns).toEqual(["no_repositories", "no_cv"]);
+  });
+
+  it("lists links the candidate sent that cannot be read as unknown sources", () => {
+    const entry = buildReviewEntry(candidate("Links", [], 0, { unanalyzedSources: ["https://amina.dev"] }), requirements, { ...context, otherLinks: ["https://gitlab.com/amina/api", "https://amina.dev"] });
+    expect(entry.unanalyzedSources).toEqual(["https://amina.dev", "https://gitlab.com/amina/api"]);
+    expect(entry.unknowns).toContain("sources_not_analyzed");
+  });
+
+  it("never moves a candidate because of what they sent or proved, only because of the code that was read", () => {
+    const first = candidate("First", [analysis([["TypeScript", "Strong Evidence"]])], 0, { appliedAt: "2026-01-01" });
+    const second = candidate("Second", [analysis([["TypeScript", "Strong Evidence"]])], 0, { appliedAt: "2026-01-02" });
+    const queue = buildReviewQueue([second, first], requirements, new Map([
+      ["second", { requestedAt: null, confidential: false, confirmedLogins: ["acme"], otherLinks: ["https://gitlab.com/x/y"], cvNoted: false }],
+    ]));
+    expect(queue.entries.map((entry) => entry.name)).toEqual(["First", "Second"]);
+    expect(queue.entries[1].confirmedRepositories).toBe(1);
   });
 });

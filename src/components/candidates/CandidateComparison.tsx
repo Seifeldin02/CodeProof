@@ -5,13 +5,14 @@ import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import { useI18n } from "@/components/i18n/LocaleProvider";
 import { localizeAnalysisText } from "@/i18n/translations";
+import type { EvidenceProfile } from "@/features/hiring-analytics/types";
 
 export interface ComparisonCandidate {
   id: string;
   name: string;
   role: string;
   isDemo: boolean;
-  evidenceIndex: number;
+  evidence: EvidenceProfile;
   repositoryCount: number;
   groundedClaims: number;
   topSkills: Array<{ name: string; level: string; files: string[] }>;
@@ -21,9 +22,7 @@ export interface ComparisonCandidate {
 
 const MAX_SELECTED = 3;
 
-function EvidenceMeter({ value }: { value: number }) {
-  return <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="chart-bar h-full rounded-full bg-brand-600" style={{ width: `${value}%` }} /></div>;
-}
+const PROFILE_LEVELS = [["strong", "Strong Evidence"], ["good", "Good Evidence"], ["partial", "Partial Evidence"], ["limited", "Limited Evidence"]] as const;
 
 export default function CandidateComparison({ candidates }: { candidates: ComparisonCandidate[] }) {
   const { locale, t } = useI18n();
@@ -49,7 +48,7 @@ export default function CandidateComparison({ candidates }: { candidates: Compar
 
       {selected.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-16 text-center"><h2 className="text-lg font-semibold text-slate-900">{t("Select candidates to compare")}</h2><p className="mt-2 text-sm text-slate-500">{t("Evidence metrics and grounded skill signals will line up here.")}</p></div> : <div className={`grid gap-4 ${selected.length === 1 ? "max-w-xl" : selected.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
         {selected.map((candidate) => <article key={candidate.id} className="interactive-card overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
-          <header className="bg-[#0b1210] p-5 text-white"><div className="flex items-start justify-between gap-3"><div><span className="text-[10px] font-semibold uppercase tracking-[.15em] text-lime-300">{t("Evidence dossier")}</span><h2 className="mt-2 text-xl font-semibold tracking-[-.025em]">{candidate.name}</h2><p className="mt-1 text-xs text-slate-400">{t(candidate.role)}</p></div>{candidate.isDemo && <Badge tone="warning">{t("Demo")}</Badge>}</div><div className="mt-6 flex items-end justify-between"><span className="text-xs text-slate-400">{t("Evidence index")}</span><strong className="font-mono text-3xl text-lime-300">{candidate.evidenceIndex}</strong></div><EvidenceMeter value={candidate.evidenceIndex} /></header>
+          <header className="bg-[#0b1210] p-5 text-white"><div className="flex items-start justify-between gap-3"><div><span className="text-[10px] font-semibold uppercase tracking-[.15em] text-lime-300">{t("Evidence dossier")}</span><h2 className="mt-2 text-xl font-semibold tracking-[-.025em]">{candidate.name}</h2><p className="mt-1 text-xs text-slate-400">{t(candidate.role)}</p></div>{candidate.isDemo && <Badge tone="warning">{t("Demo")}</Badge>}</div>{candidate.evidence.repositories === 0 ? <p className="mt-6 rounded-lg border border-dashed border-white/20 px-3 py-2.5 text-xs text-slate-300">{t("No code read yet")}</p> : <dl className="mt-6 grid grid-cols-4 gap-1.5" aria-label={t("Skills by evidence level")}>{PROFILE_LEVELS.map(([key, label]) => <div key={key} className="rounded-lg border border-white/10 px-2 py-1.5"><dt className="truncate text-[8px] uppercase tracking-wider text-slate-500">{t(label)}</dt><dd className={`font-mono text-lg font-semibold ${key === "strong" || key === "good" ? "text-lime-300" : "text-slate-300"}`}>{candidate.evidence[key]}</dd></div>)}</dl>}</header>
           <div className="p-5">
             <dl className="grid grid-cols-3 gap-2 text-center"><div className="rounded-lg bg-slate-50 p-3"><dt className="text-[9px] uppercase tracking-wider text-slate-400">{t("Repos")}</dt><dd className="mt-1 text-lg font-semibold text-slate-900">{candidate.repositoryCount}</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-[9px] uppercase tracking-wider text-slate-400">{t("Claims")}</dt><dd className="mt-1 text-lg font-semibold text-slate-900">{candidate.groundedClaims}</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-[9px] uppercase tracking-wider text-slate-400">{t("Gaps")}</dt><dd className="mt-1 text-lg font-semibold text-slate-900">{candidate.gapCount}</dd></div></dl>
             <h3 className="mt-6 text-[10px] font-semibold uppercase tracking-[.15em] text-brand-700">{t("Strongest grounded skills")}</h3>
@@ -59,7 +58,7 @@ export default function CandidateComparison({ candidates }: { candidates: Compar
           </div>
         </article>)}
       </div>}
-      <p className="text-xs leading-5 text-slate-400">{t("Evidence indexes compare categorical implementation depth across detected skills. They are not model confidence or a hiring recommendation.")}</p>
+      <p className="text-xs leading-5 text-slate-400">{t("The counts show how many skills the analysed code supports at each level. They do not rate the person and are not a hiring recommendation.")}</p>
     </div>
   );
 }

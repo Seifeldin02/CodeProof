@@ -1,0 +1,157 @@
+{
+  "measuredAt": "2026-10-10T21:11:15.330Z",
+  "engineVersion": "3.2.1",
+  "runsPerRepository": 5,
+  "repositories": [
+    {
+      "repository": "sindresorhus/is",
+      "runs": 5,
+      "skills": 2,
+      "citedFiles": 15,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    },
+    {
+      "repository": "chalk/chalk",
+      "runs": 5,
+      "skills": 3,
+      "citedFiles": 20,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    },
+    {
+      "repository": "sindresorhus/p-limit",
+      "runs": 5,
+      "skills": 2,
+      "citedFiles": 12,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    },
+    {
+      "repository": "pmndrs/zustand",
+      "runs": 5,
+      "skills": 8,
+      "citedFiles": 38,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    },
+    {
+      "repository": "vercel/swr",
+      "runs": 5,
+      "skills": 5,
+      "citedFiles": 40,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    },
+    {
+      "repository": "expressjs/express",
+      "runs": 5,
+      "skills": 3,
+      "citedFiles": 36,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    },
+    {
+      "repository": "pallets/flask",
+      "runs": 5,
+      "skills": 2,
+      "citedFiles": 39,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    },
+    {
+      "repository": "gin-gonic/gin",
+      "runs": 5,
+      "skills": 2,
+      "citedFiles": 32,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    },
+    {
+      "repository": "spring-projects/spring-petclinic",
+      "runs": 5,
+      "skills": 6,
+      "citedFiles": 34,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    },
+    {
+      "repository": "laravel/laravel",
+      "runs": 5,
+      "skills": 6,
+      "citedFiles": 31,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    },
+    {
+      "repository": "sinatra/sinatra",
+      "runs": 5,
+      "skills": 2,
+      "citedFiles": 38,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    },
+    {
+      "repository": "BurntSushi/ripgrep",
+      "runs": 5,
+      "skills": 2,
+      "citedFiles": 38,
+      "missingFiles": 0,
+      "status": "measured",
+      "identical": true,
+      "reason": null
+    }
+  ],
+  "checks": [
+    {
+      "id": "cv_wording_adds_no_evidence",
+      "passed": true
+    },
+    {
+      "id": "cv_keywords_do_not_move_the_order",
+      "passed": true
+    },
+    {
+      "id": "readme_instructions_are_ignored",
+      "passed": true
+    },
+    {
+      "id": "unused_dependency_stays_limited",
+      "passed": true
+    },
+    {
+      "id": "unrelated_files_do_not_count_for_a_tool",
+      "passed": true
+    },
+    {
+      "id": "named_repository_is_unchecked",
+      "passed": true
+    },
+    {
+      "id": "no_code_is_unknown",
+      "passed": true
+    }
+  ]
+}

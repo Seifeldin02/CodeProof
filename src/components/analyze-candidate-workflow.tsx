@@ -61,7 +61,7 @@ export default function AnalyzeCandidateWorkflow() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [manualRepository, setManualRepository] = useState("");
   const [isDemo, setIsDemo] = useState(false);
-  const [busy, setBusy] = useState<"discover" | "analyze" | null>(null);
+  const [busy, setBusy] = useState<"discover" | "analyze" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [repositoryStatus, setRepositoryStatus] = useState<Record<string, RepositoryUiStatus>>({});
   const [scans, setScans] = useState<Record<string, ScanState>>({});
@@ -172,9 +172,32 @@ export default function AnalyzeCandidateWorkflow() {
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Candidate analysis failed."); setBusy(null); }
   }
 
+  /**
+   * A CV with no readable repository still describes a real applicant. Saving
+   * them with no code read keeps them in the queue as unknown and lets the
+   * recruiter ask them for their own evidence.
+   */
+  async function saveWithoutCode(): Promise<void> {
+    if (!candidateName.trim()) { setError(t("Confirm the candidate name before analyzing.")); return; }
+    setBusy("save"); setError(null);
+    try {
+      const form = new FormData();
+      form.set("candidateName", candidateName);
+      form.set("role", role);
+      form.set("resumeText", resumeText);
+      form.set("isDemo", String(isDemo));
+      if (resumeFile) form.set("resumeFile", resumeFile);
+      const response = await fetch("/api/candidates/intake", { method: "POST", body: form });
+      const payload = await response.json() as { candidate?: { id: string } } & ApiError;
+      if (!response.ok || !payload.candidate) throw new Error(payload.error?.message ?? "The candidate could not be saved.");
+      router.push(`/candidates/${payload.candidate.id}#candidate-evidence`);
+      router.refresh();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "The candidate could not be saved."); setBusy(null); }
+  }
+
   return (
     <div className="space-y-5">
-      <PipelineMap discovery={discovery} busy={busy} />
+      <PipelineMap discovery={discovery} busy={busy === "save" ? null : busy} />
       <div className="grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
       <section className="surface-card rounded-2xl border border-slate-200/80 bg-white/95 p-5 shadow-card sm:p-7">
         <div className="flex items-center justify-between gap-4"><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-brand-700">{t("Recruiter step {step} of 2", { step: discovery ? 2 : 1 })}</p><h2 className="mt-2 text-xl font-semibold text-slate-950">{t(discovery ? "Confirm candidate and projects" : "Upload the candidate CV")}</h2></div>{isDemo && <Badge tone="warning">{t("Demo candidate")}</Badge>}</div>
@@ -212,6 +235,7 @@ export default function AnalyzeCandidateWorkflow() {
           </div>
           <label className="block text-xs font-semibold text-slate-600">{t("Job description")} <span className="font-normal text-slate-400">{t("optional")}</span><textarea value={jobDescription} onChange={(event) => setJobDescription(event.target.value)} className="mt-2 min-h-28 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal leading-6 outline-none focus:border-brand-500" placeholder={t("Paste requirements to include evidence matching…")} /></label>
           <div className="flex flex-col gap-3 sm:flex-row"><button type="button" onClick={() => { setDiscovery(null); setError(null); }} disabled={busy !== null} className="min-h-12 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">{t("Back")}</button><button type="button" onClick={analyze} disabled={busy !== null || selected.size === 0} className="group flex min-h-12 flex-1 items-center justify-between rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-700 disabled:opacity-50 disabled:hover:translate-y-0"><span className="flex items-center gap-2">{busy === "analyze" && <i className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white" />}{busy === "analyze" ? t(selected.size === 1 ? "Inspecting {count} source archive…" : "Inspecting {count} source archives…", { count: selected.size }) : t("Build candidate evidence report")}</span><span className="directional-icon transition-transform group-hover:translate-x-1">→</span></button></div>
+          {selected.size === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm text-slate-900">{t("No repository to read?")}</strong><span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t("Unknown, not negative")}</span></div><p className="mt-2 text-xs leading-5 text-slate-500">{t("Save the candidate with no code read, then send them a private link to add their own evidence. They stay in the review queue as unknown, never as a weak result.")}</p><button type="button" onClick={saveWithoutCode} disabled={busy !== null} className="mt-3 min-h-12 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 transition hover:border-brand-300 hover:bg-brand-50 disabled:opacity-50">{t(busy === "save" ? "Saving…" : "Save without code")}</button></div>}
         </div>}
         {error && <div role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{localizeAnalysisText(locale, error)}</div>}
       </section>

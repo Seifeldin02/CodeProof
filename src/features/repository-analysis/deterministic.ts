@@ -10,7 +10,7 @@ import type {
   SkillEvidence,
   TechnologySignal,
 } from "@/types/analysis";
-import { collectTechnologyEvidenceFiles, EVIDENCE_LEVEL_METHOD, maximumEvidenceLevel } from "./evidence-scoring";
+import { collectTechnologyEvidenceFiles, EVIDENCE_LEVEL_METHOD, LANGUAGE_STATISTICS_EVIDENCE, maximumEvidenceLevel } from "./evidence-scoring";
 
 interface TechnologyRule {
   name: string;
@@ -115,7 +115,7 @@ export function detectTechnologies(repository: IngestedRepository): TechnologySi
 
   for (const [language] of Object.entries(repository.languages).sort((a, b) => b[1] - a[1])) {
     if (LANGUAGE_NAMES[language]) {
-      detected.push({ name: LANGUAGE_NAMES[language], category: "language", evidence: ["Archive file-extension statistics"], source: "Deterministic Fact" });
+      detected.push({ name: LANGUAGE_NAMES[language], category: "language", evidence: [LANGUAGE_STATISTICS_EVIDENCE], source: "Deterministic Fact" });
     }
   }
 

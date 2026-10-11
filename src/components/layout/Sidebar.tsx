@@ -16,7 +16,7 @@ export default function Sidebar({ isOwner = false }: { isOwner?: boolean }) {
     ...(isOwner ? [{ to: "/admin", label: "Owner administration", icon: ShieldCheckIcon }] : []),
   ];
   return (
-    <aside className="workspace-sidebar no-print fixed inset-y-0 start-0 z-40 hidden h-dvh w-64 flex-col overflow-y-auto overscroll-contain border-r border-white/10 bg-[#0b1210] text-white shadow-[18px_0_50px_rgba(15,23,42,.08)] lg:flex">
+    <aside aria-label={t("CodeProof workspace")} className="workspace-sidebar no-print fixed inset-y-0 start-0 z-40 hidden h-dvh w-64 flex-col overflow-y-auto overscroll-contain border-r border-white/10 bg-[#0b1210] text-white shadow-[18px_0_50px_rgba(15,23,42,.08)] lg:flex">
       <div className="flex h-20 items-center border-b border-white/10 px-5"><BrandMark /></div>
       <nav className="flex-1 space-y-1 px-3 py-5">
         <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{t("Recruiting workspace")}</p>
@@ -45,8 +45,11 @@ export default function Sidebar({ isOwner = false }: { isOwner?: boolean }) {
       <div className="border-t border-white/10 px-5 py-5">
         <div className="rounded-xl border border-white/[.07] bg-white/[.035] p-3.5">
           <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.14em] text-lime-300"><span className="live-dot" /> {t("Safe analysis")}</div>
-          <p className="text-[11px] leading-relaxed text-slate-500">{t("Public code is inspected as bounded text data. Repository code is never executed.")}</p>
-          <Link href="/about" className="mt-3 inline-flex text-[11px] font-semibold text-slate-300 hover:text-lime-300">{t("How it works")} <span className="directional-icon ms-1">→</span></Link>
+          <p className="text-[11px] leading-relaxed text-slate-400">{t("Public code is inspected as bounded text data. Repository code is never executed.")}</p>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+            <Link href="/about" className="inline-flex text-[11px] font-semibold text-slate-300 hover:text-lime-300">{t("How it works")} <span className="directional-icon ms-1">→</span></Link>
+            <Link href="/trust" className="inline-flex text-[11px] font-semibold text-slate-300 hover:text-lime-300">{t("Trust sheet")} <span className="directional-icon ms-1">→</span></Link>
+          </div>
         </div>
       </div>
     </aside>

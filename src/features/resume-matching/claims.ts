@@ -1,3 +1,4 @@
+import { technologyEvidencePaths } from "@/features/repository-analysis/evidence-scoring";
 import type {
   ExtractedResumeClaim,
   ResumeClaimVerification,
@@ -64,7 +65,7 @@ export function verifyResumeClaims(
         ...claim,
         support: "Supported",
         explanation: `${claim.claim} is supported by repository signals, though this analysis does not verify the full scope of the résumé claim.`,
-        files: skill?.evidence.map((item) => item.file) ?? technology?.evidence.map((item) => item.split(": ")[0]).filter((path) => path !== "GitHub language statistics") ?? [],
+        files: skill?.evidence.map((item) => item.file) ?? (technology ? technologyEvidencePaths(technology) : []),
       };
     }
     const related = skills.find((item) => normalized.includes(item.skill.toLowerCase()) || item.skill.toLowerCase().includes(normalized));

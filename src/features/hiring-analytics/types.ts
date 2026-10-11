@@ -56,16 +56,33 @@ export interface StageEvent {
   enteredAt: string;
 }
 
+/**
+ * What a candidate's analysed code supports, as counts of distinct skills at
+ * each evidence level. It describes the code that was read and is never
+ * collapsed into one number for the person.
+ */
+export interface EvidenceProfile {
+  strong: number;
+  good: number;
+  partial: number;
+  limited: number;
+  /** Repositories that were analysed. Zero means no code has been read yet. */
+  repositories: number;
+}
+
 export interface CandidateRecord {
   id: string;
   name: string;
   role: Role;
   source: SourceChannel;
   /**
-   * Verified skill-evidence score (0–100) produced by CodeProof repository
-   * analysis. Demo value in the mock dataset — see `mock/`.
+   * Stored weighted index (0–100) of the analysed skills. Kept for storage
+   * compatibility only: it is not shown, because CodeProof does not rate
+   * people. Screens use `evidence` instead.
    */
   verifiedSkillScore: number;
+  /** Attached by pages that load analyses. Absent means it was not loaded. */
+  evidence?: EvidenceProfile;
   appliedAt: string;
   outcome: CandidateOutcome;
   /** Furthest stage reached (highest index in PIPELINE_STAGES). */
@@ -122,7 +139,10 @@ export interface SourceMetric {
   hires: number;
   hireRate: number;
   avgTimeToHireDays: number | null;
-  avgVerifiedScore: number;
+  /** Applicants from this source with at least one analysed repository. */
+  withCodeRead: number;
+  /** Applicants from this source with at least one skill at strong or good evidence. */
+  withStrongOrGood: number;
 }
 
 export interface TimeToHireMonthly {
@@ -137,10 +157,11 @@ export interface TimeInStageMetric {
   avgDays: number | null;
 }
 
-export interface SkillBandOutcome {
-  band: string;
-  min: number;
-  max: number;
+/** How much the analysed code supports, as a category rather than a number. */
+export type EvidenceGroup = 'no_code_read' | 'lighter_signals' | 'strong_or_good';
+
+export interface EvidenceGroupOutcome {
+  group: EvidenceGroup;
   candidates: number;
   hired: number;
   hireRate: number;

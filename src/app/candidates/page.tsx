@@ -6,6 +6,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import { SearchCodeIcon } from "@/components/ui/icons";
 import { getCandidateStore } from "@/features/candidates/store";
+import { withEvidenceProfiles } from "@/features/candidates/evidence-profiles";
 import { getI18n } from "@/i18n/server";
 import { requirePageUser } from "@/features/auth/page-guard";
 
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CandidatesPage() {
   const [{ t }, user] = await Promise.all([getI18n(), requirePageUser("/candidates")]);
-  const candidates = await getCandidateStore().listCandidates(user.id);
+  const candidates = await withEvidenceProfiles(user.id, await getCandidateStore().listCandidates(user.id));
   const summary = candidates.reduce((current, candidate) => ({
     real: current.real + Number(!candidate.isDemo),
     repositories: current.repositories + (candidate.repositoryCount ?? 0),

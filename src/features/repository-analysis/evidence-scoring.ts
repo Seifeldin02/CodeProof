@@ -8,6 +8,18 @@ export const EVIDENCE_LEVEL_METHOD = {
   "Insufficient Evidence": "No grounded implementation evidence remains after validation.",
 } satisfies Record<EvidenceLevel, string>;
 
+/**
+ * How a language is detected: by counting file extensions across the archive.
+ * That is a fact about the repository, not a file, so it must never be shown
+ * where a cited file is expected.
+ */
+export const LANGUAGE_STATISTICS_EVIDENCE = "Archive file-extension statistics";
+
+/** The file paths behind a technology signal, without entries that are not files. */
+export function technologyEvidencePaths(technology: Pick<TechnologySignal, "evidence">): string[] {
+  return technology.evidence.map((item) => item.split(": ")[0]).filter((path) => path !== LANGUAGE_STATISTICS_EVIDENCE);
+}
+
 const LEVEL_RANK: Record<EvidenceLevel, number> = {
   "Insufficient Evidence": 0,
   "Limited Evidence": 1,
@@ -31,6 +43,11 @@ const LANGUAGE_EXTENSIONS: Record<string, RegExp> = {
   Ruby: /\.rb$/i,
 };
 
+/**
+ * What counts as using a technology inside a file. A pattern must name the tool
+ * or one of its own calls. A pattern that also matches ordinary code would turn
+ * every source file into evidence for a dependency the project never uses.
+ */
 const TECHNOLOGY_PATTERNS: Record<string, RegExp> = {
   React: /(?:from\s+["']react["']|require\(["']react["']\)|React\.)/i,
   "Next.js": /(?:from\s+["']next(?:\/[^"']*)?["']|next\/|["']use server["'])/i,
@@ -54,14 +71,24 @@ const TECHNOLOGY_PATTERNS: Record<string, RegExp> = {
   MongoDB: /(?:mongodb|mongoose|pymongo)/i,
   Redis: /(?:redis|ioredis)/i,
   Redux: /(?:redux|createSlice|configureStore)/i,
-  Zustand: /(?:zustand|create\s*\()/i,
-  Jest: /(?:describe\s*\(|test\s*\(|expect\s*\(|jest\.)/i,
-  Vitest: /(?:from\s+["']vitest["']|vi\.|describe\s*\()/i,
-  Playwright: /(?:@playwright\/test|page\.)/i,
-  Cypress: /(?:cy\.|cypress)/i,
-  Docker: /(?:^|\n)\s*(?:FROM|RUN|COPY|CMD|ENTRYPOINT)\s+/i,
+  Zustand: /(?:from\s+["']zustand(?:\/[^"']*)?["']|require\(["']zustand(?:\/[^"']*)?["']\))/,
+  Jest: /(?:\bdescribe\s*\(|\b(?:it|test)\s*\(|\bexpect\s*\(|\bjest\.)/,
+  Vitest: /(?:from\s+["']vitest["']|\bvi\.(?:fn|mock|spyOn|useFakeTimers|stubGlobal|stubEnv)\b|\bdescribe\s*\()/,
+  Playwright: /(?:@playwright\/test|from\s+["']playwright["']|\bpage\.(?:goto|locator|getBy[A-Z]\w*|click|fill|waitFor\w*)\s*\()/,
+  Cypress: /(?:\bcy\.[a-zA-Z]+\s*\(|\bCypress\.|from\s+["']cypress["'])/,
+  // Docker has no content pattern on purpose: its files are found by path, and
+  // a line that starts with FROM or RUN also opens a Python import or a SQL query.
   "GitHub Actions": /(?:^|\n)\s*(?:jobs|steps|uses|runs-on):/i,
   Terraform: /(?:^|\n)\s*(?:resource|provider|module)\s+["']/i,
+};
+
+/**
+ * Jest and Vitest share one test API, so the call patterns above match either.
+ * A file that imports one runner is not evidence for the other.
+ */
+const OTHER_TEST_RUNNER: Record<string, RegExp> = {
+  Jest: /(?:from\s+["']vitest["']|require\(["']vitest["']\))/,
+  Vitest: /(?:from\s+["']@jest\/globals["']|require\(["']@jest\/globals["']\))/,
 };
 
 function isWeakSignal(file: SelectedFile): boolean {
@@ -83,10 +110,11 @@ export function collectTechnologyEvidenceFiles(
   const signaledPaths = new Set(technology.evidence.map((item) => item.split(": ")[0]));
   const languagePattern = LANGUAGE_EXTENSIONS[technology.name];
   const contentPattern = TECHNOLOGY_PATTERNS[technology.name];
+  const otherRunner = OTHER_TEST_RUNNER[technology.name];
   return selectedFiles.filter((file) =>
     signaledPaths.has(file.path) ||
     Boolean(languagePattern?.test(file.path)) ||
-    Boolean(contentPattern?.test(file.content)),
+    (Boolean(contentPattern?.test(file.content)) && !otherRunner?.test(file.content)),
   );
 }
 

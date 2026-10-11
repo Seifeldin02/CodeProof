@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/LocaleProvider";
 import type { CandidateRepositoryOutcome } from "@/features/candidates/types";
+import { repositoryOwnerConfirmed } from "@/features/evidence-requests/types";
 import { localizeAnalysisText } from "@/i18n/translations";
 
-export default function RepositoryOutcomeList({ candidateId, outcomes }: { candidateId: string; outcomes: CandidateRepositoryOutcome[] }) {
+export default function RepositoryOutcomeList({ candidateId, outcomes, confirmedLogins = [] }: { candidateId: string; outcomes: CandidateRepositoryOutcome[]; confirmedLogins?: string[] }) {
   const router = useRouter();
   const { locale, t } = useI18n();
   const [working, setWorking] = useState<Record<string, "retry" | "remove">>({});
@@ -38,6 +39,7 @@ export default function RepositoryOutcomeList({ candidateId, outcomes }: { candi
     const active = working[outcome.id];
     return <article key={outcome.id} className={`rounded-2xl border p-4 ${failed ? "border-rose-200 bg-rose-50/70" : "border-emerald-200 bg-emerald-50/60"}`}>
       <div className="flex items-start justify-between gap-3"><strong dir="ltr" className="min-w-0 break-all text-start text-sm text-slate-900">{outcome.repositoryName}</strong><span className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider ${failed ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>{t(active === "retry" ? "Analyzing" : failed ? "Failed" : "Analyzed successfully")}</span></div>
+      {!failed && <p className={`mt-3 text-[11px] leading-5 ${repositoryOwnerConfirmed(outcome.repositoryUrl, confirmedLogins) ? "font-semibold text-emerald-800" : "text-slate-500"}`}>{t(repositoryOwnerConfirmed(outcome.repositoryUrl, confirmedLogins) ? "The candidate proved this GitHub account is theirs." : "Named as the candidate's work. Who wrote it has not been checked.")}</p>}
       {failed && <><p role="alert" className="mt-3 text-xs leading-5 text-rose-800">{localizeAnalysisText(locale, outcome.message ?? "Repository analysis failed.")}</p>{outcome.code && <code dir="ltr" className="mt-2 block text-start text-[9px] text-rose-500">{outcome.code}</code>}<div className="mt-4 flex gap-2"><button type="button" disabled={Boolean(active)} onClick={() => act(outcome, "retry")} className="min-h-11 rounded-lg bg-slate-950 px-4 text-xs font-semibold text-white disabled:opacity-50">{t(active === "retry" ? "Analyzing…" : "Retry")}</button><button type="button" disabled={Boolean(active)} onClick={() => act(outcome, "remove")} className="min-h-11 rounded-lg border border-rose-200 bg-white px-4 text-xs font-semibold text-rose-700 disabled:opacity-50">{t(active === "remove" ? "Removing…" : "Remove")}</button></div>{errors[outcome.id] && <p role="alert" className="mt-3 text-xs text-rose-700">{localizeAnalysisText(locale, errors[outcome.id])}</p>}</>}
     </article>;
   })}</div>;
