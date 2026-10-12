@@ -6,33 +6,14 @@ import type {
   SkillEvidence,
   TechnologySignal,
 } from "@/types/analysis";
-
-const SKILLS = [
-  "JavaScript", "TypeScript", "React", "Next.js", "Vue", "Angular", "Node.js", "Express", "Fastify", "NestJS",
-  "Python", "Django", "FastAPI", "PHP", "Laravel", "Java", "Spring", "Kotlin", "Go", "Rust", "C#", ".NET",
-  "PostgreSQL", "MySQL", "MongoDB", "Redis", "Prisma", "SQLAlchemy", "Docker", "Kubernetes", "Terraform", "AWS",
-  "Azure", "Google Cloud", "GitHub Actions", "CI/CD", "Jest", "Vitest", "Cypress", "Playwright", "Redux", "Zustand",
-  "GraphQL", "REST", "Microservices", "Accessibility", "Security", "Testing",
-] as const;
-
-function contains(text: string, value: string): boolean {
-  const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(text);
-}
+import { readJobBrief } from "./brief";
 
 export function extractJobRequirements(text: string): ExtractedJobRequirement[] {
-  const requirements: ExtractedJobRequirement[] = [];
+  // Skills come from the list shared with CV reading, with the importance the brief's headings and wording give them.
+  const requirements: ExtractedJobRequirement[] = readJobBrief(text).skills.map(({ name, importance }) => ({
+    requirement: name, importance, category: "skill", source: "Job Requirement",
+  }));
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  for (const skill of SKILLS) {
-    if (!contains(text, skill)) continue;
-    const matchingLine = lines.find((line) => contains(line, skill)) ?? "";
-    const importance = /preferred|nice to have|bonus|ideally/i.test(matchingLine)
-      ? "preferred"
-      : /required|must|minimum|need|proficien|experience with/i.test(matchingLine)
-        ? "required"
-        : "context";
-    requirements.push({ requirement: skill, importance, category: "skill", source: "Job Requirement" });
-  }
 
   for (const line of lines.filter((item) => /\b(\d+\+? years?|degree|leadership|mentor|communication)\b/i.test(item))) {
     requirements.push({
@@ -42,7 +23,7 @@ export function extractJobRequirements(text: string): ExtractedJobRequirement[] 
       source: "Job Requirement",
     });
   }
-  return requirements.filter((item, index, all) => all.findIndex((candidate) => candidate.requirement.toLowerCase() === item.requirement.toLowerCase()) === index).slice(0, 30);
+  return requirements.filter((item, index, all) => all.findIndex((candidate) => candidate.requirement.toLowerCase() === item.requirement.toLowerCase()) === index).slice(0, 40);
 }
 
 export function matchJobDescription(
