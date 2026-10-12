@@ -152,7 +152,6 @@ export default function AnalyzeCandidateWorkflow() {
         : { status: "skipped" }])))
       if (!response.ok || !payload.candidate) throw new Error(payload.error?.message ?? payload.failedRepositories?.[0]?.message ?? "Candidate analysis failed.");
       router.push(`/candidates/${payload.candidate.id}`);
-      router.refresh();
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Candidate analysis failed."); setBusy(null); }
   }
 

@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { getAuthStore, type AuthUser } from "./store";
 
@@ -93,8 +94,8 @@ export function sessionCookieOptions(maxAge: number = SESSION_MAX_AGE_SECONDS) {
 }
 
 /** The signed-in recruiter, or null. Safe to call from server components. */
-export async function getCurrentUser(): Promise<AuthUser | null> {
+export const getCurrentUser = cache(async (): Promise<AuthUser | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   const userId = readSessionToken(token);
   return userId ? await getAuthStore().findById(userId) : null;
-}
+});

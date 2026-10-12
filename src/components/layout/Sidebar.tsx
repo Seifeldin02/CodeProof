@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import BrandMark from "./BrandMark";
 import { navItems } from "./navItems";
 import { useI18n } from "../i18n/LocaleProvider";
+import NavPendingHint from "./NavPendingHint";
 
 export default function Sidebar() {
   const pathname = usePathname() ?? "";
@@ -21,6 +22,7 @@ export default function Sidebar() {
               {active && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-brand-500" />}
               <item.icon className="h-[18px] w-[18px] shrink-0" />
               <span>{t(item.label)}</span>
+              <NavPendingHint />
             </Link>
           );
         })}
