@@ -13,10 +13,10 @@ export default function AuthLanding({ t }: { t: (key: string) => string }) {
       <section className="max-w-3xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.2em] text-brand-700">{t("Evidence-based hiring intelligence")}</p>
         <h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-[-.055em] text-slate-950 sm:text-6xl">
-          {t("See the engineer behind the résumé.")}
+          {t("Turn interview uncertainty into a documented next step.")}
         </h1>
         <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600">
-          {t("CodeProof turns a candidate CV and public projects into an auditable evidence dossier. Recruiters get a clear decision surface; engineers can trace every claim back to source.")}
+          {t("Start with a CV and real evidence. Prepare a focused interview, record the human decision, and keep candidate follow-ups from disappearing.")}
         </p>
         <div className="mt-8 grid gap-3 sm:grid-cols-3">
           {points.map(([Icon, label]) => (

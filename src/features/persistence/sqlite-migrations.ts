@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import { SQLITE_INTERVIEW_SCHEMA } from "@/features/interviews/schema";
 import {
   divergentAdminDiagnostic,
   noMatchingAdminDiagnostic,
@@ -1047,6 +1048,13 @@ const MIGRATION_DEFINITIONS = [
     signature: `${JSON.stringify(REQUIREMENT_COLUMNS)}\0legacy-requirements-backfill-v1`,
     eligible: (db: DatabaseSync) => tableExists(db, "users") && tableExists(db, "company_requirements"),
     up: backfillRequirements,
+  },
+  {
+    version: 5,
+    name: "interview_decision_workspace",
+    signature: SQLITE_INTERVIEW_SCHEMA,
+    eligible: (db: DatabaseSync) => tableExists(db, "candidates"),
+    up: ({ db }: MigrationContext) => { db.exec(SQLITE_INTERVIEW_SCHEMA); return 0; },
   },
 ].map((migration): SQLiteMigration => ({
   ...migration,

@@ -105,6 +105,8 @@ export interface CreateCandidateInput {
   name: string;
   role: Role;
   results: AnalysisResult[];
+  /** Interview-only intake must not fabricate completed screening or code-review stages. */
+  intakeOnly?: boolean;
   failures?: RepositoryFailure[];
   isDemo?: boolean;
   /** Portfolio / non-GitHub links from the CV. Recorded, never analyzed. */
@@ -566,11 +568,11 @@ export class CandidateStore implements CandidatePersistence {
         (id, owner_user_id, name, role, source, evidence_index, applied_at, outcome, furthest_stage, is_demo, repository_count, verified_claim_count, unanalyzed_sources)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         id, ownerUserId, input.name, input.role, "CodeProof", 0, now,
-        "in_progress", "code_review", input.isDemo ? 1 : 0, input.results.length + (input.failures?.length ?? 0), 0,
+        "in_progress", input.intakeOnly ? "applied" : "code_review", input.isDemo ? 1 : 0, input.results.length + (input.failures?.length ?? 0), 0,
         JSON.stringify(input.unanalyzedSources ?? []),
       );
       const insertStage = this.db.prepare("INSERT INTO stage_events (candidate_id, stage, entered_at) VALUES (?, ?, ?)");
-      for (const stage of PIPELINE_STAGES.slice(0, 3)) insertStage.run(id, stage, now);
+      for (const stage of PIPELINE_STAGES.slice(0, input.intakeOnly ? 1 : 3)) insertStage.run(id, stage, now);
       for (const result of input.results) {
         this.insertAnalysis(id, resultWithAttribution(result, selectionFor(input, result.repository.url)));
       }
@@ -989,11 +991,11 @@ class PostgresCandidateStore implements CandidatePersistence {
       await client.query(`INSERT INTO codeproof_candidates
         (id,owner_user_id,name,role,source,evidence_index,applied_at,outcome,furthest_stage,is_demo,repository_count,verified_claim_count,unanalyzed_sources)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [
-        id, ownerUserId, input.name, input.role, "CodeProof", 0, now, "in_progress", "code_review",
+        id, ownerUserId, input.name, input.role, "CodeProof", 0, now, "in_progress", input.intakeOnly ? "applied" : "code_review",
         Boolean(input.isDemo), input.results.length + (input.failures?.length ?? 0), 0,
         JSON.stringify(input.unanalyzedSources ?? []),
       ]);
-      for (const stage of PIPELINE_STAGES.slice(0, 3)) {
+      for (const stage of PIPELINE_STAGES.slice(0, input.intakeOnly ? 1 : 3)) {
         await client.query("INSERT INTO codeproof_stage_events (candidate_id,stage,entered_at) VALUES ($1,$2,$3)", [id, stage, now]);
       }
       for (const result of input.results) {

@@ -14,6 +14,7 @@ export function GET() {
     persistence: postgresConfigured ? "postgres" : "sqlite",
     durablePersistence,
     sessionConfigured,
+    buildCommit: process.env.CODEPROOF_BUILD_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA || null,
     timestamp: new Date().toISOString(),
   }, { status: ready ? 200 : 503 });
 }

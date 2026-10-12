@@ -13,6 +13,8 @@ export const navItems: NavItem[] = [
   { to: "/candidates", label: "Candidates", icon: UsersIcon },
   { to: "/analyze", label: "Analyze Candidate", mobileLabel: "Analyze", icon: SearchCodeIcon },
   { to: "/review", label: "Review Queue", mobileLabel: "Review", icon: ListOrderedIcon },
+  { to: "/shortlists", label: "Role review", mobileLabel: "Roles", icon: CompareIcon },
+  { to: "/interviews", label: "Interview desk", mobileLabel: "Interviews", icon: ShieldCheckIcon },
   { to: "/compare", label: "Compare Evidence", mobileLabel: "Compare", icon: CompareIcon },
   { to: "/insights", label: "Hiring Insights", mobileLabel: "Insights", icon: ChartBarIcon },
   { to: "/requirements", label: "Company requirements", mobileLabel: "Criteria", icon: ShieldCheckIcon },

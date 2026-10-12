@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from "pg";
+import { POSTGRES_INTERVIEW_SCHEMA } from "@/features/interviews/schema";
 import {
   divergentAdminDiagnostic,
   noMatchingAdminDiagnostic,
@@ -1185,6 +1186,12 @@ const MIGRATION_DEFINITIONS = [
     name: "requirements_legacy_backfill",
     signature: REQUIREMENTS_BACKFILL_SIGNATURE,
     up: backfillRequirements,
+  },
+  {
+    version: 5,
+    name: "interview_decision_workspace",
+    signature: POSTGRES_INTERVIEW_SCHEMA,
+    up: async ({ client }: MigrationContext) => { await client.query(POSTGRES_INTERVIEW_SCHEMA); return 0; },
   },
 ].map((migration): PostgreSQLMigration => ({
   ...migration,

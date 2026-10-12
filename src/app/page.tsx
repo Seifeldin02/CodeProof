@@ -10,6 +10,7 @@ import { getCandidateStore } from "@/features/candidates/store";
 import { getI18n } from "@/i18n/server";
 import { getCurrentUser } from "@/features/auth/session";
 import AuthLanding from "@/components/auth/AuthLanding";
+import { getInterviewStore } from "@/features/interviews/store";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export default async function DashboardPage() {
     ["DECIDE", t("Recruiter review"), t("Compare and interview")],
   ] as const;
   const candidates = await getCandidateStore().listCandidates(user.id);
+  const pendingInterviews = (await getInterviewStore().list(user.id)).filter((session) => !session.communicatedAt);
   const realCandidates = candidates.filter((candidate) => !candidate.isDemo);
   const demoCandidates = candidates.filter((candidate) => candidate.isDemo);
   const operatingCandidates = realCandidates.length ? realCandidates : candidates;
@@ -72,6 +74,7 @@ export default async function DashboardPage() {
         {demoCandidates.length > 0 && <Badge tone={realCandidates.length ? "neutral" : "warning"}>{realCandidates.length ? t(demoCandidates.length === 1 ? "{count} demo record excluded" : "{count} demo records excluded", { count: demoCandidates.length }) : t("Demo-only view")}</Badge>}
       </div>
 
+      <Card title={t("From evidence to a hiring decision")} subtitle={t("Prepare a role-specific interview, capture observations, and close the loop with the candidate.")}><div className="flex flex-wrap items-center justify-between gap-4"><p className="text-sm text-slate-600">{t("Awaiting next step")}: <strong>{pendingInterviews.length}</strong></p><Link href="/interviews" className="inline-flex min-h-11 items-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700">{t("Open interview desk")}</Link></div></Card>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile label={t("Candidates analyzed")} value={String(operatingCandidates.length)} hint={t(realCandidates.length ? "Real candidate records" : "Current workspace records")} icon={UsersIcon} />
         <KpiTile label={t("Repositories inspected")} value={String(repositories)} hint={t("Bounded public archives")} icon={GitBranchIcon} />

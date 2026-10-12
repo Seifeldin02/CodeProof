@@ -265,7 +265,7 @@ describe("PostgreSQL remediation inline migrations", () => {
     await ensurePostgreSQLRemediationSchema(asPool(fake));
 
     expect([...fake.ledger.values()]).toEqual(POSTGRESQL_REMEDIATION_MIGRATIONS);
-    expect(POSTGRESQL_REMEDIATION_MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4]);
+    expect(POSTGRESQL_REMEDIATION_MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5]);
     expect(POSTGRESQL_REMEDIATION_MIGRATIONS.every((migration) => /^[a-f0-9]{64}$/.test(migration.checksum))).toBe(true);
     expect(fake.queries.slice(0, 3).map((query) => query.sql)).toEqual([
       "BEGIN",

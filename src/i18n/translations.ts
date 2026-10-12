@@ -1,3 +1,5 @@
+import { interviewArabic } from "@/features/interviews/translations";
+import { shortlistArabic } from "@/features/shortlists/translations";
 export const LOCALES = ["en", "ar"] as const;
 export type Locale = (typeof LOCALES)[number];
 
@@ -6,6 +8,8 @@ export function isLocale(value: string | undefined | null): value is Locale {
 }
 
 const ar: Record<string, string> = {
+  ...interviewArabic,
+  ...shortlistArabic,
   "Criteria": "المعايير",
   "Evaluation setup": "إعداد التقييم",
   "Company requirements": "متطلبات الشركة",
