@@ -13,8 +13,16 @@ function includesToken(text: string, token: string): boolean {
     && !/[\p{L}\p{N}]/u.test(normalized[position + needle.length] ?? "");
 }
 
-/** Builds an interview plan from saved role requirements. A source is context to discuss, never proof of authorship. */
-export function prepareInterview(candidate: CandidateDetail, roleTitle: string, requirements: CompanyRequirement[]): InterviewPreparation {
+/**
+ * Builds an interview plan from saved role requirements. A source is context to discuss, never proof of authorship.
+ * `statedOnCv` gives, for each requirement id, the CV's own words for it; the CV is the candidate's account, to be explored.
+ */
+export function prepareInterview(
+  candidate: CandidateDetail,
+  roleTitle: string,
+  requirements: CompanyRequirement[],
+  statedOnCv: ReadonlyMap<string, string[]> = new Map(),
+): InterviewPreparation {
   return {
     version: "1.0",
     candidateName: candidate.name,
@@ -44,9 +52,16 @@ export function prepareInterview(candidate: CandidateDetail, roleTitle: string, 
           evidenceLevel: citation.evidenceLevel,
         }));
       }).slice(0, 3);
+      const statedAs = statedOnCv.get(requirement.id) ?? [];
+      const stated = statedAs.join(", ");
+      const inOwnWords = statedAs.length === 1 && statedAs[0].toLowerCase() === requirement.requirement.toLowerCase();
       const question = sources.length ? {
         en: `For “${requirement.requirement}”, first explain your relationship to the cited work. Walk through one implementation decision, a failure case, and how you tested it. What would you change for this role?`,
         ar: `بالنسبة إلى «${requirement.requirement}»، وضّح أولاً علاقتك بالعمل المشار إليه. اشرح قراراً تنفيذياً وحالة فشل وكيف اختبرته. ما الذي ستغيّره لهذه الوظيفة؟`,
+      } : stated ? {
+        // The CV is taken at its word and then explored: a specific project, the candidate's own part, and how they know it worked.
+        en: `${inOwnWords ? `Your CV names “${requirement.requirement}”.` : `Your CV names ${stated}, and this role asks for “${requirement.requirement}”.`} Pick one project that shows it. What did you personally build, what failed or surprised you, and how did you check the result? You can describe private work without sharing confidential code.`,
+        ar: `${inOwnWords ? `تذكر سيرتك الذاتية «${requirement.requirement}».` : `تذكر سيرتك الذاتية ${stated}، وهذه الوظيفة تطلب «${requirement.requirement}».`} اختر مشروعاً واحداً يبيّن ذلك. ماذا بنيت بنفسك، وما الذي تعطّل أو فاجأك، وكيف تحققت من النتيجة؟ يمكنك وصف عمل خاص دون مشاركة كود سري.`,
       } : {
         en: `We do not have public-code evidence for “${requirement.requirement}”. Describe a relevant project or work example you can discuss without sharing confidential code. What did you personally do, and how did you validate the result?`,
         ar: `لا تتوفر لدينا أدلة من الكود العام على «${requirement.requirement}». صف مشروعاً أو مثالاً عملياً يمكنك مناقشته دون مشاركة كود سري. ماذا فعلت شخصياً وكيف تحققت من النتيجة؟`,

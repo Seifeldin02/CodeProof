@@ -32,6 +32,20 @@ describe("interview decision workspace", () => {
     expect(saved?.preparation).toEqual(session.preparation);
     expect(() => store.db.prepare("UPDATE interview_sessions SET preparation_json = '{}' WHERE id = ?").run(session.id)).toThrow(/immutable/);
   });
+  it("asks about what the CV states, in the CV's own words, when no code can be cited", async () => {
+    const { candidate } = await setup();
+    const asked = [
+      { id: "criterion-1", requirement: "TypeScript", importance: "required" as const, category: "skill" as const },
+      { id: "criterion-2", requirement: "Python", importance: "required" as const, category: "skill" as const },
+      { id: "criterion-3", requirement: "Docker", importance: "preferred" as const, category: "skill" as const },
+    ];
+    const plan = prepareInterview(candidate, "Backend engineer", asked, new Map([["criterion-1", ["TypeScript"]], ["criterion-2", ["Django", "Flask"]]]));
+    expect(plan.criteria[0].question.en).toContain("Your CV names “TypeScript”. Pick one project");
+    expect(plan.criteria[1].question.en).toContain("Your CV names Django, Flask, and this role asks for “Python”.");
+    expect(plan.criteria[1].question.ar).toContain("Django, Flask");
+    expect(plan.criteria[2].question.en).toContain("We do not have public-code evidence for “Docker”");
+    for (const criterion of plan.criteria) expect(criterion.question.en).toContain("without sharing confidential code");
+  });
   it("denies cross-tenant reads, writes and creation", async () => {
     const { store, session, candidate } = await setup();
     expect(await store.list("b")).toEqual([]);
