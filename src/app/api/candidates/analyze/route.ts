@@ -1,9 +1,12 @@
 import { getRequirementsStore, toJobDescriptionText } from "@/features/requirements/store";
 import { authenticateRequest, denyCrossOrigin } from "@/features/auth/guard";
 import { analyzeRepository } from "@/features/repository-analysis/engine";
+import { extractResumeClaims } from "@/features/resume-matching/claims";
 import { discoverCandidateLinks } from "@/features/resume-matching/discovery";
+import { extractExperienceTimeline } from "@/features/resume-matching/experience";
 import { extractPdfResumeText, PdfResumeError, PDF_RESUME_MAX_BYTES } from "@/features/resume-matching/pdf";
 import { getCandidateStore } from "@/features/candidates/store";
+import { getCandidateResumeStore } from "@/features/shortlists/resume-store";
 import type { RepositoryFailure } from "@/features/candidates/types";
 import { ROLES } from "@/features/hiring-analytics/types";
 import { GitHubServiceError, parseGitHubRepositoryUrl } from "@/services/github";
@@ -139,6 +142,11 @@ export async function POST(request: Request): Promise<Response> {
       // them as unknown rather than silently dropping them.
       unanalyzedSources: discovered.otherSources.map((source) => source.url),
     });
+    // The CV's own claims and dated entries are kept beside the analysis, so this applicant can be found by skill and
+    // compared with a role like one added from a CV alone. Failing to keep them must not lose the analysis just made.
+    await getCandidateResumeStore()
+      .save(user.id, candidate.id, [...extractResumeClaims(parsed.resumeText), ...extractExperienceTimeline(parsed.resumeText)])
+      .catch(() => false);
     return Response.json({ candidate, failedRepositories }, { status: 201 });
   } catch (error) {
     if (error instanceof PdfResumeError || error instanceof GitHubServiceError) {
