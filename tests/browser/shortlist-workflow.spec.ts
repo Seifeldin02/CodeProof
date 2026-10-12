@@ -33,12 +33,14 @@ test("saved role reviews private candidates without treating missing code as a s
   await expect(page.getByRole("heading", { name: "Private-code candidate" })).toBeVisible();
   expect((await page.locator("article h3").allTextContents())[0]).toBe("Private-code candidate");
   const candidateCard = page.locator("article").filter({ has: page.getByRole("heading", { name: "Private-code candidate" }) });
-  await expect(candidateCard.getByText(label("CV mentions (candidate-reported, not verified)", "مهارات مذكورة في السيرة الذاتية"), { exact: false })).toBeVisible();
-  await expect(candidateCard.getByText("TypeScript · Python", { exact: false })).toBeVisible();
+  await expect(candidateCard.getByText(label("From the CV only: 1", "من السيرة الذاتية فقط: 1"))).toBeVisible();
+  await expect(candidateCard.getByText(label("On the CV", "مذكورة في السيرة الذاتية"), { exact: true })).toHaveCount(2);
+  await expect(candidateCard.getByText("TypeScript", { exact: true })).toBeVisible();
+  await expect(candidateCard.getByText("Python", { exact: true })).toBeVisible();
   const roleId = new URL(page.url()).searchParams.get("role");
   expect(roleId).toBeTruthy();
-  await expect(candidateCard.getByText(label("This is an evidence gap, not proof the candidate lacks this skill.", "هذه فجوة في الأدلة، وليست دليلاً على افتقار المرشح إلى هذه المهارة."))).toBeVisible();
-  await expect(page.getByRole("heading", { name: label("Requirements needing human review", "متطلبات تحتاج مراجعة بشرية") }).locator("..")).toContainText("Python");
+  await expect(candidateCard.getByText(label("Not seen in public code", "لم تظهر في الكود العام"))).toBeVisible();
+  await expect(page.getByRole("heading", { name: label("Requirements needing human review", "متطلبات تحتاج مراجعة بشرية") }).locator("..")).toContainText("5 years of experience");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Private-code candidate" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -61,7 +63,7 @@ test("saved role reviews private candidates without treating missing code as a s
   expect(interview.status()).toBe(200);
   const preparation = ((await interview.json()) as { session: { preparation: { roleTitle: string; criteria: Array<{ requirement: string }> } } }).session.preparation;
   expect(preparation.roleTitle).toBe("Backend platform engineer");
-  expect(preparation.criteria.map((criterion) => criterion.requirement)).toEqual(["TypeScript"]);
+  expect(preparation.criteria.map((criterion) => criterion.requirement)).toEqual(["TypeScript", "Python"]);
 
   const other = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
   try {

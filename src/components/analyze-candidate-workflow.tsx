@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Badge from "@/components/ui/Badge";
 import type { CvDiscovery, DiscoveredRepository } from "@/features/resume-matching/discovery";
 import { ROLES, type Role } from "@/features/hiring-analytics/types";
 import { useI18n } from "@/components/i18n/LocaleProvider";
@@ -18,15 +17,6 @@ interface PortfolioScan {
   claims: Array<{ claim: string }>;
 }
 type ScanState = { status: "scanning" } | { status: "done"; scan: PortfolioScan } | { status: "failed"; message: string };
-
-// The portfolio points at a synthetic sample page published in this repository,
-// so the scan reads a real public page without casting a real person as an
-// applicant. It deliberately lists projects the CV omits.
-const SAMPLE_CV = `Demo Candidate
-Full-Stack Engineer
-Public project: https://github.com/sindresorhus/is
-Portfolio: https://raw.githubusercontent.com/Seifeldin02/CodeProof/development/docs/demo/portfolio.html
-Experience building TypeScript libraries, runtime validation, automated tests, and maintainable developer tooling.`;
 
 function PipelineMap({ discovery, busy }: { discovery: CvDiscovery | null; busy: "discover" | "analyze" | null }) {
   const { t } = useI18n();
@@ -60,7 +50,6 @@ export default function AnalyzeCandidateWorkflow() {
   const [repositoryOrigins, setRepositoryOrigins] = useState<Record<string, DiscoveryOrigin>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [manualRepository, setManualRepository] = useState("");
-  const [isDemo, setIsDemo] = useState(false);
   const [busy, setBusy] = useState<"discover" | "analyze" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [repositoryStatus, setRepositoryStatus] = useState<Record<string, RepositoryUiStatus>>({});
@@ -98,12 +87,12 @@ export default function AnalyzeCandidateWorkflow() {
     }
   }
 
-  async function runDiscovery(textOverride?: string): Promise<void> {
+  async function runDiscovery(): Promise<void> {
     setBusy("discover"); setError(null);
     try {
       const form = new FormData();
-      if (textOverride ?? resumeText) form.set("resumeText", textOverride ?? resumeText);
-      if (!textOverride && resumeFile) form.set("resumeFile", resumeFile);
+      if (resumeText) form.set("resumeText", resumeText);
+      if (resumeFile) form.set("resumeFile", resumeFile);
       const response = await fetch("/api/cv/discover", { method: "POST", body: form });
       const payload = await response.json() as { discovery?: CvDiscovery } & ApiError;
       if (!response.ok || !payload.discovery) throw new Error(payload.error?.message ?? "CV discovery failed.");
@@ -116,11 +105,6 @@ export default function AnalyzeCandidateWorkflow() {
       setRepositoryStatus({});
     } catch (caught) { setError(caught instanceof Error ? caught.message : "CV discovery failed."); }
     finally { setBusy(null); }
-  }
-
-  async function loadDemo(): Promise<void> {
-    setResumeFile(null); setResumeText(SAMPLE_CV); setIsDemo(true);
-    await runDiscovery(SAMPLE_CV);
   }
 
   function addManualRepository(): void {
@@ -158,7 +142,7 @@ export default function AnalyzeCandidateWorkflow() {
       }))));
       form.set("resumeText", resumeText);
       form.set("jobDescription", jobDescription);
-      form.set("isDemo", String(isDemo));
+      form.set("isDemo", "false");
       if (resumeFile) form.set("resumeFile", resumeFile);
       const response = await fetch("/api/candidates/analyze", { method: "POST", body: form });
       const payload = await response.json() as { candidate?: { id: string }; failedRepositories?: Array<{ repositoryUrl: string; message: string }> } & ApiError;
@@ -177,17 +161,16 @@ export default function AnalyzeCandidateWorkflow() {
       <PipelineMap discovery={discovery} busy={busy} />
       <div className="grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
       <section className="surface-card rounded-2xl border border-slate-200/80 bg-white/95 p-5 shadow-card sm:p-7">
-        <div className="flex items-center justify-between gap-4"><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-brand-700">{t("Recruiter step {step} of 2", { step: discovery ? 2 : 1 })}</p><h2 className="mt-2 text-xl font-semibold text-slate-950">{t(discovery ? "Confirm candidate and projects" : "Upload the candidate CV")}</h2></div>{isDemo && <Badge tone="warning">{t("Demo candidate")}</Badge>}</div>
+        <div className="flex items-center justify-between gap-4"><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-brand-700">{t("Recruiter step {step} of 2", { step: discovery ? 2 : 1 })}</p><h2 className="mt-2 text-xl font-semibold text-slate-950">{t(discovery ? "Confirm candidate and projects" : "Upload the candidate CV")}</h2></div></div>
 
         {!discovery ? <div className="mt-6 space-y-5">
           <label className="group block cursor-pointer rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/80 px-6 py-10 text-center transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-brand-50/60 hover:shadow-[0_16px_34px_rgba(15,23,42,.06)]">
-            <input type="file" className="sr-only" accept="application/pdf,.pdf" onChange={(event) => { setResumeFile(event.target.files?.[0] ?? null); setIsDemo(false); }} />
+            <input type="file" className="sr-only" accept="application/pdf,.pdf" onChange={(event) => setResumeFile(event.target.files?.[0] ?? null)} />
             <span className="evidence-node mx-auto grid h-12 w-12 place-items-center rounded-xl bg-white text-xl text-brand-700 shadow-sm transition-transform duration-300 group-hover:-translate-y-1">↑</span><strong className="mt-4 block text-sm text-slate-900">{t("Choose a text-based PDF")}</strong><span className="mt-1 block text-xs text-slate-500">{t("Maximum 5 MB. Files are parsed server-side and never executed.")}</span>{resumeFile && <span className="tech-ltr mt-3 inline-flex rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-800">{resumeFile.name}</span>}
           </label>
           <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[.15em] text-slate-400"><span className="h-px flex-1 bg-slate-200" />{t("or paste CV text")}<span className="h-px flex-1 bg-slate-200" /></div>
-          <textarea value={resumeText} onChange={(event) => { setResumeText(event.target.value); setIsDemo(false); }} aria-label={t("Paste CV text")} placeholder={t("Candidate name, experience, GitHub links, projects…")} className="min-h-40 w-full rounded-xl border border-slate-200 bg-white p-4 text-sm leading-6 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-50" />
+          <textarea value={resumeText} onChange={(event) => setResumeText(event.target.value)} aria-label={t("Paste CV text")} placeholder={t("Candidate name, experience, GitHub links, projects…")} className="min-h-40 w-full rounded-xl border border-slate-200 bg-white p-4 text-sm leading-6 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-50" />
           <button type="button" onClick={() => runDiscovery()} disabled={busy !== null || (!resumeFile && !resumeText.trim())} className="group flex min-h-12 w-full items-center justify-between rounded-xl bg-slate-950 px-5 py-3.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"><span className="flex items-center gap-2">{busy === "discover" && <i className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white" />}{t(busy === "discover" ? "Reading CV…" : "Detect candidate projects")}</span><span className="directional-icon transition-transform group-hover:translate-x-1">→</span></button>
-          <button type="button" onClick={loadDemo} disabled={busy !== null} className="min-h-12 w-full rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">{t("Use sample candidate")} <span className="font-normal text-slate-400">({t("backup demo")})</span></button>
         </div> : <div className="mt-6 space-y-6">
           <div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-600">{t("Candidate name")}<input value={candidateName} onChange={(event) => setCandidateName(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-brand-500" /></label><label className="text-xs font-semibold text-slate-600">{t("Target role")}<select value={role} onChange={(event) => setRole(event.target.value as Role)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500">{ROLES.map((item) => <option key={item} value={item}>{t(item)}</option>)}</select></label></div>
           {discovery.profiles.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" /><strong className="text-sm text-amber-900">{t("GitHub profile detected")}</strong></div><p className="mt-2 text-xs leading-5 text-amber-800"><bdi dir="ltr">{discovery.profiles.map((profile) => profile.url).join(", ")}</bdi>. {t("Free archive scanning cannot list profile projects, so paste the repository URLs you want to inspect.")}</p></div>}
