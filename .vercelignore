@@ -1,0 +1,10 @@
+.env*
+.data/
+.claude/
+test-results/
+playwright-report/
+coverage/
+*.db
+*.db-shm
+*.db-wal
+*.tsbuildinfo

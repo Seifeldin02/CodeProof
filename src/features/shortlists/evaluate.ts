@@ -44,8 +44,18 @@ export interface CandidateRoleReview {
   criteria: CriterionReview[];
   citedRequiredCount: number;
   citedCriterionCount: number;
+  signaledRequiredCount: number;
+  signaledCriterionCount: number;
   reportedCriteria: string[];
   reportedUnassessedRequirements: string[];
+}
+
+/** A CV claim can earn review attention without being misrepresented as verified code. */
+export function compareCandidateRoleReviews(left: CandidateRoleReview, right: CandidateRoleReview): number {
+  return Number(left.isDemo) - Number(right.isDemo)
+    || right.signaledRequiredCount - left.signaledRequiredCount
+    || right.signaledCriterionCount - left.signaledCriterionCount
+    || left.candidateName.localeCompare(right.candidateName);
 }
 
 /** Only exact, taxonomy-recognized technical requirements can be checked against code. */
@@ -136,6 +146,10 @@ export function evaluateCandidateForRole(
     criteria,
     citedRequiredCount: criteria.filter((item) => item.criterion.importance === "required" && item.status === "cited_evidence").length,
     citedCriterionCount: criteria.filter((item) => item.status === "cited_evidence").length,
+    signaledRequiredCount: criteria.filter((item) => item.criterion.importance === "required"
+      && (item.status === "cited_evidence" || reportedCapabilities.has(item.criterion.capabilityId))).length,
+    signaledCriterionCount: criteria.filter((item) => item.status === "cited_evidence"
+      || reportedCapabilities.has(item.criterion.capabilityId)).length,
     reportedCriteria: role.criteria.filter((criterion) => reportedCapabilities.has(criterion.capabilityId)).map((criterion) => criterion.label),
     reportedUnassessedRequirements: role.unassessedRequirements.filter((requirement) => [...claimNames].some((claim) => claim.toLowerCase() === requirement.toLowerCase())),
   };

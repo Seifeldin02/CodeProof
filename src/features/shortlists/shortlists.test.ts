@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CandidateStore } from "@/features/candidates/store";
 import type { CandidateDetail } from "@/features/candidates/types";
 import type { AnalysisResult } from "@/types/analysis";
-import { evaluateCandidateForRole, extractRoleCriteria, type RoleBrief } from "./evaluate";
+import { compareCandidateRoleReviews, evaluateCandidateForRole, extractRoleCriteria, type RoleBrief } from "./evaluate";
 import { RoleStore } from "./store";
 import { CandidateResumeStore } from "./resume-store";
 
@@ -59,6 +59,7 @@ describe("role-scoped technical review", () => {
     const review = evaluateCandidateForRole(privateCandidate, role());
     expect(review.criteria[0]).toMatchObject({ status: "not_observed", citations: [] });
     expect(review.citedRequiredCount).toBe(0);
+    expect(review.signaledRequiredCount).toBe(0);
   });
 
   it("keeps candidate-reported CV skills separate from verified code evidence", () => {
@@ -73,6 +74,12 @@ describe("role-scoped technical review", () => {
     expect(review.reportedUnassessedRequirements).toEqual(["Python"]);
     expect(review.criteria[0].status).toBe("not_observed");
     expect(review.citedRequiredCount).toBe(0);
+    expect(review.signaledRequiredCount).toBe(1);
+    const codeCandidate = { ...candidate("verified_contributor", "verified_contributor"), name: "Zeta" };
+    const cvCandidate = { ...privateCandidate, name: "Alpha" };
+    const codeReview = evaluateCandidateForRole(codeCandidate, role());
+    const cvReview = evaluateCandidateForRole(cvCandidate, role(), [{ claim: "TypeScript", category: "technology", source: "Candidate Claim" }]);
+    expect([codeReview, cvReview].sort(compareCandidateRoleReviews).map((item) => item.candidateName)).toEqual(["Alpha", "Zeta"]);
   });
 });
 

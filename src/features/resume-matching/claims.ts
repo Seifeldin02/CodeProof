@@ -14,6 +14,14 @@ const KNOWN_CLAIMS = [
   "Vitest", "Cypress", "Playwright", "Redux", "Zustand", "GraphQL", "REST", "Microservices",
 ] as const;
 
+const CV_ROLE_HEADLINES = [
+  ["Frontend Engineer", /^(?:front[- ]?end (?:engineer|developer))(?:\s*(?:--|—|\|).*)?$/i],
+  ["Backend Engineer", /^(?:back[- ]?end (?:engineer|developer))(?:\s*(?:--|—|\|).*)?$/i],
+  ["Full-Stack Engineer", /^(?:full[- ]?stack (?:engineer|developer))(?:\s*(?:--|—|\|).*)?$/i],
+  ["Data Engineer", /^(?:data engineer)(?:\s*(?:--|—|\|).*)?$/i],
+  ["DevOps Engineer", /^(?:devops engineer|site reliability engineer)(?:\s*(?:--|—|\|).*)?$/i],
+] as const;
+
 function mentions(text: string, claim: string): boolean {
   const escaped = claim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
   return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(text);
@@ -25,6 +33,14 @@ export function extractResumeClaims(text: string): ExtractedResumeClaim[] {
     category: "technology" as const,
     source: "Candidate Claim" as const,
   }));
+
+  // A CV headline is a candidate-stated role, not an inferred hiring fit.
+  const headlineLines = text.split(/\r?\n/).slice(0, 8).map((line) => line.trim());
+  for (const [role, pattern] of CV_ROLE_HEADLINES) {
+    if (headlineLines.some((line) => pattern.test(line))) {
+      claims.push({ claim: role, category: "role", source: "Candidate Claim" });
+    }
+  }
 
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length >= 12 && line.length <= 180);
   for (const line of lines) {

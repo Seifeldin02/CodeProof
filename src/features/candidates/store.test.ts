@@ -192,6 +192,29 @@ describe("candidate evidence persistence", () => {
     store.db.close();
   });
 
+  it("adds optional public-code analysis to the same CV-first applicant with unverified attribution", async () => {
+    const store = new CandidateStore(":memory:");
+    seedOwners(store);
+    const created = await store.createCandidate("owner-a", {
+      name: "Private-first candidate", role: "Backend Engineer", results: [], intakeOnly: true,
+      unanalyzedSources: ["https://github.com/example/app"],
+    });
+    expect(created.furthestStage).toBe("applied");
+    expect(await store.recordRepositorySuccess("owner-b", created.id, canonicalResult("cv-first"))).toBeNull();
+    const analyzed = await store.recordRepositorySuccess("owner-a", created.id, canonicalResult("cv-first"));
+    expect(analyzed?.id).toBe(created.id);
+    expect(analyzed?.furthestStage).toBe("code_review");
+    expect(analyzed?.repositoryOutcomes).toMatchObject([{ status: "analyzed" }]);
+    expect(analyzed?.repositories).toMatchObject([{
+      repositoryUrl: "https://github.com/example/app", discoveryOrigin: "CV", attributionStatus: "candidate_claimed",
+    }]);
+    expect(analyzed?.analyses[0].result.canonicalEvidence?.citations[0]).toMatchObject({
+      discoveryOrigin: "CV", attributionStatus: "candidate_claimed",
+    });
+    expect(analyzed?.verifiedSkillScore).toBe(0);
+    store.db.close();
+  });
+
   it("persists canonical findings, citations, and safe questions and reprojects them after verification", async () => {
     const store = new CandidateStore(":memory:");
     seedOwners(store);

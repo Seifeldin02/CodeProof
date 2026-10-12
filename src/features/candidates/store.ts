@@ -124,7 +124,7 @@ export interface CandidatePersistence {
   listCandidates(ownerUserId: string): Promise<CandidateRecord[]>;
   getCandidate(ownerUserId: string, id: string): Promise<CandidateDetail | null>;
   createCandidate(ownerUserId: string, input: CreateCandidateInput): Promise<CandidateDetail>;
-  recordRepositorySuccess(ownerUserId: string, candidateId: string, result: AnalysisResult): Promise<CandidateDetail | null>;
+  recordRepositorySuccess(ownerUserId: string, candidateId: string, result: AnalysisResult, selection?: RepositorySelection): Promise<CandidateDetail | null>;
   verifyRepositoryAttribution(
     ownerUserId: string,
     candidateId: string,
@@ -628,22 +628,37 @@ export class CandidateStore implements CandidatePersistence {
     return created;
   }
 
-  async recordRepositorySuccess(ownerUserId: string, candidateId: string, result: AnalysisResult): Promise<CandidateDetail | null> {
+  async recordRepositorySuccess(ownerUserId: string, candidateId: string, result: AnalysisResult, selection?: RepositorySelection): Promise<CandidateDetail | null> {
     const candidate = await this.getCandidate(ownerUserId, candidateId);
     if (!candidate) return null;
     const relationship = candidate.repositories.find((repository) => repository.repositoryUrl === result.repository.url);
-    const projected = relationship && result.canonicalEvidence
-      ? { ...result, canonicalEvidence: reprojectGroundedEvidence(result.canonicalEvidence, relationship.discoveryOrigin ?? "manual entry", relationship.attributionStatus) }
+    const fromCv = candidate.unanalyzedSources?.includes(result.repository.url) ?? false;
+    const source = selection ?? { repositoryUrl: result.repository.url, discoveryOrigin: fromCv ? "CV" : "manual entry", candidateSourceClaim: fromCv };
+    const attribution = relationship?.attributionStatus ?? createRepositoryAttributionState(source).attributionStatus;
+    const origin = relationship?.discoveryOrigin ?? source.discoveryOrigin;
+    const projected = result.canonicalEvidence
+      ? { ...result, canonicalEvidence: reprojectGroundedEvidence(result.canonicalEvidence, origin, attribution) }
       : result;
     this.db.exec("BEGIN");
     try {
+      if (!relationship) this.insertRepositoryRelationship(ownerUserId, candidateId, result.repository.url, source, result.metadata.analyzedAt);
       this.insertAnalysis(candidateId, projected);
       const legacy = this.db.prepare(`SELECT id FROM candidate_analyses
         WHERE candidate_id = ? AND repository_url = ?`).get(candidateId, result.repository.url) as { id: string } | undefined;
-      if (legacy && relationship) {
-        this.insertCanonicalEvidence(ownerUserId, candidateId, relationship.id, legacy.id, projected, Boolean(candidate.isDemo));
+      const activeRelationship = this.db.prepare(`SELECT id FROM candidate_repositories
+        WHERE owner_user_id = ? AND candidate_id = ? AND repository_url = ?`)
+        .get(ownerUserId, candidateId, result.repository.url) as { id: string } | undefined;
+      if (legacy && activeRelationship) {
+        this.insertCanonicalEvidence(ownerUserId, candidateId, activeRelationship.id, legacy.id, projected, Boolean(candidate.isDemo));
       }
       this.refreshCandidateEvidence(candidateId);
+      if (PIPELINE_STAGES.indexOf(candidate.furthestStage) < PIPELINE_STAGES.indexOf("code_review")) {
+        const insertStage = this.db.prepare("INSERT INTO stage_events (candidate_id, stage, entered_at) VALUES (?, ?, ?)");
+        for (const stage of PIPELINE_STAGES.slice(PIPELINE_STAGES.indexOf(candidate.furthestStage) + 1, 3)) {
+          insertStage.run(candidateId, stage, result.metadata.analyzedAt);
+        }
+        this.db.prepare("UPDATE candidates SET furthest_stage = 'code_review' WHERE id = ?").run(candidateId);
+      }
       // New evidence must be opened again before it counts as checked.
       this.db.prepare("UPDATE candidates SET evidence_reviewed_at = NULL WHERE id = ?").run(candidateId);
       this.db.exec("COMMIT");
@@ -1056,25 +1071,38 @@ class PostgresCandidateStore implements CandidatePersistence {
     return created;
   }
 
-  async recordRepositorySuccess(ownerUserId: string, candidateId: string, result: AnalysisResult): Promise<CandidateDetail | null> {
+  async recordRepositorySuccess(ownerUserId: string, candidateId: string, result: AnalysisResult, selection?: RepositorySelection): Promise<CandidateDetail | null> {
     const candidate = await this.getCandidate(ownerUserId, candidateId);
     if (!candidate) return null;
     const relationship = candidate.repositories.find((repository) => repository.repositoryUrl === result.repository.url);
-    const projected = relationship && result.canonicalEvidence
-      ? { ...result, canonicalEvidence: reprojectGroundedEvidence(result.canonicalEvidence, relationship.discoveryOrigin ?? "manual entry", relationship.attributionStatus) }
+    const fromCv = candidate.unanalyzedSources?.includes(result.repository.url) ?? false;
+    const source = selection ?? { repositoryUrl: result.repository.url, discoveryOrigin: fromCv ? "CV" : "manual entry", candidateSourceClaim: fromCv };
+    const attribution = relationship?.attributionStatus ?? createRepositoryAttributionState(source).attributionStatus;
+    const origin = relationship?.discoveryOrigin ?? source.discoveryOrigin;
+    const projected = result.canonicalEvidence
+      ? { ...result, canonicalEvidence: reprojectGroundedEvidence(result.canonicalEvidence, origin, attribution) }
       : result;
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+      if (!relationship) await this.insertRepositoryRelationship(client, ownerUserId, candidateId, result.repository.url, source, result.metadata.analyzedAt);
       await this.insertAnalysis(client, candidateId, projected);
-      if (relationship) {
+      {
+        const activeRelationship = (await client.query<{ id: string }>(`SELECT id FROM codeproof_candidate_repositories
+          WHERE owner_user_id=$1 AND candidate_id=$2 AND repository_url=$3`, [ownerUserId, candidateId, result.repository.url])).rows[0];
         const legacy = await client.query<{ id: string }>(`SELECT id FROM codeproof_candidate_analyses
           WHERE candidate_id=$1 AND repository_url=$2`, [candidateId, result.repository.url]);
-        if (legacy.rows[0]) await this.insertCanonicalEvidence(
-          client, ownerUserId, candidateId, relationship.id, legacy.rows[0].id, projected, Boolean(candidate.isDemo),
+        if (legacy.rows[0] && activeRelationship) await this.insertCanonicalEvidence(
+          client, ownerUserId, candidateId, activeRelationship.id, legacy.rows[0].id, projected, Boolean(candidate.isDemo),
         );
       }
       await this.refreshCandidateEvidence(client, candidateId);
+      if (PIPELINE_STAGES.indexOf(candidate.furthestStage) < PIPELINE_STAGES.indexOf("code_review")) {
+        for (const stage of PIPELINE_STAGES.slice(PIPELINE_STAGES.indexOf(candidate.furthestStage) + 1, 3)) {
+          await client.query("INSERT INTO codeproof_stage_events (candidate_id,stage,entered_at) VALUES ($1,$2,$3)", [candidateId, stage, result.metadata.analyzedAt]);
+        }
+        await client.query("UPDATE codeproof_candidates SET furthest_stage='code_review' WHERE id=$1", [candidateId]);
+      }
       // New evidence must be opened again before it counts as checked.
       await client.query("UPDATE codeproof_candidates SET evidence_reviewed_at=NULL WHERE id=$1", [candidateId]);
       await client.query("COMMIT");
