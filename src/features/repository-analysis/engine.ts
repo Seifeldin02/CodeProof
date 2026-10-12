@@ -4,7 +4,7 @@ import { verifyResumeClaims } from "@/features/resume-matching/claims";
 import {
   groundAiOutput,
   jobExtractionSchema,
-  OpenAiProvider,
+  configuredAiProvider,
   resumeExtractionSchema,
   type AiProvider,
 } from "@/services/ai";
@@ -70,10 +70,6 @@ export function buildAnalysisCacheKey(
     .update("\0")
     .update(aiProvider ? `${aiProvider.name}:${aiProvider.model}` : "deterministic")
     .digest("hex");
-}
-
-function configuredAiProvider(): AiProvider | null {
-  return process.env.OPENAI_API_KEY ? new OpenAiProvider(process.env.OPENAI_API_KEY) : null;
 }
 
 export async function analyzeRepository(
@@ -159,7 +155,7 @@ export async function analyzeRepository(
   let aiStatus: AnalysisResult["metadata"]["aiStatus"] = aiProvider ? "unavailable_failed" : "unavailable_not_configured";
   let aiUnavailableReason: string | null = aiProvider
     ? "No supported source files were available for deep analysis."
-    : "OPENAI_API_KEY is not configured.";
+    : "No optional AI provider is configured.";
   if (aiProvider && repository.files.length > 0) {
     try {
       onStage("analyzing_architecture");
