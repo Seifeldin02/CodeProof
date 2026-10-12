@@ -19,8 +19,10 @@ export function OutcomeBadge({ outcome }: { outcome: CandidateOutcome }) {
   return <Badge tone={o.tone}>{t(o.label)}</Badge>;
 }
 
-export function VerifiedScoreChip({ score }: { score: number }) {
+export function VerifiedScoreChip({ score, hasCode = true }: { score: number; hasCode?: boolean }) {
   const { t } = useI18n();
+  // No code read is missing information. A zero would read as a low result.
+  if (!hasCode) return <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-500" title={t("No public-code evidence")}>—</span>;
   const tone =
     score >= 78
       ? 'bg-emerald-50 text-emerald-700'
