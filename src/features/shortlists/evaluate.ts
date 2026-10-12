@@ -7,8 +7,9 @@ import {
   resolveCapabilityAliasInTaxonomy,
   type CapabilityTaxonomyVersion,
 } from "@/features/repository-analysis/capability-taxonomy";
+import { skillsNamedBy } from "@/features/resume-matching/claims";
 import { statedWorkMonths } from "@/features/resume-matching/experience";
-import { canonicalSkill, skillsCoveredBy, skillsIn } from "@/features/resume-matching/skills";
+import { skillsCoveredBy } from "@/features/resume-matching/skills";
 import type { EvidenceCitation } from "@/types/remediation";
 import type { ExtractedResumeClaim } from "@/types/analysis";
 
@@ -112,23 +113,6 @@ export function extractRoleCriteria(description: string, taxonomy: CapabilityTax
 
 const CONCLUSIVE_LEVELS = new Set(["strong", "good", "partial"]);
 
-type Claim = Pick<ExtractedResumeClaim, "claim" | "category">;
-
-/** A candidate's saved claims are read once, however many roles they are then compared with. */
-const namedSkills = new WeakMap<readonly Claim[], string[]>();
-function skillsNamedIn(claims: readonly Claim[]): string[] {
-  let names = namedSkills.get(claims);
-  if (!names) {
-    // A technology claim is a listed name already. Sentences and dated entries are read for the skills they name.
-    names = claims.flatMap((claim) => {
-      const listed = claim.category === "technology" ? canonicalSkill(claim.claim) : null;
-      return listed ? [listed] : skillsIn(claim.claim);
-    });
-    namedSkills.set(claims, names);
-  }
-  return names;
-}
-
 /** Review-order signals are about available evidence, never ability or hire/no-hire decisions. */
 export function evaluateCandidateForRole(
   candidate: CandidateDetail,
@@ -139,7 +123,7 @@ export function evaluateCandidateForRole(
   const taxonomy = getCapabilityTaxonomyVersion(role.taxonomyVersion);
   const analysisClaims = candidate.analyses.map((analysis) => analysis.result.resumeVerification?.claims ?? []);
   const claimNames = new Set([storedResumeClaims, ...analysisClaims].flatMap((claims) => claims.map((claim) => claim.claim)));
-  const stated = skillsCoveredBy(new Set([storedResumeClaims, ...analysisClaims].flatMap(skillsNamedIn)));
+  const stated = skillsCoveredBy(new Set([storedResumeClaims, ...analysisClaims].flatMap((claims) => skillsNamedBy(claims))));
   // The same statements, by the capability each one names.
   const statedCapabilities = new Map<string, string[]>();
   for (const [name, via] of [...stated, ...[...claimNames].map((claim) => [claim, [claim]] as const)]) {

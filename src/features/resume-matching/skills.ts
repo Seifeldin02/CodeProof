@@ -291,11 +291,12 @@ const COVERS = new Map(SKILLS.map((skill) => {
 /** A link or an e-mail address names a place, not a skill: "github.com/someone/django-shop" is not a Django claim. */
 const LINKS = /(?:https?:\/\/|www\.)\S+|\S+@\S+\.\S+|\b(?:[a-z0-9-]+\.)*(?:github|gitlab|bitbucket|linkedin|medium|twitter|x|behance|dribbble|stackoverflow|kaggle|youtube|facebook|instagram)\.(?:com|org|net|io)\S*|\b[a-z0-9-]+\.(?:vercel\.app|netlify\.app|github\.io|herokuapp\.com|pages\.dev)\S*/gi;
 
-interface Hit { name: string; start: number; end: number }
+export interface SkillMention { name: string; start: number; end: number }
 
-function hitsIn(line: string): Hit[] {
+/** Where one line names skills, left to right, so a caller can tell the skill words from the rest of the line. */
+export function skillMentions(line: string): SkillMention[] {
   const text = line.replace(LINKS, (link) => " ".repeat(link.length));
-  const hits: Hit[] = [];
+  const hits: SkillMention[] = [];
   for (const { name, regex, guard } of MATCHERS) {
     regex.lastIndex = 0;
     for (let found = regex.exec(text); found; found = regex.exec(text)) {
@@ -306,7 +307,7 @@ function hitsIn(line: string): Hit[] {
     }
   }
   // The longest reading wins: "React Native" is not also a mention of React, nor "Spring Security" of Security.
-  const kept: Hit[] = [];
+  const kept: SkillMention[] = [];
   for (const hit of hits.sort((left, right) => (right.end - right.start) - (left.end - left.start) || left.start - right.start)) {
     if (!kept.some((other) => other.start <= hit.start && hit.end <= other.end)) kept.push(hit);
   }
@@ -316,7 +317,7 @@ function hitsIn(line: string): Hit[] {
 /** The skills a text names, each once, in the order the text names them. */
 export function skillsIn(text: string): string[] {
   const names = new Set<string>();
-  for (const line of text.split(/\r?\n/)) for (const hit of hitsIn(line)) names.add(hit.name);
+  for (const line of text.split(/\r?\n/)) for (const mention of skillMentions(line)) names.add(mention.name);
   return [...names];
 }
 

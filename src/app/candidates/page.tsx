@@ -5,7 +5,9 @@ import Badge from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import { SearchCodeIcon } from "@/components/ui/icons";
+import { poolCv } from "@/features/candidates/pool";
 import { getCandidateStore } from "@/features/candidates/store";
+import { getCandidateResumeStore } from "@/features/shortlists/resume-store";
 import { getI18n } from "@/i18n/server";
 import { requirePageUser } from "@/features/auth/page-guard";
 
@@ -13,7 +15,10 @@ export const dynamic = "force-dynamic";
 
 export default async function CandidatesPage() {
   const [{ t }, user] = await Promise.all([getI18n(), requirePageUser("/candidates")]);
-  const candidates = await getCandidateStore().listCandidates(user.id);
+  const [candidates, claims] = await Promise.all([getCandidateStore().listCandidates(user.id), getCandidateResumeStore().list(user.id)]);
+  // What each saved CV states, so the list can be searched by skill. Candidate-reported, and labelled as such.
+  const today = new Date().toISOString().slice(0, 10);
+  const cv = Object.fromEntries(candidates.map((candidate) => [candidate.id, poolCv(claims.get(candidate.id) ?? [], today)]));
   const summary = candidates.reduce((current, candidate) => ({
     real: current.real + Number(!candidate.isDemo),
     repositories: current.repositories + (candidate.repositoryCount ?? 0),
@@ -31,7 +36,7 @@ export default async function CandidatesPage() {
     />
     {candidates.length > 0 && <dl className="grid gap-3 sm:grid-cols-3">{[["Real records", summary.real], ["Repository reports", summary.repositories], ["Grounded claims", summary.claims]].map(([label, value]) => <div key={String(label)} className="metric-card rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-card"><dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">{t(String(label))}</dt><dd className="tnum mt-2 text-2xl font-semibold tracking-[-.035em] text-slate-950">{value}</dd></div>)}</dl>}
     <Card bodyClassName={candidates.length ? "!p-0 sm:!px-5 sm:!py-5" : "!p-0"}>
-      {candidates.length ? <CandidatesTable candidates={candidates} /> : <EmptyState icon={SearchCodeIcon} title={t("The candidate workspace is empty")} description={t("Completed analyses appear here automatically.")} actionLabel={t("Upload a CV")} actionHref="/analyze" />}
+      {candidates.length ? <CandidatesTable candidates={candidates} cv={cv} /> : <EmptyState icon={SearchCodeIcon} title={t("The candidate workspace is empty")} description={t("Completed analyses appear here automatically.")} actionLabel={t("Upload a CV")} actionHref="/analyze" />}
     </Card>
   </div>;
 }

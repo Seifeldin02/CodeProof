@@ -5,7 +5,7 @@ import type {
   SkillEvidence,
   TechnologySignal,
 } from "@/types/analysis";
-import { skillsIn } from "./skills";
+import { canonicalSkill, skillsIn } from "./skills";
 
 /** Technology claims use the skill list shared with job-brief reading, so both sides spell a skill the same way. */
 const MAX_SKILL_CLAIMS = 40;
@@ -35,6 +35,23 @@ const CV_ROLE_TITLES: ReadonlySet<string> = new Set(CV_ROLE_HEADLINES.map(([role
 /** The role a CV's headline states, in the candidate's favour or not. A lead to explore, never a verdict on fit. */
 export function statedRoleOf(claims: ExtractedResumeClaim[]): string | null {
   return claims.find((claim) => claim.category === "role" && CV_ROLE_TITLES.has(claim.claim))?.claim ?? null;
+}
+
+/** A candidate's saved claims are read once, however many roles or searches they are then compared with. */
+const namedSkills = new WeakMap<object, string[]>();
+
+/** The listed skills a set of claims names, each once, in the order the claims name them. */
+export function skillsNamedBy(claims: ReadonlyArray<Pick<ExtractedResumeClaim, "claim" | "category">>): string[] {
+  let names = namedSkills.get(claims);
+  if (!names) {
+    // A technology claim is a listed name already. Sentences and dated entries are read for the skills they name.
+    names = [...new Set(claims.flatMap((claim) => {
+      const listed = claim.category === "technology" ? canonicalSkill(claim.claim) : null;
+      return listed ? [listed] : skillsIn(claim.claim);
+    }))];
+    namedSkills.set(claims, names);
+  }
+  return names;
 }
 
 export function extractResumeClaims(text: string): ExtractedResumeClaim[] {
