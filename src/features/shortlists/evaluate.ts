@@ -65,7 +65,8 @@ export function extractRoleCriteria(description: string): {
 } {
   const taxonomy = getPinnedCapabilityTaxonomy();
   const extracted = extractJobRequirements(description);
-  const clauses = description.split(/[;.!?\n]+/).map((clause) => clause.trim()).filter(Boolean);
+  // A full stop ends a clause only before a space or the end of a line, so "Next.js" and "Node.js" stay whole.
+  const clauses = description.split(/[;!?\n]+|\.(?=\s|$)/).map((clause) => clause.trim()).filter(Boolean);
   const criteria = new Map<string, Omit<RoleCriterion, "id">>();
   const unassessedRequirements: string[] = [];
   for (const item of extracted) {

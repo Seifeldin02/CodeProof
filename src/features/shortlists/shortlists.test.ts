@@ -45,6 +45,12 @@ describe("role-scoped technical review", () => {
     expect(extracted.unassessedRequirements.some((item) => item.includes("5 years"))).toBe(true);
   });
 
+  it("keeps a requirement required when its sentence names a technology with a full stop in it", () => {
+    const extracted = extractRoleCriteria("Required: TypeScript, Next.js and PostgreSQL. Preferred: React.");
+    const importance = Object.fromEntries(extracted.criteria.map((criterion) => [criterion.label, criterion.importance]));
+    expect(importance).toEqual({ TypeScript: "required", "Next.js": "required", PostgreSQL: "required", React: "preferred" });
+  });
+
   it("requires both verified repository attribution and a conclusive matching citation", () => {
     expect(evaluateCandidateForRole(candidate("verified_contributor", "verified_contributor"), role()).criteria[0]).toMatchObject({
       status: "cited_evidence", citations: [{ filePath: "src/app.ts" }],
