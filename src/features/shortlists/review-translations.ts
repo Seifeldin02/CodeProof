@@ -34,6 +34,7 @@ export const roleReviewArabic: Record<string, string> = {
   "No CV claims saved": "لا توجد ادعاءات محفوظة من السيرة الذاتية",
   "Dated work, years: under 1": "سنوات العمل المؤرَّخ: أقل من 1",
   "Dated work, years: {years}": "سنوات العمل المؤرَّخ: {years}",
+  "Reading CV {count} of {total} for its name and role...": "جارٍ قراءة السيرة الذاتية {count} من {total} لمعرفة الاسم والدور...",
   "Mobile Engineer": "مهندس تطبيقات الجوال",
   "QA Engineer": "مهندس ضمان الجودة",
   "Machine Learning Engineer": "مهندس تعلّم الآلة",

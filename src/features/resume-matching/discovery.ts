@@ -1,4 +1,5 @@
-import type { Role } from "@/features/hiring-analytics/types";
+import { ROLES, type Role } from "@/features/hiring-analytics/types";
+import { extractResumeClaims, statedRoleOf } from "./claims";
 
 export interface DiscoveredRepository {
   owner: string;
@@ -99,6 +100,11 @@ function candidateName(lines: string[]): string | null {
 }
 
 function suggestedRole(text: string): Role {
+  // The role the CV's own headline states is a better guide than a word found somewhere in it: a backend engineer
+  // who lists Kubernetes among their tools is still a backend engineer.
+  const stated = statedRoleOf(extractResumeClaims(text));
+  const listed = ROLES.find((role) => role === stated);
+  if (listed) return listed;
   const lower = text.toLowerCase();
   if (/data engineer|etl|data pipeline/.test(lower)) return "Data Engineer";
   if (/devops|site reliability|platform engineer|kubernetes|terraform/.test(lower)) return "DevOps Engineer";
