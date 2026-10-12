@@ -35,4 +35,9 @@ export const commandCenterArabic: Record<string, string> = {
   "Tell the candidate": "أبلغ المرشح",
   "Interview being prepared": "مقابلة قيد التحضير",
   "Nothing is waiting on you.": "لا شيء بانتظارك.",
+  "Experience stated on the CV": "الخبرة المذكورة في السيرة الذاتية",
+  "Dates and titles as the CV gives them. Candidate-reported, not verified.": "التواريخ والمسميات كما وردت في السيرة الذاتية. من إفادة المرشح، ولم يُتحقق منها.",
+  "Present": "حتى الآن",
+  "Work": "عمل",
+  "Education": "تعليم",
 };

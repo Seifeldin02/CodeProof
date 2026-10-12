@@ -5,6 +5,7 @@ import { ROLES } from "@/features/hiring-analytics/types";
 import { discoverCandidateLinks } from "@/features/resume-matching/discovery";
 import { extractPdfResumeText, PdfResumeError, PDF_RESUME_MAX_BYTES } from "@/features/resume-matching/pdf";
 import { extractResumeClaims } from "@/features/resume-matching/claims";
+import { extractExperienceTimeline } from "@/features/resume-matching/experience";
 import { getCandidateResumeStore } from "@/features/shortlists/resume-store";
 
 export const runtime = "nodejs";
@@ -51,7 +52,8 @@ export async function POST(request: Request): Promise<Response> {
       ].slice(0, 30),
     });
     try {
-      if (!await getCandidateResumeStore().save(user.id, candidate.id, claims)) {
+      // Dated entries are saved beside the claims. They are the CV's own words and dates, and are never counted as claims.
+      if (!await getCandidateResumeStore().save(user.id, candidate.id, [...claims, ...extractExperienceTimeline(resumeText)])) {
         throw new Error("Candidate CV claim persistence failed.");
       }
     } catch (error) {

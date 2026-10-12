@@ -166,10 +166,19 @@ export interface ResumeVerification {
   extractionMethod: "ai" | "deterministic";
 }
 
+/** When a dated CV entry began and ended, as the CV writes it: "2021" or "2021-03". A null end means the CV says it is ongoing. */
+export interface ResumeExperiencePeriod {
+  start: string;
+  end: string | null;
+  kind: "work" | "education";
+}
+
 export interface ExtractedResumeClaim {
   claim: string;
   category: ResumeClaimVerification["category"];
   source: "Candidate Claim";
+  /** Present only on a dated entry of the CV's own timeline. */
+  period?: ResumeExperiencePeriod;
 }
 
 export interface JobRequirementMatch {

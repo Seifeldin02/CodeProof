@@ -6,6 +6,7 @@ import {
   type CandidateRoleReview,
   type RoleBrief,
 } from "@/features/shortlists/evaluate";
+import { statementsOf } from "@/features/resume-matching/experience";
 import type { ExtractedResumeClaim } from "@/types/analysis";
 
 /** How many roles, applicants per role, interviews and recent applicants the first screen shows. */
@@ -178,7 +179,7 @@ export function buildCommandCenter(input: CommandCenterInput): CommandCenter {
         statedRole: statedCvRole(claims),
         appliedAt: candidate.appliedAt,
         hasPublicCode: candidate.analyses.length > 0,
-        claimCount: claims.length,
+        claimCount: statementsOf(claims).length,
         closestRole: closest ? {
           roleId: closest.role.id,
           title: closest.role.title,
