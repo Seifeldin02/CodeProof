@@ -6,10 +6,22 @@ const scriptPolicy = process.env.NODE_ENV === "production"
 const framePolicy = process.env.REPL_ID
   ? "frame-ancestors 'self' https://replit.com https://*.replit.com"
   : "frame-ancestors 'self'";
+const pdfRuntimeAssets = [
+  "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+  "./node_modules/@napi-rs/canvas*/**/*",
+];
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["pdf-parse", "yauzl"],
+  // pdf-parse loads the PDF.js worker and native canvas bindings at runtime;
+  // Next's static trace misses them in serverless functions.
+  outputFileTracingIncludes: {
+    "/api/cv/discover": pdfRuntimeAssets,
+    "/api/analyze": pdfRuntimeAssets,
+    "/api/candidates/analyze": pdfRuntimeAssets,
+    "/api/candidates/intake-cv": pdfRuntimeAssets,
+  },
   async headers() {
     return [{
       source: "/:path*",

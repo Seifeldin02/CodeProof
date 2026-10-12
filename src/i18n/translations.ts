@@ -183,6 +183,7 @@ const ar: Record<string, string> = {
   "Add": "إضافة",
   "Job description": "الوصف الوظيفي",
   "When AI is enabled, CV text, the job brief, and selected public source excerpts are sent to the configured provider. The core evidence review still works without AI.": "عند تفعيل الذكاء الاصطناعي، يُرسل نص السيرة الذاتية ووصف الوظيفة ومقتطفات مختارة من المصدر العام إلى مزود الخدمة المضبوط. وتظل مراجعة الأدلة الأساسية متاحة دون ذكاء اصطناعي.",
+  "PDF extraction is temporarily unavailable. Paste CV text to continue.": "استخراج النص من ملف PDF غير متاح مؤقتاً. ألصق نص السيرة الذاتية للمتابعة.",
   "optional": "اختياري",
   "Paste requirements to include evidence matching…": "ألصق المتطلبات لتضمين مطابقة الأدلة…",
   "Back": "رجوع",

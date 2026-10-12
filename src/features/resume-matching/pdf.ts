@@ -1,7 +1,7 @@
 export const PDF_RESUME_MAX_BYTES = 5 * 1024 * 1024;
 const PDF_RESUME_MAX_TEXT_CHARACTERS = 50_000;
 
-export type PdfResumeErrorCode = "INVALID_PDF_TYPE" | "PDF_TOO_LARGE" | "MALFORMED_PDF" | "PDF_HAS_NO_TEXT";
+export type PdfResumeErrorCode = "INVALID_PDF_TYPE" | "PDF_TOO_LARGE" | "MALFORMED_PDF" | "PDF_HAS_NO_TEXT" | "PDF_PARSER_UNAVAILABLE";
 
 export class PdfResumeError extends Error {
   constructor(
@@ -29,15 +29,16 @@ export async function extractPdfResumeText(file: File): Promise<string> {
     throw new PdfResumeError("MALFORMED_PDF", "The uploaded file does not contain a valid PDF signature.", 400);
   }
 
-  const { PDFParse } = await import("pdf-parse");
-  const parser = new PDFParse({
-    data,
-    isEvalSupported: false,
-    stopAtErrors: true,
-    useWorkerFetch: false,
-    disableFontFace: true,
-  });
+  let parser: InstanceType<(typeof import("pdf-parse"))["PDFParse"]> | null = null;
   try {
+    const { PDFParse } = await import("pdf-parse");
+    parser = new PDFParse({
+      data,
+      isEvalSupported: false,
+      stopAtErrors: true,
+      useWorkerFetch: false,
+      disableFontFace: true,
+    });
     const result = await parser.getText();
     const text = result.text.replace(/\u0000/g, "").trim().slice(0, PDF_RESUME_MAX_TEXT_CHARACTERS);
     if (!text) {
@@ -50,8 +51,11 @@ export async function extractPdfResumeText(file: File): Promise<string> {
     return text;
   } catch (error) {
     if (error instanceof PdfResumeError) throw error;
+    if (error instanceof Error && /(?:module not found|cannot find (?:module|package)|fake worker|native binding|canvas)/i.test(error.message)) {
+      throw new PdfResumeError("PDF_PARSER_UNAVAILABLE", "PDF extraction is temporarily unavailable. Paste CV text to continue.", 503);
+    }
     throw new PdfResumeError("MALFORMED_PDF", "The PDF could not be parsed safely.", 400);
   } finally {
-    await parser.destroy().catch(() => undefined);
+    if (parser) await parser.destroy().catch(() => undefined);
   }
 }
