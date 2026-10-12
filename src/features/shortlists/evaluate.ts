@@ -1,19 +1,24 @@
 import type { CandidateDetail } from "@/features/candidates/types";
-import { extractJobRequirements } from "@/features/job-matching/match";
+import { readJobBrief, strongerImportance } from "@/features/job-matching/brief";
 import {
   canRollUpEvidence,
   getCapabilityTaxonomyVersion,
   getPinnedCapabilityTaxonomy,
   resolveCapabilityAliasInTaxonomy,
+  type CapabilityTaxonomyVersion,
 } from "@/features/repository-analysis/capability-taxonomy";
+import { statedWorkMonths } from "@/features/resume-matching/experience";
+import { canonicalSkill, skillsCoveredBy, skillsIn } from "@/features/resume-matching/skills";
 import type { EvidenceCitation } from "@/types/remediation";
 import type { ExtractedResumeClaim } from "@/types/analysis";
 
 export type RoleImportance = "required" | "preferred" | "context";
+export const IMPORTANCE_ORDER: Record<RoleImportance, number> = { required: 0, preferred: 1, context: 2 };
 
 export interface RoleCriterion {
   id: string;
-  capabilityId: string;
+  /** The capability CodeProof can look for in code. Null for a skill it can only compare with what a CV states. */
+  capabilityId: string | null;
   label: string;
   importance: RoleImportance;
 }
@@ -26,13 +31,18 @@ export interface RoleBrief {
   taxonomyVersion: string;
   criteria: RoleCriterion[];
   unassessedRequirements: string[];
+  /** The most years of experience the brief asks for, or null when it asks for none. */
+  minimumYears: number | null;
   createdAt: string;
 }
 
 export interface CriterionReview {
   criterion: RoleCriterion;
-  status: "cited_evidence" | "attribution_pending" | "not_observed";
+  /** What public code shows. "not_checkable" means no code check exists for this skill, so only the CV can speak to it. */
+  status: "cited_evidence" | "attribution_pending" | "not_observed" | "not_checkable";
   citations: Array<Pick<EvidenceCitation, "filePath" | "sourceLink" | "evidenceLevel" | "repositoryName">>;
+  /** The CV's own words that cover this criterion: "Django" for Python. Empty when the CV does not state it. */
+  statedAs: string[];
 }
 
 export interface CandidateRoleReview {
@@ -42,12 +52,15 @@ export interface CandidateRoleReview {
   isDemo: boolean;
   evidenceReviewedAt: string | null;
   criteria: CriterionReview[];
+  requiredCount: number;
   citedRequiredCount: number;
   citedCriterionCount: number;
   signaledRequiredCount: number;
   signaledCriterionCount: number;
   reportedCriteria: string[];
   reportedUnassessedRequirements: string[];
+  /** Whole months of dated work on the CV, or null when the CV dates none. Candidate-reported, and never part of the order. */
+  statedWorkMonths: number | null;
 }
 
 /** A CV claim can earn review attention without being misrepresented as verified code. */
@@ -58,58 +71,87 @@ export function compareCandidateRoleReviews(left: CandidateRoleReview, right: Ca
     || left.candidateName.localeCompare(right.candidateName);
 }
 
-/** Only exact, taxonomy-recognized technical requirements can be checked against code. */
-export function extractRoleCriteria(description: string): {
+/** The count shown for a candidate: against the required criteria when the brief marks any, otherwise against all of them. */
+export function reviewCoverage(review: CandidateRoleReview): { covered: number; total: number; scope: "required" | "all" } {
+  return review.requiredCount > 0
+    ? { covered: review.signaledRequiredCount, total: review.requiredCount, scope: "required" }
+    : { covered: review.signaledCriterionCount, total: review.criteria.length, scope: "all" };
+}
+
+/** Orders the roles one candidate could be looked at for: by the share of that count covered, then by the count itself. */
+export function compareRoleCoverage(left: CandidateRoleReview, right: CandidateRoleReview): number {
+  const share = (review: CandidateRoleReview): number => {
+    const { covered, total } = reviewCoverage(review);
+    return total > 0 ? covered / total : 0;
+  };
+  return share(right) - share(left) || reviewCoverage(right).covered - reviewCoverage(left).covered;
+}
+
+/**
+ * Every skill a brief names becomes a criterion. Where the taxonomy knows the skill it can also be checked against
+ * code; elsewhere it can only be compared with what a CV states, and says so.
+ */
+export function extractRoleCriteria(description: string, taxonomy: CapabilityTaxonomyVersion = getPinnedCapabilityTaxonomy()): {
   criteria: Array<Omit<RoleCriterion, "id">>;
   unassessedRequirements: string[];
+  minimumYears: number | null;
 } {
-  const taxonomy = getPinnedCapabilityTaxonomy();
-  const extracted = extractJobRequirements(description);
-  // A full stop ends a clause only before a space or the end of a line, so "Next.js" and "Node.js" stay whole.
-  const clauses = description.split(/[;!?\n]+|\.(?=\s|$)/).map((clause) => clause.trim()).filter(Boolean);
+  const brief = readJobBrief(description);
   const criteria = new Map<string, Omit<RoleCriterion, "id">>();
-  const unassessedRequirements: string[] = [];
-  for (const item of extracted) {
-    const node = item.category === "skill" ? resolveCapabilityAliasInTaxonomy(item.requirement, taxonomy) : null;
-    if (!node) {
-      if (item.category === "skill") unassessedRequirements.push(item.requirement);
-      else unassessedRequirements.push(...clauses.filter((clause) => /\b(\d+\+? years?|degree|leadership|mentor|communication)\b/i.test(clause)));
-      continue;
-    }
-    const clause = clauses.find((part) => part.toLowerCase().includes(item.requirement.toLowerCase())) ?? "";
-    const required = /\b(required|must|need|essential|mandatory)\b/i.test(clause);
-    const preferred = /\b(preferred|nice to have|bonus|ideally)\b/i.test(clause);
-    // A mixed clause needs recruiter interpretation; do not silently promote it to a must-have.
-    const detectedImportance: RoleImportance = required && preferred ? "context" : required ? "required" : preferred ? "preferred" : item.importance;
-    const previous = criteria.get(node.id);
-    const importance = previous?.importance === "required" || detectedImportance === "required"
-      ? "required" : previous?.importance === "preferred" || detectedImportance === "preferred" ? "preferred" : "context";
-    criteria.set(node.id, { capabilityId: node.id, label: node.labels.en, importance });
+  for (const skill of brief.skills) {
+    const node = resolveCapabilityAliasInTaxonomy(skill.name, taxonomy);
+    const key = node?.id ?? skill.name;
+    criteria.set(key, {
+      capabilityId: node?.id ?? null,
+      label: node?.labels.en ?? skill.name,
+      importance: strongerImportance(criteria.get(key)?.importance, skill.importance),
+    });
   }
-  return { criteria: [...criteria.values()], unassessedRequirements: [...new Set(unassessedRequirements)] };
+  return { criteria: [...criteria.values()], unassessedRequirements: brief.humanReview, minimumYears: brief.minimumYears };
 }
 
 const CONCLUSIVE_LEVELS = new Set(["strong", "good", "partial"]);
+
+type Claim = Pick<ExtractedResumeClaim, "claim" | "category">;
+
+/** A candidate's saved claims are read once, however many roles they are then compared with. */
+const namedSkills = new WeakMap<readonly Claim[], string[]>();
+function skillsNamedIn(claims: readonly Claim[]): string[] {
+  let names = namedSkills.get(claims);
+  if (!names) {
+    // A technology claim is a listed name already. Sentences and dated entries are read for the skills they name.
+    names = claims.flatMap((claim) => {
+      const listed = claim.category === "technology" ? canonicalSkill(claim.claim) : null;
+      return listed ? [listed] : skillsIn(claim.claim);
+    });
+    namedSkills.set(claims, names);
+  }
+  return names;
+}
 
 /** Review-order signals are about available evidence, never ability or hire/no-hire decisions. */
 export function evaluateCandidateForRole(
   candidate: CandidateDetail,
   role: RoleBrief,
   storedResumeClaims: ExtractedResumeClaim[] = [],
+  today: string = new Date().toISOString().slice(0, 10),
 ): CandidateRoleReview {
   const taxonomy = getCapabilityTaxonomyVersion(role.taxonomyVersion);
-  const claimNames = new Set([
-    ...storedResumeClaims.map((claim) => claim.claim),
-    ...candidate.analyses.flatMap((analysis) => analysis.result.resumeVerification?.claims.map((claim) => claim.claim) ?? []),
-  ]);
-  const reportedCapabilities = new Set([...claimNames].flatMap((claim) => {
-    const node = resolveCapabilityAliasInTaxonomy(claim, taxonomy);
-    return node ? [node.id] : [];
-  }));
+  const analysisClaims = candidate.analyses.map((analysis) => analysis.result.resumeVerification?.claims ?? []);
+  const claimNames = new Set([storedResumeClaims, ...analysisClaims].flatMap((claims) => claims.map((claim) => claim.claim)));
+  const stated = skillsCoveredBy(new Set([storedResumeClaims, ...analysisClaims].flatMap(skillsNamedIn)));
+  // The same statements, by the capability each one names.
+  const statedCapabilities = new Map<string, string[]>();
+  for (const [name, via] of [...stated, ...[...claimNames].map((claim) => [claim, [claim]] as const)]) {
+    const node = resolveCapabilityAliasInTaxonomy(name, taxonomy);
+    if (node && !statedCapabilities.has(node.id)) statedCapabilities.set(node.id, [...via]);
+  }
   const verifiedUrls = new Set(candidate.repositories
     .filter((repository) => repository.attributionStatus === "verified_contributor")
     .map((repository) => repository.repositoryUrl));
   const criteria = role.criteria.map((criterion): CriterionReview => {
+    const capabilityId = criterion.capabilityId;
+    if (!capabilityId) return { criterion, status: "not_checkable", citations: [], statedAs: stated.get(criterion.label) ?? [] };
     const cited: CriterionReview["citations"] = [];
     let attributionPending = false;
     const seen = new Set<string>();
@@ -117,7 +159,7 @@ export function evaluateCandidateForRole(
       const bundle = analysis.result.canonicalEvidence;
       if (!bundle) continue;
       const findingIds = new Set(bundle.findings
-        .filter((finding) => canRollUpEvidence(finding.capabilityId, criterion.capabilityId, bundle.taxonomyVersion))
+        .filter((finding) => canRollUpEvidence(finding.capabilityId, capabilityId, bundle.taxonomyVersion))
         .map((finding) => finding.id));
       for (const citation of bundle.citations) {
         if (!findingIds.has(citation.findingId) || citation.repositoryUrl !== analysis.repositoryUrl) continue;
@@ -136,8 +178,11 @@ export function evaluateCandidateForRole(
       criterion,
       status: cited.length > 0 ? "cited_evidence" : attributionPending ? "attribution_pending" : "not_observed",
       citations: cited.slice(0, 3),
+      statedAs: statedCapabilities.get(capabilityId) ?? [],
     };
   });
+  const signaled = criteria.filter((item) => item.status === "cited_evidence" || item.statedAs.length > 0);
+  const required = criteria.filter((item) => item.criterion.importance === "required");
   return {
     candidateId: candidate.id,
     candidateName: candidate.name,
@@ -145,13 +190,16 @@ export function evaluateCandidateForRole(
     isDemo: Boolean(candidate.isDemo),
     evidenceReviewedAt: candidate.evidenceReviewedAt ?? null,
     criteria,
-    citedRequiredCount: criteria.filter((item) => item.criterion.importance === "required" && item.status === "cited_evidence").length,
+    requiredCount: required.length,
+    citedRequiredCount: required.filter((item) => item.status === "cited_evidence").length,
     citedCriterionCount: criteria.filter((item) => item.status === "cited_evidence").length,
-    signaledRequiredCount: criteria.filter((item) => item.criterion.importance === "required"
-      && (item.status === "cited_evidence" || reportedCapabilities.has(item.criterion.capabilityId))).length,
-    signaledCriterionCount: criteria.filter((item) => item.status === "cited_evidence"
-      || reportedCapabilities.has(item.criterion.capabilityId)).length,
-    reportedCriteria: role.criteria.filter((criterion) => reportedCapabilities.has(criterion.capabilityId)).map((criterion) => criterion.label),
+    signaledRequiredCount: signaled.filter((item) => item.criterion.importance === "required").length,
+    signaledCriterionCount: signaled.length,
+    // What the role requires comes first, so a reader shown only the first few names sees the ones that matter most.
+    reportedCriteria: criteria.filter((item) => item.statedAs.length > 0)
+      .sort((left, right) => IMPORTANCE_ORDER[left.criterion.importance] - IMPORTANCE_ORDER[right.criterion.importance])
+      .map((item) => item.criterion.label),
     reportedUnassessedRequirements: role.unassessedRequirements.filter((requirement) => [...claimNames].some((claim) => claim.toLowerCase() === requirement.toLowerCase())),
+    statedWorkMonths: statedWorkMonths(storedResumeClaims, today),
   };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractExperienceTimeline, statementsOf, timelineOf } from "./experience";
+import { extractExperienceTimeline, statedWorkMonths, statementsOf, timelineOf } from "./experience";
 
 const entries = (text: string) => extractExperienceTimeline(text).map((entry) => [entry.claim, entry.period?.start, entry.period?.end, entry.period?.kind]);
 
@@ -56,8 +56,38 @@ describe("CV experience timeline", () => {
     expect(statementsOf(saved).map((entry) => entry.claim)).toEqual(["TypeScript"]);
   });
 
+  it("keeps a bracketed part of the title whole when the date beside it is removed", () => {
+    expect(entries("Example Telecom — Trainee (Co-op)      Jun 2018 – Aug 2018")).toEqual([["Example Telecom — Trainee (Co-op)", "2018-06", "2018-08", "work"]]);
+    expect(entries("Backend Engineer at Northwind (2018 – 2021)")).toEqual([["Backend Engineer at Northwind", "2018", "2021", "work"]]);
+  });
+
   it("keeps at most eight entries", () => {
     const text = Array.from({ length: 12 }, (_, index) => `Role ${index} ${2000 + index} - ${2001 + index}`).join("\n");
     expect(extractExperienceTimeline(text)).toHaveLength(8);
+  });
+});
+
+describe("dated work on a CV, added up", () => {
+  const months = (text: string) => statedWorkMonths(extractExperienceTimeline(text), "2026-10-12");
+
+  it("counts whole months, and a job still going on up to this month", () => {
+    expect(months("Engineer, Acme | Mar 2021 - Jun 2021")).toBe(4);
+    expect(months("Engineer, Acme | Jan 2026 - Present")).toBe(10);
+  });
+
+  it("reads two bare years as the years between them, and one bare year as part of that year", () => {
+    expect(months("Engineer, Acme 2018 - 2021")).toBe(36);
+    expect(months("Engineer, Acme 2020 - 2020")).toBe(6);
+  });
+
+  it("counts jobs that overlap once and leaves gaps out", () => {
+    expect(months("Engineer, Acme | Jan 2019 - Dec 2020\nConsultant, Contoso | Jul 2020 - Jun 2021")).toBe(30);
+    expect(months("Engineer, Acme | Jan 2019 - Dec 2019\nEngineer, Contoso | Jan 2021 - Dec 2021")).toBe(24);
+  });
+
+  it("does not count study as work, and says nothing when the CV dates no work", () => {
+    expect(months("B.Sc. Computer Science, Example University, 2012 - 2016")).toBeNull();
+    expect(months("TypeScript, React, Node.js")).toBeNull();
+    expect(statedWorkMonths([{ claim: "TypeScript", category: "technology", source: "Candidate Claim" }], "2026-10-12")).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 import { commandCenterArabic } from "@/features/command-center/translations";
 import { interviewArabic } from "@/features/interviews/translations";
+import { roleReviewArabic } from "@/features/shortlists/review-translations";
 import { shortlistArabic } from "@/features/shortlists/translations";
 export const LOCALES = ["en", "ar"] as const;
 export type Locale = (typeof LOCALES)[number];
@@ -12,6 +13,7 @@ const ar: Record<string, string> = {
   ...commandCenterArabic,
   ...interviewArabic,
   ...shortlistArabic,
+  ...roleReviewArabic,
   "Criteria": "المعايير",
   "Evaluation setup": "إعداد التقييم",
   "Company requirements": "متطلبات الشركة",

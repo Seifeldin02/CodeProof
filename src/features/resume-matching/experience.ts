@@ -23,12 +23,14 @@ function point(month: string | undefined, monthYear: string | undefined, digits:
 }
 
 function title(text: string): string {
-  return text
+  const trimmed = text
     .replace(/^[\s\-–—*•·|,;:()[\]]+|[\s\-–—*•·|,;:()[\]]+$/g, "")
     .replace(/\s{2,}/g, " ")
     .replace(/\s+([,;])/g, "$1")
     .slice(0, MAX_TITLE)
     .trim();
+  // Trimming the brackets a date sat in must not cut the end off "Trainee (Co-op)".
+  return (trimmed.match(/\(/g) ?? []).length > (trimmed.match(/\)/g) ?? []).length ? `${trimmed})` : trimmed;
 }
 
 const hasLetters = (text: string): boolean => (text.match(/\p{L}/gu) ?? []).length >= 3;
@@ -79,4 +81,32 @@ export function timelineOf(claims: ExtractedResumeClaim[]): Array<ExtractedResum
 /** The saved CV claims that are statements, not dated entries. */
 export function statementsOf(claims: ExtractedResumeClaim[]): ExtractedResumeClaim[] {
   return claims.filter((claim) => !claim.period);
+}
+
+/** Months since year 0, so that two points can be subtracted. A year on its own counts from its January. */
+function monthNumber(value: string): number {
+  const [year, month] = value.split("-").map(Number);
+  return year * 12 + (month ?? 1) - 1;
+}
+
+/**
+ * Whole months of dated work on a CV, with jobs that overlap counted once. Null when the CV dates no work at all,
+ * which says nothing about the candidate: plenty of CVs give no dates.
+ */
+export function statedWorkMonths(claims: ExtractedResumeClaim[], today: string): number | null {
+  const now = monthNumber(today.slice(0, 7)) + 1;
+  const spans = timelineOf(claims).filter((entry) => entry.period.kind === "work").map(({ period }) => {
+    const start = monthNumber(period.start);
+    // A month is counted in full. Two bare years in the same year say only "part of that year", taken as half of it.
+    const end = period.end === null ? now : period.end.includes("-") ? monthNumber(period.end) + 1 : Math.max(monthNumber(period.end), start + 6);
+    return { start, end: Math.min(end, now) };
+  }).filter((span) => span.end > span.start).sort((left, right) => left.start - right.start);
+  if (spans.length === 0) return null;
+  let months = 0;
+  let coveredUntil = spans[0].start;
+  for (const span of spans) {
+    months += Math.max(0, span.end - Math.max(span.start, coveredUntil));
+    coveredUntil = Math.max(coveredUntil, span.end);
+  }
+  return months;
 }

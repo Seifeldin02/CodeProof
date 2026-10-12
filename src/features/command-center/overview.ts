@@ -2,10 +2,14 @@ import type { CandidateDetail } from "@/features/candidates/types";
 import { interviewActionState, type InterviewDecision, type InterviewSession } from "@/features/interviews/contracts";
 import {
   compareCandidateRoleReviews,
+  compareRoleCoverage,
   evaluateCandidateForRole,
+  IMPORTANCE_ORDER,
+  reviewCoverage,
   type CandidateRoleReview,
   type RoleBrief,
 } from "@/features/shortlists/evaluate";
+import { statedRoleOf } from "@/features/resume-matching/claims";
 import { statementsOf } from "@/features/resume-matching/experience";
 import type { ExtractedResumeClaim } from "@/types/analysis";
 
@@ -15,14 +19,17 @@ const MAX_LEADS = 3;
 const MAX_ATTENTION = 6;
 const MAX_APPLICANTS = 6;
 
+/** Against the criteria the brief marks required, or against all of them when it marks none. */
+export type Coverage = ReturnType<typeof reviewCoverage>;
+
 /** One applicant in a role's review order, with where each signal comes from. */
 export interface RoleLead {
   candidateId: string;
   candidateName: string;
-  /** Required criteria with a CV claim or a verified citation. */
-  signaledRequired: number;
-  /** Required criteria backed by code whose authorship is verified. */
-  citedRequired: number;
+  /** Criteria with a CV claim or a verified citation, counted the way the role review counts them. */
+  coverage: Coverage;
+  /** Criteria in that count backed by code whose authorship is verified. */
+  cited: number;
   /** Some relevant code was read, but nobody has checked who wrote it. */
   attributionPending: boolean;
   /** Criteria the CV mentions. Candidate-reported, not verified. */
@@ -32,10 +39,9 @@ export interface RoleLead {
 export interface RoleBoard {
   roleId: string;
   title: string;
-  /** Labels of the criteria the product can check, required ones first. */
+  /** Labels of the criteria the brief names, required ones first. */
   criteria: string[];
-  requiredTotal: number;
-  /** Job-brief requirements left to a person because code cannot show them. */
+  /** Job-brief requirements left to a person: years, degrees, ways of working. */
   needsHumanReview: number;
   poolSize: number;
   /** Applicants with at least one signal for this role, in review order. */
@@ -64,7 +70,7 @@ export interface ApplicantRow {
   hasPublicCode: boolean;
   claimCount: number;
   /** The saved role this applicant's CV claims and verified code cover best. A lead to explore, not a verdict. */
-  closestRole: { roleId: string; title: string; signaledRequired: number; requiredTotal: number } | null;
+  closestRole: { roleId: string; title: string; coverage: Coverage } | null;
 }
 
 export interface CommandCenter {
@@ -91,21 +97,13 @@ export interface CommandCenterInput {
   today: string;
 }
 
-/** The role a CV states in its own headline. The same reading the candidate dossier uses. */
-export function statedCvRole(claims: ExtractedResumeClaim[]): string | null {
-  return claims.find((claim) => claim.category === "role" && / Engineer$/.test(claim.claim))?.claim ?? null;
-}
-
-function requiredTotal(role: RoleBrief): number {
-  return role.criteria.filter((criterion) => criterion.importance === "required").length;
-}
-
 function lead(review: CandidateRoleReview): RoleLead {
+  const coverage = reviewCoverage(review);
   return {
     candidateId: review.candidateId,
     candidateName: review.candidateName,
-    signaledRequired: review.signaledRequiredCount,
-    citedRequired: review.citedRequiredCount,
+    coverage,
+    cited: coverage.scope === "required" ? review.citedRequiredCount : review.citedCriterionCount,
     attributionPending: review.criteria.some((item) => item.status === "attribution_pending"),
     reported: review.reportedCriteria.slice(0, 4),
   };
@@ -130,12 +128,11 @@ export function buildCommandCenter(input: CommandCenterInput): CommandCenter {
 
   const boards = input.roles.slice(0, MAX_BOARDS).map((role): RoleBoard => {
     const reviews = reviewsByRole.get(role.id) ?? [];
-    const ordered = [...role.criteria].sort((left, right) => Number(right.importance === "required") - Number(left.importance === "required"));
+    const ordered = [...role.criteria].sort((left, right) => IMPORTANCE_ORDER[left.importance] - IMPORTANCE_ORDER[right.importance]);
     return {
       roleId: role.id,
       title: role.title,
       criteria: ordered.map((criterion) => criterion.label),
-      requiredTotal: requiredTotal(role),
       needsHumanReview: role.unassessedRequirements.length,
       poolSize: reviews.length,
       leads: reviews.filter((review) => review.signaledCriterionCount > 0).slice(0, MAX_LEADS).map(lead),
@@ -168,24 +165,17 @@ export function buildCommandCenter(input: CommandCenterInput): CommandCenter {
       const claims = claimsFor(candidate);
       const closest = input.roles
         .map((role) => ({ role, review: (reviewsByRole.get(role.id) ?? []).find((review) => review.candidateId === candidate.id) }))
-        .filter((item): item is { role: RoleBrief; review: CandidateRoleReview } => Boolean(item.review && item.review.signaledRequiredCount > 0))
-        .sort((left, right) => right.review.signaledRequiredCount - left.review.signaledRequiredCount
-          || right.review.signaledCriterionCount - left.review.signaledCriterionCount
-          || left.role.title.localeCompare(right.role.title))[0];
+        .filter((item): item is { role: RoleBrief; review: CandidateRoleReview } => Boolean(item.review && reviewCoverage(item.review).covered > 0))
+        .sort((left, right) => compareRoleCoverage(left.review, right.review) || left.role.title.localeCompare(right.role.title))[0];
       return {
         id: candidate.id,
         name: candidate.name,
         role: candidate.role,
-        statedRole: statedCvRole(claims),
+        statedRole: statedRoleOf(claims),
         appliedAt: candidate.appliedAt,
         hasPublicCode: candidate.analyses.length > 0,
         claimCount: statementsOf(claims).length,
-        closestRole: closest ? {
-          roleId: closest.role.id,
-          title: closest.role.title,
-          signaledRequired: closest.review.signaledRequiredCount,
-          requiredTotal: requiredTotal(closest.role),
-        } : null,
+        closestRole: closest ? { roleId: closest.role.id, title: closest.role.title, coverage: reviewCoverage(closest.review) } : null,
       };
     });
 

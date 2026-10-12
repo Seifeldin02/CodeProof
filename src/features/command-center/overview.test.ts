@@ -3,7 +3,8 @@ import type { CandidateDetail } from "@/features/candidates/types";
 import type { InterviewSession } from "@/features/interviews/contracts";
 import type { RoleBrief } from "@/features/shortlists/evaluate";
 import type { AnalysisResult, ExtractedResumeClaim } from "@/types/analysis";
-import { buildCommandCenter, statedCvRole } from "./overview";
+import { statedRoleOf } from "@/features/resume-matching/claims";
+import { buildCommandCenter } from "./overview";
 
 const repositoryUrl = "https://github.com/example/app";
 
@@ -15,7 +16,7 @@ const role: RoleBrief = {
     { id: "c-typescript", capabilityId: "language.typescript", label: "TypeScript", importance: "required" },
     { id: "c-react", capabilityId: "web.framework.react", label: "React", importance: "required" },
   ],
-  unassessedRequirements: ["5 years of experience"], createdAt: "2026-10-12T00:00:00.000Z",
+  unassessedRequirements: ["5 years of experience"], minimumYears: 5, createdAt: "2026-10-12T00:00:00.000Z",
 };
 
 function claims(...names: string[]): ExtractedResumeClaim[] {
@@ -54,9 +55,9 @@ function session(id: string, candidateName: string, overrides: { status?: "draft
 
 describe("recruiter command center", () => {
   it("reads the role a CV states in its headline and nothing else as a stated role", () => {
-    expect(statedCvRole(claims("TypeScript", "Backend Engineer"))).toBe("Backend Engineer");
-    expect(statedCvRole(claims("TypeScript"))).toBeNull();
-    expect(statedCvRole([{ claim: "Led a team of four", category: "role", source: "Candidate Claim" }])).toBeNull();
+    expect(statedRoleOf(claims("TypeScript", "Backend Engineer"))).toBe("Backend Engineer");
+    expect(statedRoleOf(claims("TypeScript"))).toBeNull();
+    expect(statedRoleOf([{ claim: "Led a team of four", category: "role", source: "Candidate Claim" }])).toBeNull();
   });
 
   it("puts applicants in review order for each role and says where each signal comes from", () => {
@@ -72,19 +73,19 @@ describe("recruiter command center", () => {
     const overview = buildCommandCenter({ candidates, roles: [role], resumeClaims, sessions: [], today: "2026-10-12" });
     const board = overview.boards[0];
 
-    expect(board).toMatchObject({ title: "Full-stack engineer", requiredTotal: 2, needsHumanReview: 1, poolSize: 3 });
+    expect(board).toMatchObject({ title: "Full-stack engineer", needsHumanReview: 1, poolSize: 3 });
     expect(board.criteria).toEqual(["TypeScript", "React", "PostgreSQL"]);
     expect(board.leads.map((lead) => lead.candidateName)).toEqual(["Ada", "Badr"]);
-    expect(board.leads[0]).toMatchObject({ signaledRequired: 2, citedRequired: 0, attributionPending: false, reported: ["PostgreSQL", "TypeScript", "React"] });
+    expect(board.leads[0]).toMatchObject({ coverage: { covered: 2, total: 2, scope: "required" }, cited: 0, attributionPending: false, reported: ["TypeScript", "React", "PostgreSQL"] });
     // Code that was read but not attributed is flagged, and is never counted as verified.
-    expect(board.leads[1]).toMatchObject({ signaledRequired: 1, citedRequired: 0, attributionPending: true });
+    expect(board.leads[1]).toMatchObject({ coverage: { covered: 1, total: 2, scope: "required" }, cited: 0, attributionPending: true });
   });
 
   it("counts verified code separately from CV claims", () => {
     const overview = buildCommandCenter({
       candidates: [applicant("v", "Vera", "2026-10-12", { code: "verified" })], roles: [role], resumeClaims: new Map(), sessions: [], today: "2026-10-12",
     });
-    expect(overview.boards[0].leads[0]).toMatchObject({ signaledRequired: 1, citedRequired: 1, attributionPending: false, reported: [] });
+    expect(overview.boards[0].leads[0]).toMatchObject({ coverage: { covered: 1, total: 2, scope: "required" }, cited: 1, attributionPending: false, reported: [] });
   });
 
   it("leaves an applicant with no signal for a role out of its leads, without marking them down", () => {
@@ -124,7 +125,7 @@ describe("recruiter command center", () => {
     });
     expect(overview.applicants[0]).toMatchObject({
       statedRole: "Backend Engineer", claimCount: 3,
-      closestRole: { roleId: "role-1", title: "Full-stack engineer", signaledRequired: 2, requiredTotal: 2 },
+      closestRole: { roleId: "role-1", title: "Full-stack engineer", coverage: { covered: 2, total: 2, scope: "required" } },
     });
   });
 

@@ -1,6 +1,7 @@
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import type { Locale, TranslationValues } from "@/i18n/translations";
+import { yearsOfWork } from "@/components/shortlists/coverage";
 import type { ExtractedResumeClaim, ResumeExperiencePeriod } from "@/types/analysis";
 
 type Translate = (key: string, values?: TranslationValues) => string;
@@ -14,7 +15,8 @@ function formatPoint(locale: Locale, value: string): string {
 }
 
 /** The dated entries of a CV in the order the CV implies, newest first. Candidate-reported throughout. */
-export default function ExperienceTimeline({ t, locale, entries }: { t: Translate; locale: Locale; entries: Entry[] }) {
+export default function ExperienceTimeline({ t, locale, entries, workMonths }: { t: Translate; locale: Locale; entries: Entry[]; workMonths: number | null }) {
+  const years = workMonths === null ? null : yearsOfWork(workMonths);
   return (
     <Card title={t("Experience stated on the CV")} subtitle={t("Dates and titles as the CV gives them. Candidate-reported, not verified.")}>
       <ol className="relative space-y-4 border-s border-slate-200 ps-5">
@@ -29,6 +31,12 @@ export default function ExperienceTimeline({ t, locale, entries }: { t: Translat
           </li>
         ))}
       </ol>
+      {workMonths !== null && (
+        <p className="mt-4 border-t border-slate-100 pt-3 text-xs leading-5 text-slate-600">
+          <span className="font-semibold text-slate-700">{years === null ? t("Years of dated work on the CV: under 1") : t("Years of dated work on the CV: {years}", { years })}</span>
+          {" · "}{t("Overlapping jobs are counted once. Work the CV does not date is not counted.")}
+        </p>
+      )}
     </Card>
   );
 }

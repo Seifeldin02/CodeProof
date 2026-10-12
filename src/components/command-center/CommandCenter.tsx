@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
+import { coverageText } from "@/components/shortlists/coverage";
 import type { ApplicantRow, AttentionItem, CommandCenter, RoleBoard } from "@/features/command-center/overview";
 import { formatDateForLocale, type Locale, type TranslationValues } from "@/i18n/translations";
 
@@ -79,6 +80,7 @@ function RoleBoardCard({ t, board, wide }: { t: Translate; board: RoleBoard; wid
       {board.criteria.length > 0 && (
         <ul className="mt-3 flex flex-wrap gap-1.5" aria-label={t("Role criteria")}>
           {board.criteria.slice(0, 6).map((label) => <li key={label} dir="ltr" className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-medium text-brand-800">{label}</li>)}
+          {board.criteria.length > 6 && <li dir="ltr" className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">+{board.criteria.length - 6}</li>}
         </ul>
       )}
       {board.needsHumanReview > 0 && <p className="mt-2 text-[11px] text-amber-800">{t("Requirements left to a person: {count}", { count: board.needsHumanReview })}</p>}
@@ -90,13 +92,9 @@ function RoleBoardCard({ t, board, wide }: { t: Translate; board: RoleBoard; wid
               <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-slate-950 font-mono text-[11px] font-semibold text-lime-300">{index + 1}</span>
               <div className="min-w-0 flex-1">
                 <Link href={`/candidates/${lead.candidateId}`} className="break-words text-sm font-semibold text-slate-900 hover:text-brand-700 hover:underline">{lead.candidateName}</Link>
-                <p className="mt-0.5 text-xs leading-5 text-slate-600">
-                  {board.requiredTotal > 0
-                    ? t("{count} of {total} required criteria have a CV claim or verified citation", { count: lead.signaledRequired, total: board.requiredTotal })
-                    : t("No recognized required technical criteria; review the brief manually.")}
-                </p>
+                <p className="mt-0.5 text-xs leading-5 text-slate-600">{coverageText(t, lead.coverage)}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {lead.citedRequired > 0 && <Badge tone="positive">{t("Verified code: {count}", { count: lead.citedRequired })}</Badge>}
+                  {lead.cited > 0 && <Badge tone="positive">{t("Verified code: {count}", { count: lead.cited })}</Badge>}
                   {lead.attributionPending && <Badge tone="warning">{t("Repository attribution pending")}</Badge>}
                   {lead.reported.length > 0 && <Badge tone="neutral">{t("CV claims")}</Badge>}
                   {lead.reported.length > 0 && <span dir="ltr" className="break-words text-start text-[11px] text-slate-500">{lead.reported.join(" · ")}</span>}
@@ -171,7 +169,7 @@ export function ApplicantList({ t, locale, applicants }: { t: Translate; locale:
                 <>
                   <span className="font-semibold text-slate-700">{t("Closest saved role")}:</span>{" "}
                   <Link href={`/shortlists?role=${encodeURIComponent(applicant.closestRole.roleId)}`} className="font-semibold text-brand-700 hover:underline">{applicant.closestRole.title}</Link>
-                  {applicant.closestRole.requiredTotal > 0 && <span> · {t("{count} of {total} required criteria have a CV claim or verified citation", { count: applicant.closestRole.signaledRequired, total: applicant.closestRole.requiredTotal })}</span>}
+                  <span> · {coverageText(t, applicant.closestRole.coverage)}</span>
                 </>
               ) : t("No saved role matches their CV yet")}
             </p>

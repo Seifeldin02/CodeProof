@@ -6,7 +6,8 @@ import { getCandidateStore } from "@/features/candidates/store";
 import { getPostgresPool } from "@/features/persistence/postgres";
 import { ensurePostgreSQLRemediationSchema } from "@/features/persistence/postgres-migrations";
 import { ensureRemediationSchema } from "@/features/persistence/sqlite-migrations";
-import { getCapabilityNode, getPinnedCapabilityTaxonomy } from "@/features/repository-analysis/capability-taxonomy";
+import { getCapabilityNode, getCapabilityTaxonomyVersion, getPinnedCapabilityTaxonomy } from "@/features/repository-analysis/capability-taxonomy";
+import { canonicalSkill } from "@/features/resume-matching/skills";
 import { RequisitionCriterionSchema, type RequisitionCriterion } from "@/types/remediation";
 import { extractRoleCriteria, type RoleBrief } from "./evaluate";
 
@@ -37,26 +38,40 @@ function mapRole(row: RoleRow): RoleBrief {
   if (!Array.isArray(unassessed) || !unassessed.every((item) => typeof item === "string")) {
     throw new Error("Invalid saved role requirements.");
   }
+  // The saved snapshot holds the criteria that can be checked against code. The brief itself is read again each time,
+  // so one reading decides the order and the firmness of every criterion, and a role saved before a skill was listed
+  // gains that skill without having to be saved again.
+  const read = extractRoleCriteria(row.job_description, getCapabilityTaxonomyVersion(row.taxonomy_version));
+  const saved = new Map(criteria.map((criterion) => [criterion.capabilityId, criterion.id]));
+  const named = new Set(read.criteria.map((criterion) => criterion.capabilityId));
   return {
     id: row.id,
     versionId: row.version_id,
     title: row.title,
     description: row.job_description,
     taxonomyVersion: row.taxonomy_version,
-    criteria: criteria.map((criterion) => ({
-      ...criterion,
-      label: getCapabilityNode(criterion.capabilityId, row.taxonomy_version)?.labels.en ?? criterion.capabilityId,
-    })),
-    unassessedRequirements: unassessed,
+    criteria: [
+      ...read.criteria.map((criterion) => ({
+        ...criterion,
+        id: criterion.capabilityId ? saved.get(criterion.capabilityId) ?? `capability:${criterion.capabilityId}` : `skill:${criterion.label.toLowerCase()}`,
+      })),
+      ...criteria.filter((criterion) => !named.has(criterion.capabilityId)).map((criterion) => ({
+        ...criterion,
+        label: getCapabilityNode(criterion.capabilityId, row.taxonomy_version)?.labels.en ?? criterion.capabilityId,
+      })),
+    ],
+    // Roles saved earlier listed every skill without a code check here. Those are criteria now.
+    unassessedRequirements: unassessed.filter((item) => !canonicalSkill(item)),
+    minimumYears: read.minimumYears,
     createdAt: new Date(row.created_at).toISOString(),
   };
 }
 
 function newRole(title: string, description: string) {
   const extracted = extractRoleCriteria(description);
-  const criteria: RequisitionCriterion[] = extracted.criteria.map((criterion) => ({
+  const criteria: RequisitionCriterion[] = extracted.criteria.flatMap((criterion) => criterion.capabilityId ? [{
     id: randomUUID(), capabilityId: criterion.capabilityId, importance: criterion.importance,
-  }));
+  }] : []);
   const id = randomUUID();
   const versionId = randomUUID();
   const now = new Date().toISOString();

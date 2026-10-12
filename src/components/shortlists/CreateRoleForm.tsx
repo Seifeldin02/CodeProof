@@ -55,7 +55,7 @@ export default function CreateRoleForm() {
           className="mt-2 w-full resize-y rounded-xl border border-slate-300 px-3 py-3 text-sm text-slate-900 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-100" />
       </div>
     </div>
-    <p className="mt-3 text-xs leading-5 text-slate-500">{t("CodeProof checks only recognized technical criteria against verified repository citations. Other job requirements remain visible for human review.")}</p>
+    <p className="mt-3 text-xs leading-5 text-slate-500">{t("Every skill the brief names is compared with what each CV states, and with verified code where CodeProof has a code check. Headings such as “Requirements” and “Nice to have” are understood. Years, degrees and other requirements stay visible for you to assess.")}</p>
     {error && <p role="alert" className="mt-3 text-sm text-rose-700">{error}</p>}
     <button type="submit" disabled={saving} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
       {t(saving ? "Saving role..." : "Save role and review candidates")}
