@@ -171,7 +171,7 @@ test("optional live GitHub analysis enriches the same CV-first candidate", async
   await page.goto(`/candidates/${candidateId}`);
   await expect(page.getByRole("combobox", { name: "Public GitHub repository URL" })).toHaveValue("https://github.com/sindresorhus/is");
   await page.getByRole("button", { name: "Analyze public code" }).click();
-  await expect(page.getByRole("status")).toContainText("Public repository reviewed", { timeout: 120_000 });
+  await expect(page.getByRole("status").filter({ hasText: "Public repository reviewed" })).toBeVisible({ timeout: 120_000 });
   const enriched = await context.request.get(`/api/candidates/${candidateId}`);
   expect(enriched.status()).toBe(200);
   const dossier = await enriched.json() as { id: string; analyses: unknown[]; repositories: Array<{ attributionStatus: string }> };

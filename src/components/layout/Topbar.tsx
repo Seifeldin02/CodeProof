@@ -33,7 +33,7 @@ export default function Topbar({ user }: { user: AuthUser }) {
         <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{t("CodeProof workspace")}</p><p className="mt-1 text-sm font-semibold text-slate-900">{t(current?.label ?? "Recruiter workspace")}</p></div>
       </div>
       <div className="flex items-center gap-3">
-        <span className="hidden sm:inline-flex"><Badge tone="positive">{t("Free deterministic engine")}</Badge></span>
+        <span className="hidden sm:inline-flex"><Badge tone="positive">{t("Evidence-first analysis")}</Badge></span>
         <LanguageToggle />
         <button type="button" onClick={logout} disabled={loggingOut} aria-label={t("Sign out")} className="group flex min-h-11 items-center gap-2 rounded-xl px-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" title={t("Sign out")}>
           <span className="hidden max-w-40 truncate text-xs text-slate-500 xl:block" dir="ltr">{user.email}</span>

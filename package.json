@@ -25,7 +25,7 @@
     "verify:release": "npm run verify:ci && npm audit --audit-level=high"
   },
   "dependencies": {
-    "next": "16.3.6",
+    "next": "16.3.8",
     "openai": "6.48.0",
     "pdf-parse": "^2.4.5",
     "pg": "^8.22.0",
@@ -43,7 +43,7 @@
     "@types/yauzl": "^3.4.0",
     "autoprefixer": "^10.5.4",
     "eslint": "^9.0.0",
-    "eslint-config-next": "16.3.6",
+    "eslint-config-next": "16.3.8",
     "tailwindcss": "^3.4.19",
     "typescript": "^5.9.0",
     "vitest": "4.1.11"
