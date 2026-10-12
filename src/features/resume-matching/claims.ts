@@ -5,30 +5,40 @@ import type {
   SkillEvidence,
   TechnologySignal,
 } from "@/types/analysis";
+import { skillsIn } from "./skills";
 
-const KNOWN_CLAIMS = [
-  "JavaScript", "TypeScript", "React", "Next.js", "Vue", "Nuxt", "Angular", "Svelte", "Node.js", "Express",
-  "Fastify", "NestJS", "Python", "Django", "FastAPI", "PHP", "Laravel", "Java", "Spring", "Kotlin", "Go",
-  "Rust", "C#", ".NET", "Ruby", "PostgreSQL", "MySQL", "MongoDB", "Redis", "Prisma", "SQLAlchemy",
-  "Docker", "Kubernetes", "Terraform", "AWS", "Azure", "Google Cloud", "GitHub Actions", "CI/CD", "Jest",
-  "Vitest", "Cypress", "Playwright", "Redux", "Zustand", "GraphQL", "REST", "Microservices",
-] as const;
+/** Technology claims use the skill list shared with job-brief reading, so both sides spell a skill the same way. */
+const MAX_SKILL_CLAIMS = 40;
+const MAX_CLAIMS = 60;
+
+/** "Senior Backend Developer | Riyadh" and "Backend Engineer at Example" both state the role of a backend engineer. */
+function headline(title: string): RegExp {
+  return new RegExp(`^(?:(?:senior|junior|lead|principal|staff|associate|mid[- ]level|sr\\.?|jr\\.?)\\s+)?(?:${title})(?:\\s*(?:--|[—–|,(@-]|\\bat\\b).*)?$`, "i");
+}
 
 const CV_ROLE_HEADLINES = [
-  ["Frontend Engineer", /^(?:front[- ]?end (?:engineer|developer))(?:\s*(?:--|—|\|).*)?$/i],
-  ["Backend Engineer", /^(?:back[- ]?end (?:engineer|developer))(?:\s*(?:--|—|\|).*)?$/i],
-  ["Full-Stack Engineer", /^(?:full[- ]?stack (?:engineer|developer))(?:\s*(?:--|—|\|).*)?$/i],
-  ["Data Engineer", /^(?:data engineer)(?:\s*(?:--|—|\|).*)?$/i],
-  ["DevOps Engineer", /^(?:devops engineer|site reliability engineer)(?:\s*(?:--|—|\|).*)?$/i],
+  ["Frontend Engineer", headline("front[- ]?end (?:engineer|developer)")],
+  ["Backend Engineer", headline("back[- ]?end (?:engineer|developer)")],
+  ["Full-Stack Engineer", headline("full[- ]?stack (?:engineer|developer)")],
+  ["Data Engineer", headline("data engineer")],
+  ["DevOps Engineer", headline("devops engineer|site reliability engineer|cloud engineer")],
+  ["Mobile Engineer", headline("(?:mobile|android|ios|flutter|react native) (?:engineer|developer)")],
+  ["QA Engineer", headline("(?:qa|test|test automation|quality assurance) engineer|sdet")],
+  ["Machine Learning Engineer", headline("(?:machine learning|ml|ai) engineer")],
+  ["Data Scientist", headline("data scientist")],
+  ["Data Analyst", headline("(?:data|business intelligence|bi) analyst")],
+  ["Software Engineer", headline("software (?:engineer|developer)|web developer|programmer")],
 ] as const;
 
-function mentions(text: string, claim: string): boolean {
-  const escaped = claim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(text);
+const CV_ROLE_TITLES: ReadonlySet<string> = new Set(CV_ROLE_HEADLINES.map(([role]) => role));
+
+/** The role a CV's headline states, in the candidate's favour or not. A lead to explore, never a verdict on fit. */
+export function statedRoleOf(claims: ExtractedResumeClaim[]): string | null {
+  return claims.find((claim) => claim.category === "role" && CV_ROLE_TITLES.has(claim.claim))?.claim ?? null;
 }
 
 export function extractResumeClaims(text: string): ExtractedResumeClaim[] {
-  const claims: ExtractedResumeClaim[] = KNOWN_CLAIMS.filter((claim) => mentions(text, claim)).map((claim) => ({
+  const claims: ExtractedResumeClaim[] = skillsIn(text).slice(0, MAX_SKILL_CLAIMS).map((claim) => ({
     claim,
     category: "technology" as const,
     source: "Candidate Claim" as const,
@@ -52,7 +62,7 @@ export function extractResumeClaims(text: string): ExtractedResumeClaim[] {
       });
     }
   }
-  return claims.filter((item, index, all) => all.findIndex((candidate) => candidate.claim.toLowerCase() === item.claim.toLowerCase()) === index).slice(0, 30);
+  return claims.filter((item, index, all) => all.findIndex((candidate) => candidate.claim.toLowerCase() === item.claim.toLowerCase()) === index).slice(0, MAX_CLAIMS);
 }
 
 export function verifyResumeClaims(
