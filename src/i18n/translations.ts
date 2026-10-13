@@ -296,6 +296,8 @@ const ar: Record<string, string> = {
   "A focused repository view for architecture review, exact evidence inspection, and interview preparation.": "عرض مركز للمستودع لمراجعة البنية وفحص الأدلة الدقيقة والتحضير للمقابلة.",
   "Deterministic evidence": "أدلة حتمية",
   "File-grounded evidence": "أدلة مستندة إلى ملفات المصدر",
+  "Cached analysis: no new AI request for this run.": "تحليل محفوظ: لم يُرسل طلب جديد إلى الذكاء الاصطناعي في هذه العملية.",
+  "Provider-reported usage: {calls} calls, {input} input tokens, {output} output tokens (including reasoning).": "الاستخدام المبلّغ عنه من المزوّد: {calls} طلبات، {input} رمز إدخال، {output} رمز إخراج (بما فيها الاستدلال).",
   "AI-assisted": "بمساعدة الذكاء الاصطناعي",
   "Engine {version}": "المحرك {version}",
   "Open public repository": "افتح المستودع العام",

@@ -8,6 +8,7 @@ import {
   resumeExtractionSchema,
   type AiProvider,
 } from "@/services/ai";
+import type { AiTokenUsage } from "@/services/ai/provider";
 import { GitHubClient, type IngestedRepository } from "@/services/github";
 import { logger } from "@/services/observability/logger";
 import type {
@@ -83,6 +84,8 @@ export async function analyzeRepository(
   const aiProvider = options.aiProvider === undefined ? configuredAiProvider() : options.aiProvider;
   const cacheStore = options.cache === false ? null : options.cacheStore ?? getDefaultCacheStore();
   const warnings: AnalysisWarning[] = [];
+  const aiUsage: AiTokenUsage[] = [];
+  const onUsage = (usage: AiTokenUsage) => aiUsage.push(usage);
   logger.info("analysis_started", { analysisId, engineVersion: ANALYSIS_ENGINE_VERSION, aiConfigured: Boolean(aiProvider) });
 
   onStage("fetching_repository");
@@ -105,6 +108,7 @@ export async function analyzeRepository(
             durationMs,
             cacheHit: true,
             cacheStorage: cacheStore.storage,
+            aiUsage: [],
           },
         };
       }
@@ -166,7 +170,7 @@ export async function analyzeRepository(
         projectType,
         technologies,
         files: repository.files,
-      });
+      }, onUsage);
       onStage("verifying_evidence");
       const grounded = groundAiOutput(rawAiOutput, repository.files);
       if (grounded.architectureGrounded) architecture = grounded.output.architecture;
@@ -219,7 +223,7 @@ export async function analyzeRepository(
     try {
       logger.info("ai_resume_extraction_started", { analysisId, textLength: input.resumeText.length });
       extractedResumeClaims = resumeExtractionSchema.parse({
-        claims: await aiProvider.extractResumeClaims(input.resumeText),
+        claims: await aiProvider.extractResumeClaims(input.resumeText, onUsage),
       }).claims;
       logger.info("ai_resume_extraction_completed", { analysisId, claimCount: extractedResumeClaims.length });
     } catch (error) {
@@ -236,7 +240,7 @@ export async function analyzeRepository(
     try {
       logger.info("ai_job_extraction_started", { analysisId, textLength: input.jobDescription.length });
       extractedJobRequirements = jobExtractionSchema.parse({
-        requirements: await aiProvider.extractJobRequirements(input.jobDescription),
+        requirements: await aiProvider.extractJobRequirements(input.jobDescription, onUsage),
       }).requirements;
       logger.info("ai_job_extraction_completed", { analysisId, requirementCount: extractedJobRequirements.length });
     } catch (error) {
@@ -285,6 +289,7 @@ export async function analyzeRepository(
       aiModel: aiProvider?.model ?? null,
       aiStatus,
       aiUnavailableReason,
+      ...(aiUsage.length ? { aiUsage } : {}),
       warnings,
       corpusMetrics: repository.corpusMetrics,
       metricProjections: repository.corpusMetrics ? projectRepositoryMetrics(repository.corpusMetrics) : undefined,

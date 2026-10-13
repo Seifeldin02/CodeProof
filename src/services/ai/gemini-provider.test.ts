@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { configuredAiProvider } from "./configured";
-import { GeminiProvider, geminiJsonSchema } from "./gemini-provider";
+import { GeminiProvider, geminiJsonSchema, geminiReportedUsage } from "./gemini-provider";
 import type { AiAnalysisOutput, AiAnalysisContext } from "./provider";
 
 const context: AiAnalysisContext = {
@@ -57,6 +57,18 @@ describe("Gemini provider", () => {
     const provider = new GeminiProvider("test-placeholder-key", undefined, fetcher);
     expect(await provider.extractResumeClaims("TypeScript")).toMatchObject([{ claim: "TypeScript" }]);
     expect(await provider.extractJobRequirements("TypeScript required")).toMatchObject([{ requirement: "TypeScript" }]);
+  });
+
+  it("captures provider-reported tokens for each operation without estimating absent usage", async () => {
+    const fetcher = vi.fn(async () => Response.json({
+      candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(analysis) }] } }],
+      usageMetadata: { promptTokenCount: 120, cachedContentTokenCount: 20, candidatesTokenCount: 30, thoughtsTokenCount: 10, totalTokenCount: 160 },
+    }));
+    const usage: unknown[] = [];
+    await new GeminiProvider("test-placeholder-key", "gemini-3.1-flash-lite", fetcher).analyze(context, (item) => usage.push(item));
+    expect(usage).toEqual([{ operation: "repository", inputTokens: 120, cachedInputTokens: 20, outputTokens: 40, reasoningTokens: 10, totalTokens: 160 }]);
+    expect(geminiReportedUsage("resume", undefined)).toBeNull();
+    expect(geminiReportedUsage("job", { promptTokenCount: -1, totalTokenCount: 10 })).toBeNull();
   });
 
   it("rejects invalid output and does not echo private provider error bodies", async () => {

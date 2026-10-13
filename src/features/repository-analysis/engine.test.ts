@@ -60,6 +60,23 @@ describe("analysis caching and fallback", () => {
     expect((await analyzeRepository(base, { github: source, aiProvider: null, cacheStore })).metadata.cacheHit).toBe(false);
   });
 
+  it("records measured provider usage for a run but zero new calls on a cache hit", async () => {
+    const cacheStore = new MemoryAnalysisCache();
+    const provider: AiProvider = {
+      name: "Measured", model: "test-model",
+      analyze: async (_context, onUsage) => {
+        onUsage?.({ operation: "repository", inputTokens: 100, cachedInputTokens: 0, outputTokens: 20, reasoningTokens: 0, totalTokens: 120 });
+        throw new Error("Malformed response after billed request");
+      },
+    };
+    const options = { github: { ingest: async () => fixture() }, aiProvider: provider, cacheStore };
+    const first = await analyzeRepository({ repositoryUrl: "https://github.com/example/service" }, options);
+    expect(first.metadata.aiUsage).toEqual([{ operation: "repository", inputTokens: 100, cachedInputTokens: 0, outputTokens: 20, reasoningTokens: 0, totalTokens: 120 }]);
+    const cached = await analyzeRepository({ repositoryUrl: "https://github.com/example/service" }, options);
+    expect(cached.metadata.cacheHit).toBe(true);
+    expect(cached.metadata.aiUsage).toEqual([]);
+  });
+
   it("persists completed analyses across filesystem cache instances and respects versions", async () => {
     const directory = await mkdtemp(path.join(tmpdir(), "codeproof-cache-"));
     temporaryDirectories.push(directory);

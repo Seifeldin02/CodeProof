@@ -245,6 +245,8 @@ export interface AnalysisMetadata {
   aiModel: string | null;
   aiStatus: "completed" | "unavailable_not_configured" | "unavailable_failed";
   aiUnavailableReason: string | null;
+  /** Requests performed for this run. Empty on a cache hit; absent if the provider did not report usage. */
+  aiUsage?: import("@/services/ai/provider").AiTokenUsage[];
   warnings: AnalysisWarning[];
   corpusMetrics?: import("./remediation").RepositoryCorpusMetrics;
   metricProjections?: RepositoryMetricProjection[];

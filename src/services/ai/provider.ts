@@ -24,10 +24,21 @@ export interface AiAnalysisOutput {
   interviewQuestions: InterviewQuestion[];
 }
 
+/** Provider-reported tokens for one completed API request; never inferred from prompt length. */
+export interface AiTokenUsage {
+  operation: "repository" | "resume" | "job";
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  totalTokens: number;
+}
+export type AiUsageReporter = (usage: AiTokenUsage) => void;
+
 export interface AiProvider {
   readonly name: string;
   readonly model: string;
-  analyze(context: AiAnalysisContext): Promise<AiAnalysisOutput>;
-  extractResumeClaims?(resumeText: string): Promise<ExtractedResumeClaim[]>;
-  extractJobRequirements?(jobDescription: string): Promise<ExtractedJobRequirement[]>;
+  analyze(context: AiAnalysisContext, onUsage?: AiUsageReporter): Promise<AiAnalysisOutput>;
+  extractResumeClaims?(resumeText: string, onUsage?: AiUsageReporter): Promise<ExtractedResumeClaim[]>;
+  extractJobRequirements?(jobDescription: string, onUsage?: AiUsageReporter): Promise<ExtractedJobRequirement[]>;
 }
