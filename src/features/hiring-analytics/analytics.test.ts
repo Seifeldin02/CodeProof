@@ -7,7 +7,7 @@ function candidate(outcome: CandidateRecord["outcome"]): CandidateRecord {
     id: outcome,
     name: "Candidate",
     role: "Frontend Engineer",
-    source: "CodeProof",
+    source: "Job Board",
     verifiedSkillScore: 50,
     appliedAt: "2026-07-20",
     outcome,
@@ -40,19 +40,19 @@ describe("candidate source channels", () => {
   ];
 
   it("has nothing to compare while every applicant sits under one channel", () => {
-    const records = group("CodeProof", 3, 5);
+    const records = [...group("Job Board", 3, 5), ...group("Not recorded", 2, 4)];
     expect(hasSourceComparison(computeSourceMetrics(records))).toBe(false);
     expect(deriveInsights(records).some((insight) => insight.id === "best-source")).toBe(false);
   });
 
   it("compares channels once two of them hold applicants", () => {
-    const records = [...group("CodeProof", 1, 5), ...group("Referral", 4, 2)];
+    const records = [...group("Job Board", 1, 5), ...group("Referral", 4, 2)];
     expect(hasSourceComparison(computeSourceMetrics(records))).toBe(true);
     expect(deriveInsights(records).find((insight) => insight.id === "best-source")?.text).toContain("Referral is your strongest channel");
   });
 
   it("does not name a strongest channel when only one holds enough applicants to judge", () => {
-    const records = [...group("CodeProof", 2, 6), ...group("LinkedIn", 1, 1)];
+    const records = [...group("Job Board", 2, 6), ...group("LinkedIn", 1, 1)];
     expect(hasSourceComparison(computeSourceMetrics(records))).toBe(true);
     expect(deriveInsights(records).some((insight) => insight.id === "best-source")).toBe(false);
   });

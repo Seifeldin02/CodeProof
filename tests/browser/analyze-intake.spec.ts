@@ -38,3 +38,44 @@ test("text-based PDF discovers candidate material", async ({ context }, testInfo
   const body = await result.json() as { discovery: { candidateName: string | null } };
   expect(body.discovery.candidateName).toBeTruthy();
 });
+
+test("saved role and profile projects are explicit recruiter choices", async ({ page, context }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-en");
+  expect((await context.request.post("/api/auth/register", {
+    data: { email: `analyze-role-${randomUUID()}@example.invalid`, password: randomUUID() },
+  })).status()).toBe(201);
+  const saved = await context.request.post("/api/shortlists", {
+    data: { title: "Mobile product engineer", description: "Role-specific brief: Flutter required and TypeScript preferred." },
+  });
+  expect(saved.status()).toBe(201);
+  const roleId = ((await saved.json()) as { role: { id: string } }).role.id;
+  await page.route("**/api/github/profile", async (route) => route.fulfill({ json: { listing: {
+    owner: "rana", url: "https://github.com/rana", more: false,
+    repositories: [{ owner: "rana", repository: "project", url: "https://github.com/rana/project", language: "TypeScript" }],
+  } } }));
+  let posted = "";
+  await page.route("**/api/candidates/analyze", async (route) => {
+    posted = route.request().postDataBuffer()?.toString("utf8") ?? "";
+    await route.fulfill({ status: 422, json: { error: { message: "Test stopped before repository ingestion." } } });
+  });
+  await page.goto("/analyze");
+  await page.getByRole("textbox", { name: "Paste CV text" }).fill("Rana Candidate\nMobile Engineer\nGitHub: https://github.com/rana");
+  await page.getByRole("button", { name: "Detect candidate projects" }).click();
+  await expect(page.getByRole("heading", { name: "Confirm candidate and projects" })).toBeVisible();
+  await page.getByLabel("Role you are hiring for").selectOption(roleId);
+  await page.getByText("Read original job brief").click();
+  await expect(page.getByText("Role-specific brief: Flutter required and TypeScript preferred.")).toBeVisible();
+  await expect(page.getByLabel("CV-stated role")).toHaveValue("Mobile Engineer");
+  await page.getByLabel("Applicant source").selectOption("Referral");
+  await page.getByRole("button", { name: "List public projects" }).click();
+  await expect(page.getByText("rana/project")).toBeVisible();
+  await page.getByRole("button", { name: /rana\/project/u }).click();
+  await page.getByRole("button", { name: "Build candidate evidence report" }).click();
+  await expect.poll(() => posted).not.toBe("");
+  expect(posted).toContain("Role-specific brief: Flutter required and TypeScript preferred.");
+  expect(posted).toContain("GitHub profile");
+  expect(posted).toContain("Referral");
+  expect(posted).toContain("Mobile Engineer");
+  expect(posted).not.toContain('name="isDemo"');
+  expect((await context.request.post("/api/candidates/analyze", { multipart: { isDemo: "true" } })).status()).toBe(400);
+});

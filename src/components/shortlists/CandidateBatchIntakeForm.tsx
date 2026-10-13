@@ -3,13 +3,14 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/LocaleProvider";
-import { ROLES, type Role } from "@/features/hiring-analytics/types";
+import { ROLES, SOURCE_CHANNELS, type SourceChannel } from "@/features/hiring-analytics/types";
 
 interface PendingCv {
   id: string;
   file: File;
   name: string;
-  role: Role;
+  role: string;
+  source: SourceChannel;
   /** Fields the recruiter has changed, which a later reading of the CV must not overwrite. */
   edited: { name?: boolean; role?: boolean };
 }
@@ -48,7 +49,8 @@ export default function CandidateBatchIntakeForm() {
       id: `${index}:${file.name}:${file.size}:${file.lastModified}`,
       file,
       name: suggestedName(file.name),
-      role: "Backend Engineer",
+      role: "",
+      source: "Not recorded",
       edited: {},
     }));
     setPending(queued);
@@ -61,7 +63,7 @@ export default function CandidateBatchIntakeForm() {
           const form = new FormData();
           form.set("resumeFile", item.file);
           const response = await fetch("/api/cv/discover", { method: "POST", body: form });
-          const body = response.ok ? await response.json() as { discovery?: { candidateName: string | null; suggestedRole: Role } } : null;
+          const body = response.ok ? await response.json() as { discovery?: { candidateName: string | null; suggestedRole: string | null } } : null;
           // A newer selection has replaced this one.
           if (selection.current !== current) return;
           const discovery = body?.discovery;
@@ -69,7 +71,7 @@ export default function CandidateBatchIntakeForm() {
             setPending((list) => list.map((entry) => entry.id !== item.id ? entry : {
               ...entry,
               name: entry.edited.name ? entry.name : discovery.candidateName ?? entry.name,
-              role: entry.edited.role ? entry.role : discovery.suggestedRole,
+              role: entry.edited.role ? entry.role : discovery.suggestedRole ?? "",
             }));
           }
         } catch {
@@ -91,7 +93,7 @@ export default function CandidateBatchIntakeForm() {
     event.preventDefault();
     setError("");
     setMessage("");
-    if (!pending.length || pending.some((item) => item.name.trim().length < 2 || item.file.size > MAX_PDF_BYTES || !item.file.name.toLowerCase().endsWith(".pdf"))) {
+    if (!pending.length || pending.some((item) => item.name.trim().length < 2 || item.role.trim().length < 2 || item.file.size > MAX_PDF_BYTES || !item.file.name.toLowerCase().endsWith(".pdf"))) {
       setError(t("Check each candidate name and use text-based PDFs under 5 MB."));
       return;
     }
@@ -104,6 +106,7 @@ export default function CandidateBatchIntakeForm() {
         const form = new FormData();
         form.set("name", item.name.trim());
         form.set("role", item.role);
+        form.set("source", item.source);
         form.set("resumeFile", item.file);
         try {
           const response = await fetch("/api/candidates/intake-cv", { method: "POST", body: form });
@@ -133,10 +136,12 @@ export default function CandidateBatchIntakeForm() {
       {pending.length > 0 && <ol className="space-y-3">{pending.map((item, index) => <li key={item.id} className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
         <p dir="ltr" className="break-all text-start text-xs text-slate-500">{item.file.name}</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div><label htmlFor={`batch-name-${index}`} className="block text-xs font-semibold text-slate-700">{t("Confirm candidate name")}</label><input id={`batch-name-${index}`} required minLength={2} maxLength={120} value={item.name} disabled={busy} onChange={(event) => update(item.id, { name: event.target.value })} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-100" /></div>
-          <div><label htmlFor={`batch-role-${index}`} className="block text-xs font-semibold text-slate-700">{t("Initial candidate role")}</label><select id={`batch-role-${index}`} value={item.role} disabled={busy} onChange={(event) => update(item.id, { role: event.target.value as Role })} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">{ROLES.map((role) => <option key={role} value={role}>{t(role)}</option>)}</select></div>
+          <div><label htmlFor={`batch-name-${index}`} className="block text-xs font-semibold text-slate-700">{t("Confirm candidate name")}</label><input id={`batch-name-${index}`} required minLength={2} maxLength={120} value={item.name} disabled={busy || Boolean(reading)} onChange={(event) => update(item.id, { name: event.target.value })} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-100" /></div>
+          <div><label htmlFor={`batch-role-${index}`} className="block text-xs font-semibold text-slate-700">{t("Initial candidate role")}</label><input id={`batch-role-${index}`} required minLength={2} maxLength={120} list="batch-role-suggestions" value={item.role} disabled={busy || Boolean(reading)} onChange={(event) => update(item.id, { role: event.target.value })} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm" /></div>
+          <div><label htmlFor={`batch-source-${index}`} className="block text-xs font-semibold text-slate-700">{t("Applicant source")}</label><select id={`batch-source-${index}`} value={item.source} disabled={busy || Boolean(reading)} onChange={(event) => setPending((current) => current.map((entry) => entry.id === item.id ? { ...entry, source: event.target.value as SourceChannel } : entry))} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">{SOURCE_CHANNELS.map((source) => <option key={source} value={source}>{t(source)}</option>)}</select></div>
         </div>
       </li>)}</ol>}
+      <datalist id="batch-role-suggestions">{ROLES.map((role) => <option key={role} value={role} label={t(role)} />)}</datalist>
       {reading && <p role="status" className="text-sm text-slate-600">{t("Reading CV {count} of {total} for its name and role...", { count: Math.min(reading.done + 1, reading.total), total: reading.total })}</p>}
       {busy && <p role="status" className="text-sm text-slate-600">{t("Importing CV {count} of {total}...", { count: progress + 1 > pending.length ? pending.length : progress + 1, total: pending.length })}</p>}
       {message && <p role="status" className="text-sm text-emerald-700">{message}</p>}

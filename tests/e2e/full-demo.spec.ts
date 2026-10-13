@@ -18,6 +18,7 @@ test("CV to public-code dossier, comparison and live insights", async ({ page, c
   await page.getByRole("button", { name: label("Detect candidate projects", "اكتشف مشاريع المرشح") }).click();
   await expect(page.getByRole("heading", { name: label("Confirm candidate and projects", "أكد المرشح والمشاريع") })).toBeVisible();
   await expect(page.getByText("sindresorhus/is")).toBeVisible();
+  await page.locator('input[list="analyze-role-suggestions"]').fill("Software Engineer");
   await page.getByRole("button", { name: label("Build candidate evidence report", "أنشئ تقرير أدلة المرشح") }).click();
   await expect(page).toHaveURL(/\/candidates\/[0-9a-f-]+$/, { timeout: 120_000 });
   const candidateId = page.url().split("/").at(-1);
@@ -40,6 +41,8 @@ test("CV to public-code dossier, comparison and live insights", async ({ page, c
   await page.goto("/compare");
   await expect(page.getByRole("heading", { name: label("Compare candidate evidence", "قارن أدلة المرشحين") })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Synthetic Applicant", exact: true })).toBeVisible();
+  await page.goto("/review");
+  await expect(page.getByText("Synthetic Applicant", { exact: true }).first()).toBeVisible();
   await page.goto("/insights");
   await expect(page.getByRole("heading", { name: label("Hiring Insights", "رؤى التوظيف") })).toBeVisible();
   await expect(page.getByText(label("Live evidence view.", "عرض أدلة مباشر."))).toBeVisible();

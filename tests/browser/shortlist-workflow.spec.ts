@@ -15,13 +15,17 @@ test("saved role reviews private candidates without treating missing code as a s
   await expect(page.locator("html")).toHaveAttribute("dir", arabic ? "rtl" : "ltr");
   await page.locator("details summary").filter({ hasText: label("Add a candidate from a CV", "أضف مرشحًا من سيرته الذاتية") }).click();
   await page.locator("#intake-name").fill("Private-code candidate");
+  await page.locator("#intake-role").fill("Backend Engineer");
+  await page.locator("form").filter({ has: page.locator("#intake-name") }).locator("select").selectOption("Referral");
   await page.locator("#intake-text").fill("Experienced backend engineer using TypeScript and Python. Built private client systems.");
   await page.locator("form").filter({ has: page.locator("#intake-name") }).getByRole("button", { name: label("Add candidate to private pool", "أضف المرشح إلى قائمتك الخاصة") }).click();
   await expect(page.getByRole("status")).toContainText(label("Candidate added", "أُضيف المرشح"));
   const candidates = await context.request.get("/api/candidates");
   expect(candidates.status()).toBe(200);
-  const candidateId = ((await candidates.json()) as Array<{ id: string; name: string }>).find((item) => item.name === "Private-code candidate")?.id;
+  const savedCandidates = await candidates.json() as Array<{ id: string; name: string; source: string }>;
+  const candidateId = savedCandidates.find((item) => item.name === "Private-code candidate")?.id;
   expect(candidateId).toBeTruthy();
+  expect(savedCandidates.find((item) => item.id === candidateId)?.source).toBe("Referral");
   const unscreened = await context.request.post("/api/candidates", { data: { name: "AAA no CV candidate", role: "Backend Engineer" } });
   expect(unscreened.status()).toBe(201);
   const unscreenedId = ((await unscreened.json()) as { candidate: { id: string } }).candidate.id;
@@ -50,6 +54,9 @@ test("saved role reviews private candidates without treating missing code as a s
   await expect(page.getByRole("heading", { name: label("CV claims awaiting verification", "ادعاءات السيرة الذاتية بانتظار التحقق") })).toBeVisible();
   await expect(page.getByRole("heading", { name: label("Optional public-code review", "مراجعة الكود العام اختياريًا") })).toBeVisible();
   await expect(page.getByRole("heading", { name: label("Saved roles to explore for this candidate", "وظائف محفوظة لاستكشافها لهذا المرشح") })).toBeVisible();
+  await page.locator('select:has(option[value="Not recorded"])').selectOption("LinkedIn");
+  await page.getByRole("button", { name: label("Save candidate status", "حفظ حالة المرشح") }).click();
+  await expect.poll(async () => ((await (await context.request.get(`/api/candidates/${candidateId}`)).json()) as { source: string }).source).toBe("LinkedIn");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.goBack();
   await candidateCard.getByRole("link", { name: label("Prepare interview", "حضّر المقابلة") }).click();
@@ -144,13 +151,25 @@ test("bounded batch CV intake saves separate applicants with confirmed names", a
     { name: "Applicant One.pdf", mimeType: "application/pdf", buffer: pdf },
     { name: "Applicant Two.pdf", mimeType: "application/pdf", buffer: pdf },
   ]);
+  await expect(page.locator("#batch-role-0")).toBeEnabled();
+  await expect(page.locator("#batch-role-1")).toBeEnabled();
   await page.locator("#batch-name-0").fill("Amina confirmed");
   await page.locator("#batch-name-1").fill("Leila confirmed");
+  await page.locator("#batch-role-0").fill("Mobile Engineer");
+  await page.locator("#batch-role-1").fill("QA Engineer");
+  await page.locator("#batch-source-0").selectOption("Job Board");
+  await page.locator("#batch-source-1").selectOption("Referral");
   await page.getByRole("button", { name: label("Import 2 candidates", "استيراد 2 مرشحين") }).click();
   await expect(page.getByRole("status")).toContainText(label("Imported 2 candidates", "استُورد 2 مرشحين"));
-  const stored = (await (await context.request.get("/api/candidates")).json()) as Array<{ id: string; name: string }>;
+  await expect.poll(async () => {
+    const rows = (await (await context.request.get("/api/candidates")).json()) as Array<{ name: string }>;
+    return rows.filter((item) => item.name === "Amina confirmed" || item.name === "Leila confirmed").map((item) => item.name).sort();
+  }).toEqual(["Amina confirmed", "Leila confirmed"]);
+  const stored = (await (await context.request.get("/api/candidates")).json()) as Array<{ id: string; name: string; role: string; source: string }>;
   const imported = stored.filter((item) => item.name === "Amina confirmed" || item.name === "Leila confirmed");
   expect(imported.map((item) => item.name).sort()).toEqual(["Amina confirmed", "Leila confirmed"]);
+  expect(imported.find((item) => item.name === "Amina confirmed")).toMatchObject({ role: "Mobile Engineer", source: "Job Board" });
+  expect(imported.find((item) => item.name === "Leila confirmed")).toMatchObject({ role: "QA Engineer", source: "Referral" });
   for (const item of imported) expect((await context.request.delete(`/api/candidates/${item.id}`)).status()).toBe(204);
 });
 

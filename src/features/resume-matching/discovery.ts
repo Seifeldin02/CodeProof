@@ -1,4 +1,3 @@
-import { ROLES, type Role } from "@/features/hiring-analytics/types";
 import { extractResumeClaims, statedRoleOf } from "./claims";
 
 export interface DiscoveredRepository {
@@ -30,7 +29,7 @@ export interface DiscoveredSource {
 
 export interface CvDiscovery {
   candidateName: string | null;
-  suggestedRole: Role;
+  suggestedRole: string | null;
   repositories: DiscoveredRepository[];
   profiles: DiscoveredGitHubProfile[];
   /** Portfolios and non-GitHub code hosts found on the CV. Not analyzed. */
@@ -99,18 +98,9 @@ function candidateName(lines: string[]): string | null {
   return null;
 }
 
-function suggestedRole(text: string): Role {
-  // The role the CV's own headline states is a better guide than a word found somewhere in it: a backend engineer
-  // who lists Kubernetes among their tools is still a backend engineer.
-  const stated = statedRoleOf(extractResumeClaims(text));
-  const listed = ROLES.find((role) => role === stated);
-  if (listed) return listed;
-  const lower = text.toLowerCase();
-  if (/data engineer|etl|data pipeline/.test(lower)) return "Data Engineer";
-  if (/devops|site reliability|platform engineer|kubernetes|terraform/.test(lower)) return "DevOps Engineer";
-  if (/full[- ]?stack/.test(lower)) return "Full-Stack Engineer";
-  if (/back[- ]?end|api engineer|server[- ]side/.test(lower)) return "Backend Engineer";
-  return "Frontend Engineer";
+function suggestedRole(text: string): string | null {
+  // Do not infer a candidate's title from tools named elsewhere in their CV.
+  return statedRoleOf(extractResumeClaims(text));
 }
 
 /**
@@ -162,7 +152,7 @@ export function discoverCandidateLinks(resumeText: string): CvDiscovery {
 
   const foundSources = [...otherSources.values()].sort((a, b) => a.url.localeCompare(b.url));
   const notes: string[] = [];
-  if (foundRepositories.length === 0 && foundProfiles.length > 0) notes.push("A GitHub profile was found, but profile project listing requires GitHub API access. Paste one or more public repository URLs to continue for free.");
+  if (foundRepositories.length === 0 && foundProfiles.length > 0) notes.push("A GitHub profile was found. List its public projects or paste repository URLs to continue.");
   if (foundRepositories.length === 0 && foundProfiles.length === 0) notes.push("No GitHub links were detected. Paste public repository URLs manually.");
   if (foundSources.length > 0) notes.push("Portfolio or non-GitHub sources were found on the CV. CodeProof records them and reports them as unknown, because only public GitHub repositories can be analyzed today.");
   return {

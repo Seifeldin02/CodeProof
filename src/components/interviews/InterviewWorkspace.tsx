@@ -16,6 +16,7 @@ export default function InterviewWorkspace({ initialSession }: { initialSession:
   const [session, setSession] = useState(initialSession), [assessment, setAssessment] = useState<InterviewAssessment>(initialSession.assessment);
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(""), [error, setError] = useState("");
   const [confirm, setConfirm] = useState(false);
+  const [manualPrompt, setManualPrompt] = useState("");
   const locked = session.status === "completed";
   function edit<K extends keyof InterviewAssessment>(key: K, value: InterviewAssessment[K]) { setAssessment((previous) => ({ ...previous, [key]: value })); setNotice(""); }
   async function persist(action: UpdateInterview["action"]) {
@@ -33,10 +34,24 @@ export default function InterviewWorkspace({ initialSession }: { initialSession:
     try { await navigator.clipboard.writeText(assessment.candidateMessage); setNotice(t("Message copied. Send it through your own communication channel.")); }
     catch { setError(t("Copy is unavailable. Select and copy the message manually.")); }
   }
+  async function copyProbe(question: string, challenge: string) {
+    const prompt = `${question}\n\n${challenge}\n\n${t("AI and documentation are allowed. Work through a concrete solution, explain what you accepted or changed, and show how you would verify it. Do not share confidential code.")}`;
+    try { await navigator.clipboard.writeText(prompt); setManualPrompt(""); setNotice(t("Assessment prompt copied. Share it with the candidate in your interview channel.")); }
+    catch { setManualPrompt(prompt); setError(t("Copy is unavailable. Select and copy the assessment prompt manually.")); }
+  }
   return <div className="space-y-5">
     <div className="flex flex-wrap gap-4 text-sm font-semibold text-brand-700"><Link className="inline-flex min-h-11 items-center" href="/interviews">{t("Back to interview desk")}</Link><Link className="inline-flex min-h-11 items-center" href={`/candidates/${session.candidateId}`}>{t("Open candidate dossier")}</Link></div>
     <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-7"><p className="text-xs font-semibold text-brand-700">{t(locked ? "Completed · locked assessment" : "Draft · human assessment")}{session.isDemo && ` · ${t("Demo data")}`}</p><h1 className="mt-3 break-words text-3xl font-semibold text-slate-950">{session.preparation.candidateName}</h1><p className="mt-2 break-words text-sm text-slate-600">{session.preparation.roleTitle}</p><p className="mt-4 text-xs leading-6 text-slate-500">{t("Frozen role criteria and evidence references. Repository evidence does not prove authorship. Missing public code does not mean missing skill.")}</p>
       <details className="mt-3 text-xs text-slate-500"><summary className="cursor-pointer py-2">{t("Evidence snapshot / traceability")}</summary><div className="space-y-2 py-2"><p>{t("Role criteria fingerprint")} <bdi dir="ltr" className="break-all font-mono">{session.preparation.requirementsHash}</bdi></p><p>{t("Analysis versions")}: {session.preparation.analysisVersionIds.length ? session.preparation.analysisVersionIds.map((id) => <bdi key={id} dir="ltr" className="me-2 break-all font-mono">{id}</bdi>) : t("No public-code analysis")}</p></div></details>
+    </section>
+    <section className="rounded-2xl border border-brand-200 bg-brand-50/40 p-5 sm:p-7" aria-labelledby="assessment-method">
+      <h2 id="assessment-method" className="text-lg font-semibold text-slate-950">{t("Focused role-fit assessment")}</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-700">{t("Use the selected role criteria to test the most important unresolved evidence before spending time on a broader interview. These are discussion prompts, not an automated hiring verdict.")}</p>
+      <ol className="mt-3 list-inside list-decimal space-y-1 text-sm leading-6 text-slate-700">
+        <li>{t("Ask the candidate-specific question and allow AI or documentation.")}</li>
+        <li>{t("Probe the proposed result, a failure case, and how they would test it.")}</li>
+        <li>{t("Record concrete observations against the role criterion; you make the decision.")}</li>
+      </ol>
     </section>
     {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">{error}</p>}
     <p role="status" aria-live="polite" className={notice ? "rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900" : "sr-only"}>{notice}</p>
@@ -44,11 +59,21 @@ export default function InterviewWorkspace({ initialSession }: { initialSession:
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,.8fr)]">
         <div className="min-w-0 space-y-5">{session.preparation.criteria.map((criterion, index) => {
           const rating = assessment.ratings.find((r) => r.criterionId === criterion.id)!;
+          const challenge = locale === "ar"
+            ? `لهذه الوظيفة (${session.preparation.roleTitle})، اقترح تغييراً صغيراً أو حلاً عملياً يتعلق بـ«${criterion.requirement}». وضح السلوك المتوقع وحالة فشل وطريقة اختبار النتيجة. يمكنك الاستناد إلى خبرة خاصة دون مشاركة كود سري.`
+            : `For this ${session.preparation.roleTitle} role, propose one small change or concrete solution involving “${criterion.requirement}”. Explain the expected behavior, one failure case, and a test that would validate the result. You may use private work as an example without sharing confidential code.`;
           return <Card key={criterion.id} title={`${index + 1}. ${criterion.requirement}`} subtitle={t(criterion.importance === "required" ? "Required" : criterion.importance === "preferred" ? "Preferred" : "Context")}>
             <p className="rounded-xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">{criterion.question[locale]}</p>
+            <div className="mt-3 rounded-xl border border-brand-200 bg-brand-50/40 p-4 text-sm leading-6 text-slate-700">
+              <p className="font-semibold text-brand-800">{t("AI-permitted live assessment")}</p>
+              <p className="mt-1">{challenge}</p>
+              <p className="mt-1">{t("AI and documentation are allowed. Work through a concrete solution, explain what you accepted or changed, and show how you would verify it. Do not share confidential code.")}</p>
+              <button type="button" onClick={() => void copyProbe(criterion.question[locale], challenge)} className="mt-3 min-h-11 rounded-xl border border-brand-300 bg-white px-4 py-2 text-sm font-semibold text-brand-800 hover:border-brand-600">{t("Copy assessment prompt")}</button>
+              {manualPrompt.startsWith(criterion.question[locale]) && <label className="mt-3 block text-xs font-medium">{t("Select and copy the assessment prompt")}<textarea readOnly dir={locale === "ar" ? "rtl" : "ltr"} rows={7} className={fieldClass} value={manualPrompt} onFocus={(event) => event.currentTarget.select()} /></label>}
+            </div>
             <div className="mt-4 space-y-2">{criterion.sources.length ? criterion.sources.map((source) => <div key={source.citationId} className="rounded-xl border border-slate-200 p-3"><a href={source.sourceLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 max-w-full items-center text-sm font-semibold text-brand-700 underline decoration-brand-200 underline-offset-4"><bdi dir="ltr" className="break-all">{source.filePath}</bdi></a><p className="text-xs leading-5 text-slate-500">{t(source.attributionStatus === "verified_owner" ? "Verified owner" : source.attributionStatus === "verified_contributor" ? "Verified contributor" : source.attributionStatus === "candidate_claimed" ? "Candidate-claimed · not verified" : "Attribution unverified")} · {t(source.evidenceLevel)}</p><p className="mt-1 text-xs text-slate-500">{t("Citation")} <bdi dir="ltr" className="break-all font-mono">{source.citationId}</bdi></p></div>) : <p className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-xs leading-6 text-amber-900">{t("Evidence gap, not a skill deficit. Discuss a work example without requesting confidential code.")}</p>}</div>
             <label className="mt-4 block text-sm font-medium">{t("Human assessment")}<select disabled={locked || busy} className={fieldClass} value={rating.rating} onChange={(e) => edit("ratings", assessment.ratings.map((r) => r.criterionId === criterion.id ? { ...r, rating: InterviewRatingSchema.parse(e.target.value) } : r))}>{InterviewRatingSchema.options.map((value) => <option key={value} value={value}>{t({ unassessed: "Not assessed", emerging: "Needs further validation", meets: "Meets the role criterion", exceeds: "Exceeds the role criterion" }[value])}</option>)}</select></label>
-            <p className="mt-2 text-xs leading-5 text-slate-500">{t("Meets: explains own contribution, a trade-off, and validation. Exceeds: also reasons about alternatives and failure modes. Unclear answers need more validation, not automatic rejection.")}</p>
+            <p className="mt-2 text-xs leading-5 text-slate-500">{t("Judge the quality of the proposed work, not AI use: does it meet the requirement, address a failure case, and include a credible test? Meets: explains these choices and their own contribution. Exceeds: also compares alternatives and trade-offs. Unclear answers need more validation, not automatic rejection.")}</p>
             <label className="mt-4 block text-sm font-medium">{t("Observed answer / concrete evidence")}<textarea disabled={locked || busy} maxLength={2000} rows={4} className={fieldClass} value={rating.observation} onChange={(e) => edit("ratings", assessment.ratings.map((r) => r.criterionId === criterion.id ? { ...r, observation: e.target.value } : r))} /></label>
           </Card>;
         })}</div>

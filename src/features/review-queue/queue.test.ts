@@ -28,7 +28,7 @@ function candidate(name: string, analyses: CandidateDetail["analyses"], failed =
     id: name.toLowerCase(),
     name,
     role: "Backend Engineer",
-    source: "CodeProof",
+    source: "Not recorded",
     verifiedSkillScore: 0,
     appliedAt: "2026-01-01",
     outcome: "in_progress",

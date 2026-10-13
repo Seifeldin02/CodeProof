@@ -161,7 +161,7 @@ export function hasSourceComparison(metrics: SourceMetric[]): boolean {
 }
 
 export function computeSourceMetrics(candidates: CandidateRecord[]): SourceMetric[] {
-  return SOURCE_CHANNELS.map((source) => {
+  return SOURCE_CHANNELS.filter((source) => source !== 'Not recorded').map((source) => {
     const group = candidates.filter((c) => c.source === source);
     const hires = group.filter((c) => c.outcome === 'hired');
     const tths = hires.map(timeToHire).filter((d): d is number => d !== null);

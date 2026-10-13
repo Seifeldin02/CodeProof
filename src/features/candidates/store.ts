@@ -24,6 +24,7 @@ import {
   type CandidateRecord,
   type PipelineStage,
   type Role,
+  type SourceChannel,
   type StageEvent,
 } from "@/features/hiring-analytics/types";
 import type { AnalysisResult, EvidenceLevel } from "@/types/analysis";
@@ -104,6 +105,7 @@ interface StageRow {
 export interface CreateCandidateInput {
   name: string;
   role: Role;
+  source?: SourceChannel;
   results: AnalysisResult[];
   /** Interview-only intake must not fabricate completed screening or code-review stages. */
   intakeOnly?: boolean;
@@ -132,7 +134,7 @@ export interface CandidatePersistence {
     verification: ContributionVerificationResult,
   ): Promise<CandidateDetail | null>;
   removeFailedRepository(ownerUserId: string, candidateId: string, repositoryUrl: string): Promise<boolean>;
-  updatePipeline(ownerUserId: string, candidateId: string, stage: PipelineStage, outcome: CandidateOutcome): Promise<CandidateDetail | null>;
+  updatePipeline(ownerUserId: string, candidateId: string, stage: PipelineStage, outcome: CandidateOutcome, source?: SourceChannel): Promise<CandidateDetail | null>;
   /** Records (or withdraws) the recruiter's confirmation that cited evidence was opened. */
   setEvidenceReviewed(ownerUserId: string, candidateId: string, reviewed: boolean): Promise<CandidateDetail | null>;
   deleteCandidate(ownerUserId: string, candidateId: string): Promise<boolean>;
@@ -181,7 +183,7 @@ function mapCandidate(row: CandidateRow, events: StageEvent[]): CandidateRecord 
     id: row.id,
     name: row.name,
     role: row.role as Role,
-    source: row.source as CandidateRecord["source"],
+    source: row.source === "CodeProof" ? "Not recorded" : row.source as CandidateRecord["source"],
     verifiedSkillScore: Number(row.evidence_index),
     appliedAt: row.applied_at,
     outcome: row.outcome,
@@ -567,7 +569,7 @@ export class CandidateStore implements CandidatePersistence {
       this.db.prepare(`INSERT INTO candidates
         (id, owner_user_id, name, role, source, evidence_index, applied_at, outcome, furthest_stage, is_demo, repository_count, verified_claim_count, unanalyzed_sources)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-        id, ownerUserId, input.name, input.role, "CodeProof", 0, now,
+        id, ownerUserId, input.name, input.role, input.source ?? "Not recorded", 0, now,
         "in_progress", input.intakeOnly ? "applied" : "code_review", input.isDemo ? 1 : 0, input.results.length + (input.failures?.length ?? 0), 0,
         JSON.stringify(input.unanalyzedSources ?? []),
       );
@@ -757,15 +759,15 @@ export class CandidateStore implements CandidatePersistence {
     }
   }
 
-  async updatePipeline(ownerUserId: string, candidateId: string, stage: PipelineStage, outcome: CandidateOutcome): Promise<CandidateDetail | null> {
+  async updatePipeline(ownerUserId: string, candidateId: string, stage: PipelineStage, outcome: CandidateOutcome, source?: SourceChannel): Promise<CandidateDetail | null> {
     const existing = await this.getCandidate(ownerUserId, candidateId);
     if (!existing) return null;
     const normalizedOutcome = stage === "hired" ? "hired" : outcome === "hired" ? "in_progress" : outcome;
     const now = new Date().toISOString();
     this.db.exec("BEGIN");
     try {
-      this.db.prepare("UPDATE candidates SET furthest_stage = ?, outcome = ? WHERE id = ? AND owner_user_id = ?")
-        .run(stage, normalizedOutcome, candidateId, ownerUserId);
+      this.db.prepare("UPDATE candidates SET furthest_stage = ?, outcome = ?, source = ? WHERE id = ? AND owner_user_id = ?")
+        .run(stage, normalizedOutcome, source ?? existing.source, candidateId, ownerUserId);
       this.db.prepare("DELETE FROM stage_events WHERE candidate_id = ?").run(candidateId);
       const insert = this.db.prepare("INSERT INTO stage_events (candidate_id, stage, entered_at) VALUES (?, ?, ?)");
       const enteredAt = new Map(existing.stageHistory.map((event) => [event.stage, event.enteredAt]));
@@ -1006,7 +1008,7 @@ class PostgresCandidateStore implements CandidatePersistence {
       await client.query(`INSERT INTO codeproof_candidates
         (id,owner_user_id,name,role,source,evidence_index,applied_at,outcome,furthest_stage,is_demo,repository_count,verified_claim_count,unanalyzed_sources)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [
-        id, ownerUserId, input.name, input.role, "CodeProof", 0, now, "in_progress", input.intakeOnly ? "applied" : "code_review",
+        id, ownerUserId, input.name, input.role, input.source ?? "Not recorded", 0, now, "in_progress", input.intakeOnly ? "applied" : "code_review",
         Boolean(input.isDemo), input.results.length + (input.failures?.length ?? 0), 0,
         JSON.stringify(input.unanalyzedSources ?? []),
       ]);
@@ -1218,14 +1220,14 @@ class PostgresCandidateStore implements CandidatePersistence {
     }
   }
 
-  async updatePipeline(ownerUserId: string, candidateId: string, stage: PipelineStage, outcome: CandidateOutcome): Promise<CandidateDetail | null> {
+  async updatePipeline(ownerUserId: string, candidateId: string, stage: PipelineStage, outcome: CandidateOutcome, source?: SourceChannel): Promise<CandidateDetail | null> {
     const existing = await this.getCandidate(ownerUserId, candidateId);
     if (!existing) return null;
     const normalizedOutcome = stage === "hired" ? "hired" : outcome === "hired" ? "in_progress" : outcome;
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query("UPDATE codeproof_candidates SET furthest_stage=$1,outcome=$2 WHERE id=$3 AND owner_user_id=$4", [stage, normalizedOutcome, candidateId, ownerUserId]);
+      await client.query("UPDATE codeproof_candidates SET furthest_stage=$1,outcome=$2,source=$3 WHERE id=$4 AND owner_user_id=$5", [stage, normalizedOutcome, source ?? existing.source, candidateId, ownerUserId]);
       await client.query("DELETE FROM codeproof_stage_events WHERE candidate_id=$1", [candidateId]);
       const now = new Date().toISOString();
       const enteredAt = new Map(existing.stageHistory.map((event) => [event.stage, event.enteredAt]));

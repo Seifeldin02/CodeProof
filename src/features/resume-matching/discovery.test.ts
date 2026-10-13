@@ -22,10 +22,9 @@ describe("CV GitHub discovery", () => {
   it("suggests the role the CV's headline states over a word found elsewhere in it", () => {
     const role = (text: string) => discoverCandidateLinks(text).suggestedRole;
     expect(role("Noor Example\nSenior Backend Developer | Riyadh\nSkills: Python, Kubernetes, Terraform")).toBe("Backend Engineer");
-    // With no headline to go by, the words in the CV still decide.
-    expect(role("Noor Example\nSkills: Python, Kubernetes, Terraform")).toBe("DevOps Engineer");
-    // A headline outside the five roles the product tracks leaves the choice to the words as well.
-    expect(role("Noor Example\nData Analyst\nSkills: SQL, ETL")).toBe("Data Engineer");
+    expect(role("Noor Example\nSkills: Python, Kubernetes, Terraform")).toBeNull();
+    expect(role("Noor Example\nData Analyst\nSkills: SQL, ETL")).toBe("Data Analyst");
+    expect(role("Noor Example\nMobile Engineer\nSkills: Flutter")).toBe("Mobile Engineer");
   });
 
   it("provides a manual repository fallback for profile-only CVs", () => {
@@ -33,7 +32,7 @@ describe("CV GitHub discovery", () => {
     expect(result.profiles).toEqual([{ owner: "grace", url: "https://github.com/grace" }]);
     expect(result.repositories).toEqual([]);
     expect(result.manualSelectionRequired).toBe(true);
-    expect(result.notes[0]).toContain("Paste one or more public repository URLs");
+    expect(result.notes[0]).toContain("List its public projects");
   });
 });
 

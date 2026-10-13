@@ -13,7 +13,7 @@ export default async function RequirementsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow={t("Evaluation setup")} title={t("Company requirements")} description={t("Define the bar every candidate is measured against. Saved requirements are applied automatically to each analysis, so you do not need to paste a job description every time.")} />
+      <PageHeader eyebrow={t("Evaluation setup")} title={t("Company requirements")} description={t("These requirements support interview planning. Repository analysis uses the saved role or job brief you explicitly choose on the Analyze page.")} />
 
       <div className="max-w-4xl">
         <RequirementsForm initial={requirements} />

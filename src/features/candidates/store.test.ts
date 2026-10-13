@@ -101,6 +101,9 @@ describe("candidate evidence persistence", () => {
       ],
     });
     expect(created.repositoryCount).toBe(2);
+    expect(created.source).toBe("Not recorded");
+    store.db.prepare("UPDATE candidates SET source = 'CodeProof' WHERE id = ?").run(created.id);
+    expect((await store.getCandidate("owner-a", created.id))?.source).toBe("Not recorded");
     expect(created.repositoryOutcomes.map((outcome) => outcome.status).sort()).toEqual(["analyzed", "failed"]);
     expect(created.repositoryOutcomes.find((outcome) => outcome.status === "failed")).toMatchObject({ code: "MALFORMED_ARCHIVE", message: "The repository archive is malformed." });
     expect(created.repositories).toEqual(expect.arrayContaining([
@@ -183,8 +186,9 @@ describe("candidate evidence persistence", () => {
     const reanalyzed = await store.recordRepositorySuccess("owner-a", created.id, result(["Good Evidence"], "https://github.com/example/fresh"));
     expect(reanalyzed?.evidenceReviewedAt).toBeNull();
 
-    const hired = await store.updatePipeline("owner-a", created.id, "hired", "in_progress");
-    expect(hired).toMatchObject({ furthestStage: "hired", outcome: "hired" });
+    expect(await store.updatePipeline("owner-b", created.id, "screening", "in_progress", "Referral")).toBeNull();
+    const hired = await store.updatePipeline("owner-a", created.id, "hired", "in_progress", "Referral");
+    expect(hired).toMatchObject({ furthestStage: "hired", outcome: "hired", source: "Referral" });
     expect(hired?.stageHistory.map((event) => event.stage)).toEqual(["applied", "screening", "code_review", "interview", "offer", "hired"]);
     expect(await store.deleteCandidate("owner-b", created.id)).toBe(false);
     expect(await store.deleteCandidate("owner-a", created.id)).toBe(true);

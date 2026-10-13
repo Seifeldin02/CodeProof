@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useI18n } from "@/components/i18n/LocaleProvider";
 import Card from "@/components/ui/Card";
-import { ROLES, type CandidateRecord, type Role } from "@/features/hiring-analytics/types";
+import { ROLES, SOURCE_CHANNELS, type CandidateRecord, type SourceChannel } from "@/features/hiring-analytics/types";
 import type { CompanyRequirement } from "@/features/requirements/store";
 import { interviewActionState, type InterviewSession } from "@/features/interviews/contracts";
 import type { CriterionSignal } from "@/features/interviews/suggest";
@@ -30,7 +30,8 @@ export default function InterviewDesk({ candidates: initialCandidates, requireme
   }
   const [roleTitle, setRoleTitle] = useState(selectedRole?.title ?? "");
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
-  const [name, setName] = useState(""), [role, setRole] = useState<Role>(ROLES[0]);
+  const [name, setName] = useState(""), [role, setRole] = useState("");
+  const [source, setSource] = useState<SourceChannel>("Not recorded");
   const today = new Date().toLocaleDateString("en-CA");
   const pending = sessions.filter((session) => !session.communicatedAt);
   async function create(event: FormEvent) {
@@ -45,10 +46,10 @@ export default function InterviewDesk({ candidates: initialCandidates, requireme
   async function addCandidate(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
     try {
-      const response = await fetch("/api/candidates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, role }) });
+      const response = await fetch("/api/candidates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, role, source }) });
       if (!response.ok) throw new Error("candidate");
       const { candidate } = await response.json() as { candidate: CandidateRecord };
-      setCandidates((previous) => [candidate, ...previous]); setCandidateId(candidate.id); setName(""); router.refresh();
+      setCandidates((previous) => [candidate, ...previous]); setCandidateId(candidate.id); setName(""); setRole(""); setSource("Not recorded"); router.refresh();
     } catch { setError(t("Could not add the candidate. Try again.")); } finally { setBusy(false); }
   }
   return <div className="space-y-5">
@@ -70,7 +71,8 @@ export default function InterviewDesk({ candidates: initialCandidates, requireme
       </Card>
       <Card title={t("No public code? Keep the candidate in the process.")} subtitle={t("Private work is not a negative signal. Use a structured discussion instead.")}><form onSubmit={addCandidate} className="space-y-3">
         <label className="block text-sm font-medium">{t("Candidate name")}<input required minLength={2} maxLength={120} className={fieldClass} value={name} onChange={(e) => setName(e.target.value)} /></label>
-        <label className="block text-sm font-medium">{t("Candidate role")}<select className={fieldClass} value={role} onChange={(e) => setRole(e.target.value as Role)}>{ROLES.map((r) => <option key={r}>{t(r)}</option>)}</select></label>
+        <label className="block text-sm font-medium">{t("Candidate role")}<input required minLength={2} maxLength={120} list="interview-candidate-role-suggestions" className={fieldClass} value={role} onChange={(e) => setRole(e.target.value)} /></label><datalist id="interview-candidate-role-suggestions">{ROLES.map((r) => <option key={r} value={r} label={t(r)} />)}</datalist>
+        <label className="block text-sm font-medium">{t("Applicant source")}<select className={fieldClass} value={source} onChange={(event) => setSource(event.target.value as SourceChannel)}>{SOURCE_CHANNELS.map((item) => <option key={item} value={item}>{t(item)}</option>)}</select></label>
         <button disabled={busy} className={buttonClass}>{t("Add candidate without repository")}</button>
       </form></Card></div>
       <Card title={t("Interview & follow-up queue")} subtitle={t("A decision is not finished until the candidate knows the next step.")}>

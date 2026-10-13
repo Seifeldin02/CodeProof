@@ -33,8 +33,8 @@ export type CandidateOutcome = 'in_progress' | 'hired' | 'rejected' | 'withdrawn
 
 /** Channels a candidate can originate from. */
 export const SOURCE_CHANNELS = [
+  'Not recorded',
   'Referral',
-  'CodeProof',
   'LinkedIn',
   'Job Board',
   'Careers Site',
@@ -48,7 +48,8 @@ export const ROLES = [
   'Data Engineer',
   'DevOps Engineer',
 ] as const;
-export type Role = (typeof ROLES)[number];
+/** Candidate-stated titles are open text; ROLES are input suggestions, not an ontology. */
+export type Role = string;
 
 export interface StageEvent {
   stage: PipelineStage;

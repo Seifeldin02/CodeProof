@@ -1,4 +1,3 @@
-import { getRequirementsStore, toJobDescriptionText } from "@/features/requirements/store";
 import { authenticateRequest, denyCrossOrigin } from "@/features/auth/guard";
 import { analyzeRepository } from "@/features/repository-analysis/engine";
 import { extractResumeClaims } from "@/features/resume-matching/claims";
@@ -6,9 +5,9 @@ import { discoverCandidateLinks } from "@/features/resume-matching/discovery";
 import { extractExperienceTimeline } from "@/features/resume-matching/experience";
 import { extractPdfResumeText, PdfResumeError, PDF_RESUME_MAX_BYTES } from "@/features/resume-matching/pdf";
 import { getCandidateStore } from "@/features/candidates/store";
+import { SOURCE_CHANNELS } from "@/features/hiring-analytics/types";
 import { getCandidateResumeStore } from "@/features/shortlists/resume-store";
 import type { RepositoryFailure } from "@/features/candidates/types";
-import { ROLES } from "@/features/hiring-analytics/types";
 import { GitHubServiceError, parseGitHubRepositoryUrl } from "@/services/github";
 import type { AnalysisResult } from "@/types/analysis";
 import { DiscoveryOriginSchema, type DiscoveryOrigin } from "@/types/remediation";
@@ -20,11 +19,11 @@ export const maxDuration = 120;
 const MAX_REPOSITORIES = 3;
 const inputSchema = z.object({
   candidateName: z.string().trim().min(2).max(100),
-  role: z.enum(ROLES),
+  role: z.string().trim().min(2).max(120),
+  source: z.enum(SOURCE_CHANNELS).optional(),
   repositoryUrls: z.array(z.string().trim().min(1).max(500)).min(1).max(MAX_REPOSITORIES),
   resumeText: z.string().max(50_000),
   jobDescription: z.string().max(50_000).optional(),
-  isDemo: z.boolean().optional(),
   repositorySelections: z.array(z.object({
     repositoryUrl: z.string().url().max(500),
     discoveryOrigin: DiscoveryOriginSchema,
@@ -78,6 +77,9 @@ export async function POST(request: Request): Promise<Response> {
   }
   try {
     const form = await request.formData();
+    if (text(form, "isDemo") === "true") {
+      return Response.json({ error: { code: "DEMO_CREATION_DISABLED" } }, { status: 400 });
+    }
     const file = form.get("resumeFile");
     const pasted = text(form, "resumeText");
     const extracted = file instanceof File && file.size > 0 ? await extractPdfResumeText(file) : "";
@@ -92,8 +94,8 @@ export async function POST(request: Request): Promise<Response> {
       const requestedOrigin = requestedRepositoryOrigins.get(repositoryUrl);
       const discoveryOrigin: DiscoveryOrigin = cvRepositories.has(repositoryUrl)
         ? "CV"
-        : requestedOrigin === "portfolio"
-          ? "portfolio"
+        : requestedOrigin === "portfolio" || requestedOrigin === "GitHub profile"
+          ? requestedOrigin
           : "manual entry";
       return {
         repositoryUrl,
@@ -101,17 +103,15 @@ export async function POST(request: Request): Promise<Response> {
         candidateSourceClaim: discoveryOrigin === "CV" || discoveryOrigin === "portfolio",
       };
     });
-    // Fall back to the saved company requirements so every candidate is
-    // evaluated against the same bar without the recruiter re-typing it.
-    const savedRequirements = toJobDescriptionText(await getRequirementsStore().list(user.id));
-    const jobDescription = text(form, "jobDescription") || savedRequirements;
+    // Only the explicitly chosen saved role (or typed brief) sets the hiring bar.
+    const jobDescription = text(form, "jobDescription");
     const parsed = inputSchema.parse({
       candidateName: text(form, "candidateName") || discovered.candidateName || "Unnamed candidate",
       role: text(form, "role") || discovered.suggestedRole,
+      source: text(form, "source") || undefined,
       repositoryUrls: selectedRepositories,
       resumeText,
       ...(jobDescription ? { jobDescription } : {}),
-      isDemo: text(form, "isDemo") === "true",
       repositorySelections,
     });
 
@@ -134,9 +134,10 @@ export async function POST(request: Request): Promise<Response> {
     const candidate = await getCandidateStore().createCandidate(user.id, {
       name: parsed.candidateName,
       role: parsed.role,
+      source: parsed.source,
       results,
       failures: failedRepositories,
-      isDemo: parsed.isDemo,
+      isDemo: false,
       repositorySelections: parsed.repositorySelections,
       // Portfolios and non-GitHub hosts are recorded so the queue can report
       // them as unknown rather than silently dropping them.

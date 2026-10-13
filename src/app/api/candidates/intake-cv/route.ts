@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { authenticateRequest, denyCrossOrigin } from "@/features/auth/guard";
 import { getCandidateStore } from "@/features/candidates/store";
-import { ROLES } from "@/features/hiring-analytics/types";
+import { SOURCE_CHANNELS } from "@/features/hiring-analytics/types";
 import { discoverCandidateLinks } from "@/features/resume-matching/discovery";
 import { extractPdfResumeText, PdfResumeError, PDF_RESUME_MAX_BYTES } from "@/features/resume-matching/pdf";
 import { extractResumeClaims } from "@/features/resume-matching/claims";
@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 
 const InputSchema = z.object({
   name: z.string().trim().min(2).max(120),
-  role: z.enum(ROLES),
+  role: z.string().trim().min(2).max(120),
+  source: z.enum(SOURCE_CHANNELS).optional(),
 }).strict();
 
 /** CV-only intake keeps candidate-reported claims, without pretending private code was inspected. */
@@ -29,7 +30,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   try {
     const form = await request.formData();
-    const input = InputSchema.safeParse({ name: form.get("name"), role: form.get("role") });
+    const input = InputSchema.safeParse({ name: form.get("name"), role: form.get("role"), source: form.get("source") ?? undefined });
     if (!input.success) return Response.json({ error: { code: "INVALID_INPUT" } }, { status: 400 });
     const file = form.get("resumeFile");
     const pasted = typeof form.get("resumeText") === "string" ? String(form.get("resumeText")).trim() : "";
@@ -43,6 +44,7 @@ export async function POST(request: Request): Promise<Response> {
     const candidate = await getCandidateStore().createCandidate(user.id, {
       name: input.data.name,
       role: input.data.role,
+      source: input.data.source,
       results: [],
       intakeOnly: true,
       unanalyzedSources: [

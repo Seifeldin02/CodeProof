@@ -1,6 +1,6 @@
 import { authenticateRequest, denyCrossOrigin } from "@/features/auth/guard";
 import { getCandidateStore } from "@/features/candidates/store";
-import { PIPELINE_STAGES, type CandidateOutcome } from "@/features/hiring-analytics/types";
+import { PIPELINE_STAGES, SOURCE_CHANNELS, type CandidateOutcome, type SourceChannel } from "@/features/hiring-analytics/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,14 +22,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (crossOrigin) return crossOrigin;
   const user = await authenticateRequest();
   if (user instanceof Response) return user;
-  let body: { stage?: unknown; outcome?: unknown };
+  let body: { stage?: unknown; outcome?: unknown; source?: unknown };
   try {
-    body = await request.json() as { stage?: unknown; outcome?: unknown };
+    body = await request.json() as { stage?: unknown; outcome?: unknown; source?: unknown };
   } catch {
     return Response.json({ error: { code: "INVALID_INPUT", message: "Choose a valid stage and outcome." } }, { status: 400 });
   }
   if (typeof body.stage !== "string" || !PIPELINE_STAGES.includes(body.stage as typeof PIPELINE_STAGES[number]) ||
-      typeof body.outcome !== "string" || !OUTCOMES.includes(body.outcome as CandidateOutcome)) {
+      typeof body.outcome !== "string" || !OUTCOMES.includes(body.outcome as CandidateOutcome) ||
+      (body.source !== undefined && (typeof body.source !== "string" || !SOURCE_CHANNELS.includes(body.source as SourceChannel)))) {
     return Response.json({ error: { code: "INVALID_INPUT", message: "Choose a valid stage and outcome." } }, { status: 400 });
   }
   const { id } = await context.params;
@@ -38,6 +39,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     id,
     body.stage as typeof PIPELINE_STAGES[number],
     body.outcome as CandidateOutcome,
+    body.source as SourceChannel | undefined,
   );
   return candidate
     ? Response.json({ candidate })

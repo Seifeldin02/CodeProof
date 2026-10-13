@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CvDiscovery, DiscoveredGitHubProfile, DiscoveredRepository } from "@/features/resume-matching/discovery";
-import { ROLES, type Role } from "@/features/hiring-analytics/types";
+import { ROLES, SOURCE_CHANNELS, type SourceChannel } from "@/features/hiring-analytics/types";
 import { useI18n } from "@/components/i18n/LocaleProvider";
 import { localizeAnalysisText } from "@/i18n/translations";
 import type { DiscoveryOrigin } from "@/types/remediation";
@@ -65,7 +65,8 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
   const [jobDescription, setJobDescription] = useState("");
   const [discovery, setDiscovery] = useState<CvDiscovery | null>(null);
   const [candidateName, setCandidateName] = useState("");
-  const [role, setRole] = useState<Role>("Frontend Engineer");
+  const [role, setRole] = useState("");
+  const [source, setSource] = useState<SourceChannel>("Not recorded");
   const [repositories, setRepositories] = useState<DiscoveredRepository[]>([]);
   const [repositoryOrigins, setRepositoryOrigins] = useState<Record<string, DiscoveryOrigin>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -165,7 +166,7 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
       if (!response.ok || !payload.discovery) throw new Error(payload.error?.message ?? "CV discovery failed.");
       setDiscovery(payload.discovery);
       setCandidateName(payload.discovery.candidateName ?? "");
-      setRole(payload.discovery.suggestedRole);
+      setRole(payload.discovery.suggestedRole ?? "");
       setRepositories(payload.discovery.repositories);
       setRepositoryOrigins(Object.fromEntries(payload.discovery.repositories.map((repository) => [repository.url, "CV" as const])));
       setSelected(new Set(payload.discovery.repositories.slice(0, 3).map((repository) => repository.url)));
@@ -203,6 +204,7 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
 
   async function analyze(): Promise<void> {
     if (!candidateName.trim()) { setError(t("Confirm the candidate name before analyzing.")); return; }
+    if (role.trim().length < 2) { setError(t("Confirm the candidate role before analyzing.")); return; }
     if (selected.size === 0) { setError(t("Select at least one public repository.")); return; }
     setBusy("analyze"); setError(null);
     setRepositoryStatus(Object.fromEntries(repositories.map((repository) => [repository.url, { status: selected.has(repository.url) ? "analyzing" : "skipped" }])));
@@ -210,6 +212,7 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
       const form = new FormData();
       form.set("candidateName", candidateName);
       form.set("role", role);
+      form.set("source", source);
       form.set("repositoryUrls", JSON.stringify([...selected]));
       form.set("repositorySelections", JSON.stringify([...selected].map((repositoryUrl) => ({
         repositoryUrl,
@@ -217,7 +220,6 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
       }))));
       form.set("resumeText", resumeText);
       form.set("jobDescription", savedRole ? savedRole.description : jobDescription);
-      form.set("isDemo", "false");
       if (resumeFile) form.set("resumeFile", resumeFile);
       const response = await fetch("/api/candidates/analyze", { method: "POST", body: form });
       const payload = await response.json() as { candidate?: { id: string }; failedRepositories?: Array<{ repositoryUrl: string; message: string }> } & ApiError;
@@ -249,7 +251,8 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
           <div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-600">{t("Candidate name")}<input value={candidateName} onChange={(event) => setCandidateName(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-brand-500" /></label><label className="text-xs font-semibold text-slate-600">{t("Role you are hiring for")} <span className="font-normal text-slate-400">{t("optional")}</span><select value={savedRoleId} onChange={(event) => setSavedRoleId(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500"><option value="">{t("Not for a saved role")}</option>{savedRoles.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label></div>
           {savedRoles.length === 0 && <p className="text-xs leading-5 text-slate-500">{t("No roles saved yet. Save a role brief in Role review to compare applicants against it.")} <Link href="/shortlists" className="inline-flex min-h-11 items-center font-semibold text-brand-700 underline underline-offset-2">{t("Open role review")}</Link></p>}
           {savedRole && <div className="rounded-xl border border-brand-100 bg-brand-50/60 p-4"><p className="text-xs leading-5 text-slate-700">{t("Evidence matching uses this role's saved brief.")}</p><details className="mt-1"><summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold text-brand-800">{t("Read original job brief")}</summary><p dir="auto" className="mt-1 max-h-56 overflow-y-auto whitespace-pre-line break-words text-xs leading-5 text-slate-600">{savedRole.description}</p></details></div>}
-          <label className="block text-xs font-semibold text-slate-600 sm:max-w-[calc(50%-0.5rem)]">{t("CV-stated role")}<select value={role} onChange={(event) => setRole(event.target.value as Role)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500">{ROLES.map((item) => <option key={item} value={item}>{t(item)}</option>)}</select><span className="mt-1 block font-normal leading-5 text-slate-400">{t("Read from the CV. Correct it if it is wrong.")}</span></label>
+          <label className="block text-xs font-semibold text-slate-600 sm:max-w-[calc(50%-0.5rem)]">{t("CV-stated role")}<input required minLength={2} maxLength={120} list="analyze-role-suggestions" value={role} onChange={(event) => setRole(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500" /><datalist id="analyze-role-suggestions">{ROLES.map((item) => <option key={item} value={item} label={t(item)} />)}</datalist><span className="mt-1 block font-normal leading-5 text-slate-400">{t("Read from the CV. Correct it if it is wrong.")}</span></label>
+          <label className="block text-xs font-semibold text-slate-600 sm:max-w-[calc(50%-0.5rem)]">{t("Applicant source")}<select value={source} onChange={(event) => setSource(event.target.value as SourceChannel)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500">{SOURCE_CHANNELS.map((item) => <option key={item} value={item}>{t(item)}</option>)}</select></label>
           {profiles.length > 0 && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-brand-600" /><strong className="text-sm text-slate-900">{t("GitHub profile detected")}</strong></div><ul className="mt-3 space-y-2">{profiles.map((profile) => { const list = profileLists[profile.url.toLowerCase()]; return <li key={profile.url} className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <bdi dir="ltr" className="min-w-0 break-all text-xs font-medium text-slate-800">{profile.url}</bdi>
