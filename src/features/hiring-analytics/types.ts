@@ -63,7 +63,7 @@ export interface CandidateRecord {
   source: SourceChannel;
   /**
    * Verified skill-evidence score (0–100) produced by CodeProof repository
-   * analysis. Demo value in the mock dataset — see `mock/`.
+   * analysis.
    */
   verifiedSkillScore: number;
   appliedAt: string;

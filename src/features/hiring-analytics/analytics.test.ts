@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CandidateRecord } from "./types";
-import { computeStageDropOff } from "./analytics";
+import { computeSourceMetrics, computeStageDropOff, deriveInsights, hasSourceComparison } from "./analytics";
 
 function candidate(outcome: CandidateRecord["outcome"]): CandidateRecord {
   return {
@@ -29,5 +29,31 @@ describe("computeStageDropOff", () => {
   it("counts a terminal rejected candidate as a resolved drop-off", () => {
     const transition = computeStageDropOff([candidate("rejected")]).find((item) => item.fromStage === "code_review");
     expect(transition).toMatchObject({ dropped: 1, dropRate: 100 });
+  });
+});
+
+describe("candidate source channels", () => {
+  const from = (source: CandidateRecord["source"], outcome: CandidateRecord["outcome"], index: number): CandidateRecord => ({ ...candidate(outcome), id: `${source}-${outcome}-${index}`, source });
+  const group = (source: CandidateRecord["source"], hired: number, open: number) => [
+    ...Array.from({ length: hired }, (_item, index) => from(source, "hired", index)),
+    ...Array.from({ length: open }, (_item, index) => from(source, "in_progress", index)),
+  ];
+
+  it("has nothing to compare while every applicant sits under one channel", () => {
+    const records = group("CodeProof", 3, 5);
+    expect(hasSourceComparison(computeSourceMetrics(records))).toBe(false);
+    expect(deriveInsights(records).some((insight) => insight.id === "best-source")).toBe(false);
+  });
+
+  it("compares channels once two of them hold applicants", () => {
+    const records = [...group("CodeProof", 1, 5), ...group("Referral", 4, 2)];
+    expect(hasSourceComparison(computeSourceMetrics(records))).toBe(true);
+    expect(deriveInsights(records).find((insight) => insight.id === "best-source")?.text).toContain("Referral is your strongest channel");
+  });
+
+  it("does not name a strongest channel when only one holds enough applicants to judge", () => {
+    const records = [...group("CodeProof", 2, 6), ...group("LinkedIn", 1, 1)];
+    expect(hasSourceComparison(computeSourceMetrics(records))).toBe(true);
+    expect(deriveInsights(records).some((insight) => insight.id === "best-source")).toBe(false);
   });
 });

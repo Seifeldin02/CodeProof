@@ -152,6 +152,14 @@ export function computeTimeInStage(candidates: CandidateRecord[]): TimeInStageMe
 
 /* --------------------------------- Sources --------------------------------- */
 
+/**
+ * Whether the records hold more than one channel. Every applicant added in CodeProof is recorded under one channel
+ * until a recruiter can say where they came from, and a table comparing one channel with four empty ones says nothing.
+ */
+export function hasSourceComparison(metrics: SourceMetric[]): boolean {
+  return metrics.filter((metric) => metric.applicants > 0).length >= 2;
+}
+
 export function computeSourceMetrics(candidates: CandidateRecord[]): SourceMetric[] {
   return SOURCE_CHANNELS.map((source) => {
     const group = candidates.filter((c) => c.source === source);
@@ -216,8 +224,9 @@ export function deriveInsights(candidates: CandidateRecord[]): DerivedInsight[] 
     });
   }
 
+  // "Strongest" is a comparison. With one channel in use there is nothing to compare it with.
   const sources = computeSourceMetrics(candidates).filter((s) => s.applicants >= 5);
-  const bestSource = [...sources].sort((a, b) => b.hireRate - a.hireRate)[0];
+  const bestSource = sources.length >= 2 ? [...sources].sort((a, b) => b.hireRate - a.hireRate)[0] : undefined;
   if (bestSource && bestSource.hireRate > 0) {
     insights.push({
       id: 'best-source',

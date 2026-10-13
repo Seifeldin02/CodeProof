@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { CvDiscovery, DiscoveredRepository } from "@/features/resume-matching/discovery";
+import type { CvDiscovery, DiscoveredGitHubProfile, DiscoveredRepository } from "@/features/resume-matching/discovery";
 import { ROLES, type Role } from "@/features/hiring-analytics/types";
 import { useI18n } from "@/components/i18n/LocaleProvider";
 import { localizeAnalysisText } from "@/i18n/translations";
@@ -17,6 +18,10 @@ interface PortfolioScan {
   claims: Array<{ claim: string }>;
 }
 type ScanState = { status: "scanning" } | { status: "done"; scan: PortfolioScan } | { status: "failed"; message: string };
+/** A role brief this account saved in Role review. */
+export interface SavedRoleOption { id: string; title: string; description: string }
+interface ProfileListing { repositories: Array<DiscoveredRepository & { language: string | null }>; more: boolean }
+type ProfileListState = { status: "listing" } | { status: "done"; count: number; more: boolean } | { status: "failed"; message: string };
 
 function PipelineMap({ discovery, busy }: { discovery: CvDiscovery | null; busy: "discover" | "analyze" | null }) {
   const { t } = useI18n();
@@ -37,7 +42,22 @@ function canonicalRepository(value: string): DiscoveredRepository | null {
   } catch { return null; }
 }
 
-export default function AnalyzeCandidateWorkflow() {
+/** A link to a GitHub profile (one path segment), as opposed to a link to one of its projects. */
+function profileLink(value: string): string | null {
+  const typed = value.trim();
+  if (!typed) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(typed) ? typed : `https://${typed}`);
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (url.hostname.replace(/^www\./i, "").toLowerCase() !== "github.com" || parts.length !== 1) return null;
+    return /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i.test(parts[0]) ? `https://github.com/${parts[0]}` : null;
+  } catch { return null; }
+}
+
+/** The limits the repository reader applies, handed down from the server so the page cannot drift from them. */
+export interface AnalysisLimits { transportMegabytes: number; analyzableFiles: number }
+
+export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { savedRoles?: SavedRoleOption[]; limits: AnalysisLimits }) {
   const router = useRouter();
   const { t, locale } = useI18n();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -54,6 +74,15 @@ export default function AnalyzeCandidateWorkflow() {
   const [error, setError] = useState<string | null>(null);
   const [repositoryStatus, setRepositoryStatus] = useState<Record<string, RepositoryUiStatus>>({});
   const [scans, setScans] = useState<Record<string, ScanState>>({});
+  const [savedRoleId, setSavedRoleId] = useState("");
+  const [typedProfiles, setTypedProfiles] = useState<DiscoveredGitHubProfile[]>([]);
+  const [profileLists, setProfileLists] = useState<Record<string, ProfileListState>>({});
+  const [repositoryLanguages, setRepositoryLanguages] = useState<Record<string, string>>({});
+  const savedRole = savedRoles.find((item) => item.id === savedRoleId) ?? null;
+  // Profiles named on the CV, then any the recruiter typed into the repository field.
+  const profiles = discovery
+    ? [...discovery.profiles, ...typedProfiles.filter((typed) => !discovery.profiles.some((found) => found.url.toLowerCase() === typed.url.toLowerCase()))]
+    : [];
 
   /**
    * Reads one portfolio page and folds anything it finds back into the same
@@ -87,6 +116,44 @@ export default function AnalyzeCandidateWorkflow() {
     }
   }
 
+  /**
+   * Lists the public projects on one GitHub profile and adds them to the same confirm step, unselected: the
+   * recruiter still chooses which to inspect. When GitHub gives no list, the message says to paste links instead.
+   */
+  async function listProfile(profileUrl: string): Promise<void> {
+    const key = profileUrl.toLowerCase();
+    setProfileLists((current) => ({ ...current, [key]: { status: "listing" } }));
+    try {
+      const response = await fetch("/api/github/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: profileUrl }),
+      });
+      const payload = await response.json() as { listing?: ProfileListing } & ApiError;
+      if (!response.ok || !payload.listing) throw new Error(payload.error?.message ?? "GitHub did not provide the project list right now. Paste the repository links you want to inspect.");
+      const listing = payload.listing;
+      setProfileLists((current) => ({ ...current, [key]: { status: "done", count: listing.repositories.length, more: listing.more } }));
+      setRepositoryOrigins((current) => ({
+        ...current,
+        ...Object.fromEntries(listing.repositories
+          .filter((repository) => current[repository.url] === undefined)
+          .map((repository) => [repository.url, "GitHub profile" as const])),
+      }));
+      setRepositoryLanguages((current) => ({
+        ...current,
+        ...Object.fromEntries(listing.repositories.flatMap((repository) => repository.language ? [[repository.url, repository.language]] : [])),
+      }));
+      setRepositories((current) => {
+        const seen = new Set(current.map((repository) => repository.url.toLowerCase()));
+        return [...current, ...listing.repositories
+          .filter((repository) => !seen.has(repository.url.toLowerCase()))
+          .map(({ owner, repository, url }) => ({ owner, repository, url }))];
+      });
+    } catch (caught) {
+      setProfileLists((current) => ({ ...current, [key]: { status: "failed", message: caught instanceof Error ? caught.message : "GitHub did not provide the project list right now. Paste the repository links you want to inspect." } }));
+    }
+  }
+
   async function runDiscovery(): Promise<void> {
     setBusy("discover"); setError(null);
     try {
@@ -103,13 +170,21 @@ export default function AnalyzeCandidateWorkflow() {
       setRepositoryOrigins(Object.fromEntries(payload.discovery.repositories.map((repository) => [repository.url, "CV" as const])));
       setSelected(new Set(payload.discovery.repositories.slice(0, 3).map((repository) => repository.url)));
       setRepositoryStatus({});
+      setTypedProfiles([]); setProfileLists({}); setRepositoryLanguages({});
     } catch (caught) { setError(caught instanceof Error ? caught.message : "CV discovery failed."); }
     finally { setBusy(null); }
   }
 
   function addManualRepository(): void {
     const parsed = canonicalRepository(manualRepository);
-    if (!parsed) { setError(t("Enter a public repository URL such as https://github.com/owner/repository.")); return; }
+    if (!parsed) {
+      const profile = profileLink(manualRepository);
+      if (!profile) { setError(t("Enter a public repository URL such as https://github.com/owner/repository.")); return; }
+      setTypedProfiles((current) => current.some((item) => item.url.toLowerCase() === profile.toLowerCase()) ? current : [...current, { owner: profile.slice("https://github.com/".length), url: profile }]);
+      setManualRepository(""); setError(null);
+      void listProfile(profile);
+      return;
+    }
     setRepositories((current) => current.some((repository) => repository.url.toLowerCase() === parsed.url.toLowerCase()) ? current : [...current, parsed]);
     setRepositoryOrigins((current) => ({ ...current, [parsed.url]: current[parsed.url] ?? "manual entry" }));
     setSelected((current) => new Set([...current, parsed.url]));
@@ -141,7 +216,7 @@ export default function AnalyzeCandidateWorkflow() {
         discoveryOrigin: repositoryOrigins[repositoryUrl] ?? "manual entry",
       }))));
       form.set("resumeText", resumeText);
-      form.set("jobDescription", jobDescription);
+      form.set("jobDescription", savedRole ? savedRole.description : jobDescription);
       form.set("isDemo", "false");
       if (resumeFile) form.set("resumeFile", resumeFile);
       const response = await fetch("/api/candidates/analyze", { method: "POST", body: form });
@@ -171,8 +246,21 @@ export default function AnalyzeCandidateWorkflow() {
           <textarea value={resumeText} onChange={(event) => setResumeText(event.target.value)} aria-label={t("Paste CV text")} placeholder={t("Candidate name, experience, GitHub links, projects…")} className="min-h-40 w-full rounded-xl border border-slate-200 bg-white p-4 text-sm leading-6 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-50" />
           <button type="button" onClick={() => runDiscovery()} disabled={busy !== null || (!resumeFile && !resumeText.trim())} className="group flex min-h-12 w-full items-center justify-between rounded-xl bg-slate-950 px-5 py-3.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"><span className="flex items-center gap-2">{busy === "discover" && <i className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white" />}{t(busy === "discover" ? "Reading CV…" : "Detect candidate projects")}</span><span className="directional-icon transition-transform group-hover:translate-x-1">→</span></button>
         </div> : <div className="mt-6 space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-600">{t("Candidate name")}<input value={candidateName} onChange={(event) => setCandidateName(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-brand-500" /></label><label className="text-xs font-semibold text-slate-600">{t("Target role")}<select value={role} onChange={(event) => setRole(event.target.value as Role)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500">{ROLES.map((item) => <option key={item} value={item}>{t(item)}</option>)}</select></label></div>
-          {discovery.profiles.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" /><strong className="text-sm text-amber-900">{t("GitHub profile detected")}</strong></div><p className="mt-2 text-xs leading-5 text-amber-800"><bdi dir="ltr">{discovery.profiles.map((profile) => profile.url).join(", ")}</bdi>. {t("Free archive scanning cannot list profile projects, so paste the repository URLs you want to inspect.")}</p></div>}
+          <div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-600">{t("Candidate name")}<input value={candidateName} onChange={(event) => setCandidateName(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-brand-500" /></label><label className="text-xs font-semibold text-slate-600">{t("Role you are hiring for")} <span className="font-normal text-slate-400">{t("optional")}</span><select value={savedRoleId} onChange={(event) => setSavedRoleId(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500"><option value="">{t("Not for a saved role")}</option>{savedRoles.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label></div>
+          {savedRoles.length === 0 && <p className="text-xs leading-5 text-slate-500">{t("No roles saved yet. Save a role brief in Role review to compare applicants against it.")} <Link href="/shortlists" className="inline-flex min-h-11 items-center font-semibold text-brand-700 underline underline-offset-2">{t("Open role review")}</Link></p>}
+          {savedRole && <div className="rounded-xl border border-brand-100 bg-brand-50/60 p-4"><p className="text-xs leading-5 text-slate-700">{t("Evidence matching uses this role's saved brief.")}</p><details className="mt-1"><summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold text-brand-800">{t("Read original job brief")}</summary><p dir="auto" className="mt-1 max-h-56 overflow-y-auto whitespace-pre-line break-words text-xs leading-5 text-slate-600">{savedRole.description}</p></details></div>}
+          <label className="block text-xs font-semibold text-slate-600 sm:max-w-[calc(50%-0.5rem)]">{t("CV-stated role")}<select value={role} onChange={(event) => setRole(event.target.value as Role)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500">{ROLES.map((item) => <option key={item} value={item}>{t(item)}</option>)}</select><span className="mt-1 block font-normal leading-5 text-slate-400">{t("Read from the CV. Correct it if it is wrong.")}</span></label>
+          {profiles.length > 0 && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-brand-600" /><strong className="text-sm text-slate-900">{t("GitHub profile detected")}</strong></div><ul className="mt-3 space-y-2">{profiles.map((profile) => { const list = profileLists[profile.url.toLowerCase()]; return <li key={profile.url} className="rounded-lg border border-slate-200 bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <bdi dir="ltr" className="min-w-0 break-all text-xs font-medium text-slate-800">{profile.url}</bdi>
+              <button type="button" onClick={() => listProfile(profile.url)} disabled={list?.status === "listing" || busy !== null} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 transition hover:border-brand-300 hover:bg-brand-50 disabled:opacity-50">
+                {list?.status === "listing" && <i className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-slate-600" />}
+                {t(list?.status === "listing" ? "Listing projects…" : list?.status === "done" ? "List again" : "List public projects")}
+              </button>
+            </div>
+            {list?.status === "done" && <p className={`mt-2 border-t border-slate-100 pt-2 text-xs leading-5 ${list.count > 0 ? "font-medium text-emerald-700" : "text-slate-500"}`}>{list.count === 0 ? t("No public projects of their own were found on this profile.") : t(list.count === 1 ? "Found 1 public project — added below for you to confirm." : "Found {count} public projects — added below for you to confirm.", { count: list.count })}{list.more && <span className="font-normal text-slate-500"> {t("The most recently updated are shown.")}</span>}</p>}
+            {list?.status === "failed" && <p role="alert" className="mt-2 border-t border-slate-100 pt-2 text-xs leading-5 text-rose-700">{localizeAnalysisText(locale, list.message)}</p>}
+          </li>; })}</ul><p className="mt-3 text-xs leading-5 text-slate-500">{t("List a profile's public projects and choose which to inspect, or paste repository links below. Copies of other people's projects are left out.")}</p></div>}
           {discovery.otherSources.length > 0 && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-slate-400" /><strong className="text-sm text-slate-900">{t("Portfolio and other sources detected")}</strong></div><span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t("Unknown, not negative")}</span></div><ul className="mt-3 space-y-2">{discovery.otherSources.map((source) => { const scan = scans[source.url]; return <li key={source.url} className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="min-w-0 text-xs text-slate-600"><bdi dir="ltr" className="break-all font-medium text-slate-800">{source.url}</bdi> <span className="text-slate-400">· {t(source.kind === "code_host" ? "Repository host other than GitHub" : "Portfolio site")}</span></span>
@@ -189,10 +277,11 @@ export default function AnalyzeCandidateWorkflow() {
             </div>}
             {scan?.status === "failed" && <p role="alert" className="mt-2 border-t border-slate-100 pt-2 text-xs text-rose-700">{localizeAnalysisText(locale, scan.message)}</p>}
           </li>; })}</ul><p className="mt-3 text-xs leading-5 text-slate-500">{t("A portfolio states what a candidate claims; only code proves it. CodeProof reads the page for linked public repositories, and anything it cannot verify stays unknown — never counted against the candidate.")}</p></div>}
-          <div><div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-slate-900">{t("Selected repositories")}</h3><span className="text-xs text-slate-400">{t("{count}/3 selected", { count: selected.size })}</span></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{repositories.map((repository) => { const outcome = repositoryStatus[repository.url]; return <div key={repository.url}><button type="button" disabled={busy === "analyze"} onClick={() => toggleRepository(repository.url)} className={`interactive-card flex min-h-16 w-full items-center gap-3 rounded-xl border p-4 text-start transition ${selected.has(repository.url) ? "border-brand-300 bg-brand-50 ring-2 ring-brand-100" : "border-slate-200 bg-white hover:border-brand-200"}`}><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border text-xs ${selected.has(repository.url) ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 text-slate-400"}`}>{outcome?.status === "analyzing" ? <i className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" /> : selected.has(repository.url) ? "✓" : "+"}</span><span className="min-w-0 flex-1"><strong className="tech-ltr block truncate text-sm text-slate-900">{repository.owner}/{repository.repository}</strong><small className={outcome?.status === "failed" ? "text-rose-600" : outcome?.status === "analyzed" ? "text-emerald-600" : "text-slate-400"}>{t(outcome?.status === "analyzing" ? "Analyzing" : outcome?.status === "analyzed" ? "Analyzed successfully" : outcome?.status === "failed" ? "Failed" : outcome?.status === "skipped" ? "Skipped by user" : "Public source archive")}</small></span></button>{outcome?.status === "failed" && outcome.message && <p role="alert" className="mt-1 px-2 text-[10px] leading-4 text-rose-700">{localizeAnalysisText(locale, outcome.message)}</p>}</div>; })}</div>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row"><input dir="ltr" value={manualRepository} onChange={(event) => setManualRepository(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addManualRepository(); } }} placeholder="https://github.com/owner/repository" className="h-12 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 text-left text-sm outline-none focus:border-brand-500" /><button type="button" onClick={addManualRepository} className="min-h-12 rounded-lg border border-slate-200 px-5 text-sm font-semibold text-slate-700">{t("Add")}</button></div>
+          <div><div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-slate-900">{t("Selected repositories")}</h3><span className="text-xs text-slate-400">{t("{count}/3 selected", { count: selected.size })}</span></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{repositories.map((repository) => { const outcome = repositoryStatus[repository.url]; return <div key={repository.url}><button type="button" disabled={busy === "analyze"} onClick={() => toggleRepository(repository.url)} className={`interactive-card flex min-h-16 w-full items-center gap-3 rounded-xl border p-4 text-start transition ${selected.has(repository.url) ? "border-brand-300 bg-brand-50 ring-2 ring-brand-100" : "border-slate-200 bg-white hover:border-brand-200"}`}><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border text-xs ${selected.has(repository.url) ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 text-slate-400"}`}>{outcome?.status === "analyzing" ? <i className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" /> : selected.has(repository.url) ? "✓" : "+"}</span><span className="min-w-0 flex-1"><strong className="tech-ltr block truncate text-sm text-slate-900">{repository.owner}/{repository.repository}</strong><small className={outcome?.status === "failed" ? "text-rose-600" : outcome?.status === "analyzed" ? "text-emerald-600" : "text-slate-400"}>{t(outcome?.status === "analyzing" ? "Analyzing" : outcome?.status === "analyzed" ? "Analyzed successfully" : outcome?.status === "failed" ? "Failed" : outcome?.status === "skipped" ? "Skipped by user" : "Public source archive")}{!outcome && repositoryLanguages[repository.url] && <> · <bdi dir="ltr">{repositoryLanguages[repository.url]}</bdi></>}</small></span></button>{outcome?.status === "failed" && outcome.message && <p role="alert" className="mt-1 px-2 text-[10px] leading-4 text-rose-700">{localizeAnalysisText(locale, outcome.message)}</p>}</div>; })}</div>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row"><input dir="ltr" value={manualRepository} onChange={(event) => setManualRepository(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addManualRepository(); } }} placeholder="https://github.com/owner/repository" className="h-12 min-h-12 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 text-left text-sm outline-none focus:border-brand-500" /><button type="button" onClick={addManualRepository} className="min-h-12 rounded-lg border border-slate-200 px-5 text-sm font-semibold text-slate-700">{t("Add")}</button></div>
+            <p className="mt-2 text-xs leading-5 text-slate-500">{t("Paste a repository link, or a profile link to list its projects.")}</p>
           </div>
-          <label className="block text-xs font-semibold text-slate-600">{t("Job description")} <span className="font-normal text-slate-400">{t("optional")}</span><textarea value={jobDescription} onChange={(event) => setJobDescription(event.target.value)} className="mt-2 min-h-28 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal leading-6 outline-none focus:border-brand-500" placeholder={t("Paste requirements to include evidence matching…")} /></label>
+          {!savedRole && <label className="block text-xs font-semibold text-slate-600">{t("Job description")} <span className="font-normal text-slate-400">{t("optional")}</span><textarea value={jobDescription} onChange={(event) => setJobDescription(event.target.value)} className="mt-2 min-h-28 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal leading-6 outline-none focus:border-brand-500" placeholder={t("Paste requirements to include evidence matching…")} /></label>}
           <p className="text-xs leading-5 text-slate-500">{t("When AI is enabled, CV text, the job brief, and selected public source excerpts are sent to the configured provider. The core evidence review still works without AI.")}</p>
           <div className="flex flex-col gap-3 sm:flex-row"><button type="button" onClick={() => { setDiscovery(null); setError(null); }} disabled={busy !== null} className="min-h-12 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">{t("Back")}</button><button type="button" onClick={analyze} disabled={busy !== null || selected.size === 0} className="group flex min-h-12 flex-1 items-center justify-between rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-700 disabled:opacity-50 disabled:hover:translate-y-0"><span className="flex items-center gap-2">{busy === "analyze" && <i className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white" />}{busy === "analyze" ? t(selected.size === 1 ? "Inspecting {count} source archive…" : "Inspecting {count} source archives…", { count: selected.size }) : t("Build candidate evidence report")}</span><span className="directional-icon transition-transform group-hover:translate-x-1">→</span></button></div>
         </div>}
@@ -201,7 +290,7 @@ export default function AnalyzeCandidateWorkflow() {
 
       <aside className="space-y-4">
         <div className="hero-grid rounded-2xl bg-slate-950 p-6 text-white"><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-lime-300">{t("What CodeProof inspects")}</p><ul className="mt-5 space-y-4 text-sm">{[["Languages and tools","Extensions, manifests and real imports."],["Architecture patterns","Routes, services, state, auth and persistence boundaries."],["Implementation depth","Repeated meaningful usage with exact file citations."],["Quality signals","Tests, error handling, observability and deployment evidence."]].map(([title, copy], index) => <li key={title} className="flex gap-3 border-b border-white/10 pb-4 last:border-0 last:pb-0"><span className="font-mono text-[10px] text-lime-300">0{index + 1}</span><span><strong className="block">{t(title)}</strong><span className="mt-1 block text-xs leading-5 text-slate-400">{t(copy)}</span></span></li>)}</ul></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-6"><h3 className="text-sm font-semibold text-slate-900">{t("Free by default")}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{t("Public repositories are downloaded through GitHub source archives. The core flow does not use GitHub REST, a token, or an AI key.")}</p><dl className="mt-5 grid grid-cols-2 gap-3 text-xs"><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Transport cap")}</dt><dd className="tech-ltr mt-1 font-semibold text-slate-800">96 MB</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Analyzable file cap")}</dt><dd className="mt-1 font-semibold text-slate-800">5,000</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Execution")}</dt><dd className="mt-1 font-semibold text-slate-800">{t("Never")}</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Evidence")}</dt><dd className="mt-1 font-semibold text-slate-800">{t("File-backed")}</dd></div></dl></div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6"><h3 className="text-sm font-semibold text-slate-900">{t("Free by default")}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{t("Public repositories are downloaded through GitHub source archives. The core flow does not use GitHub REST, a token, or an AI key.")}</p><dl className="mt-5 grid grid-cols-2 gap-3 text-xs"><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Transport cap")}</dt><dd className="tech-ltr mt-1 font-semibold text-slate-800">{limits.transportMegabytes} MB</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Analyzable file cap")}</dt><dd className="tech-ltr mt-1 font-semibold text-slate-800">{limits.analyzableFiles.toLocaleString("en-US")}</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Execution")}</dt><dd className="mt-1 font-semibold text-slate-800">{t("Never")}</dd></div><div className="rounded-lg bg-slate-50 p-3"><dt className="text-slate-400">{t("Evidence")}</dt><dd className="mt-1 font-semibold text-slate-800">{t("File-backed")}</dd></div></dl></div>
       </aside>
       </div>
     </div>

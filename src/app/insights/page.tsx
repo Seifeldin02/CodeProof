@@ -10,7 +10,7 @@ import Badge from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import { CheckCircleIcon, ClockIcon, SearchCodeIcon, TrendingUpIcon, UsersIcon } from "@/components/ui/icons";
-import { computeFunnel, computeSkillBands, computeSourceMetrics, computeStageDropOff, computeSummary, deriveInsights } from "@/features/hiring-analytics/analytics";
+import { computeFunnel, computeSkillBands, computeSourceMetrics, computeStageDropOff, computeSummary, deriveInsights, hasSourceComparison } from "@/features/hiring-analytics/analytics";
 import { getCandidateStore } from "@/features/candidates/store";
 import { getI18n } from "@/i18n/server";
 import { requirePageUser } from "@/features/auth/page-guard";
@@ -25,6 +25,8 @@ export default async function HiringInsightsPage() {
   const demoCandidates = candidates.filter((candidate) => candidate.isDemo);
   const activeCandidates = realCandidates.length ? realCandidates : demoCandidates;
   const summary = computeSummary(activeCandidates);
+  const sourceMetrics = computeSourceMetrics(activeCandidates);
+  const sourcesCompared = hasSourceComparison(sourceMetrics);
   const store = getCandidateStore();
   const details = (await Promise.all(activeCandidates.map((candidate) => store.getCandidate(user.id, candidate.id)))).filter((candidate) => candidate !== null);
   const patternCounts = new Map<string, number>();
@@ -44,7 +46,7 @@ export default async function HiringInsightsPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><KpiTile label={t("Total candidates")} value={String(summary.totalCandidates)} icon={UsersIcon} /><KpiTile label={t("Active pipeline")} value={String(summary.activePipeline)} icon={TrendingUpIcon} /><KpiTile label={t("Hires")} value={String(summary.hires)} icon={CheckCircleIcon} iconTone="positive" /><KpiTile label={t("Avg time to hire")} value={summary.avgTimeToHireDays === null ? "—" : t("{count} days", { count: summary.avgTimeToHireDays })} icon={ClockIcon} /></div>
         <div className="grid gap-5 xl:grid-cols-[1.05fr_.95fr]"><Card title={t("Repository evidence coverage")} subtitle={t("Signals connected to analyzed candidate projects")}><EvidenceCoverage data={coverage} /></Card><Card title={t("Hiring funnel")} subtitle={t("Candidates reaching each recorded stage")}><HiringFunnel data={computeFunnel(activeCandidates)} /></Card></div>
         <div className="grid gap-5 xl:grid-cols-2"><Card title={t("Resolved stage drop-off")} subtitle={t("Rejected or withdrawn records only; active candidates are excluded")}><StageDropoff data={computeStageDropOff(activeCandidates)} /></Card><Card title={t("Evidence and outcomes")} subtitle={t("Observed outcomes by transparent evidence index")}><SkillsVsOutcome data={computeSkillBands(activeCandidates)} /></Card></div>
-        <div className="grid gap-5 xl:grid-cols-[1.15fr_.85fr]"><Card title={t("Source quality")} subtitle={t("Performance by candidate source")}><SourceQualityTable data={computeSourceMetrics(activeCandidates)} /></Card><Card title={t("Explainable hiring signals")} subtitle={t("Rule-based observations over the current pipeline")}><DerivedInsights items={deriveInsights(activeCandidates)} /></Card></div>
+        <div className={`grid gap-5 ${sourcesCompared ? "xl:grid-cols-[1.15fr_.85fr]" : ""}`}>{sourcesCompared && <Card title={t("Source quality")} subtitle={t("Performance by candidate source")}><SourceQualityTable data={sourceMetrics} /></Card>}<Card title={t("Explainable hiring signals")} subtitle={t("Rule-based observations over the current pipeline")}><DerivedInsights items={deriveInsights(activeCandidates)} /></Card></div>
       </>}
     </div>
   );
