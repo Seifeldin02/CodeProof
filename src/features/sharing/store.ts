@@ -74,6 +74,17 @@ function summarize(row: ShareRow, now = Date.now()): ShareSummary {
 }
 function digest(token: string): string { return createHash("sha256").update(token).digest("hex"); }
 
+/**
+ * What one attempt to read a link comes to. An expired or withdrawn link says so in the log. A link whose owner's
+ * account is not active is otherwise sound, so it is logged as not valid at this time. The visitor sees the same
+ * unavailable page for all three.
+ */
+function accessOutcome(status: ShareSummary["status"], ownerIsActive: boolean): "granted" | "denied_expired" | "denied_revoked" | "denied_invalid" {
+  if (status === "expired") return "denied_expired";
+  if (status === "revoked") return "denied_revoked";
+  return ownerIsActive ? "granted" : "denied_invalid";
+}
+
 export interface ShareStore {
   create(ownerId: string, candidateId: string, analysisVersionId: string, report: SharedReport, expiry: ShareExpiryOption): Promise<{ token: string; share: ShareSummary } | null>;
   list(ownerId: string, candidateId: string): Promise<ShareSummary[]>;
@@ -83,6 +94,12 @@ export interface ShareStore {
 
 export class SqliteShareStore implements ShareStore {
   constructor(private readonly db: DatabaseSync) {}
+
+  /** A link stops working while its owner's account is suspended, and works again once the account is reactivated. */
+  private ownerIsActive(ownerId: string): boolean {
+    const owner = this.db.prepare("SELECT lifecycle_state FROM users WHERE id = ?").get(ownerId) as { lifecycle_state: string } | undefined;
+    return owner?.lifecycle_state === "active";
+  }
 
   async create(ownerId: string, candidateId: string, analysisVersionId: string, report: SharedReport, expiry: ShareExpiryOption) {
     const token = randomBytes(32).toString("base64url");
@@ -130,19 +147,18 @@ export class SqliteShareStore implements ShareStore {
 
   async resolve(token: string, ipFingerprint: string, userAgentFamily: string | null): Promise<SharedReport | null> {
     if (!/^[A-Za-z0-9_-]{43}$/u.test(token)) return null;
-    const row = this.db.prepare(`SELECT s.id, s.candidate_id, s.analysis_version_id, s.expiry_option,
+    const row = this.db.prepare(`SELECT s.id, s.owner_user_id, s.candidate_id, s.analysis_version_id, s.expiry_option,
       s.expires_at, s.revoked_at, s.is_demo, s.created_at, r.projection_json
       FROM external_shares s JOIN external_report_snapshots r ON r.share_id = s.id
-      WHERE s.token_digest = ?`).get(digest(token)) as (ShareRow & { projection_json: string }) | undefined;
+      WHERE s.token_digest = ?`).get(digest(token)) as (ShareRow & { owner_user_id: string; projection_json: string }) | undefined;
     if (!row) return null;
-    const status = summarize(row).status;
+    const outcome = accessOutcome(summarize(row).status, this.ownerIsActive(row.owner_user_id));
     this.db.prepare(`INSERT INTO share_access_log
       (id, share_id, occurred_at, outcome, applied_controls_json, ip_fingerprint, user_agent_family, is_demo)
       VALUES (?, ?, ?, ?, '[]', ?, ?, ?)`).run(
-      randomUUID(), row.id, new Date().toISOString(), status === "active" ? "granted" : status === "expired" ? "denied_expired" : "denied_revoked",
-      ipFingerprint, userAgentFamily, row.is_demo ? 1 : 0,
+      randomUUID(), row.id, new Date().toISOString(), outcome, ipFingerprint, userAgentFamily, row.is_demo ? 1 : 0,
     );
-    return status === "active" ? SharedReportSchema.parse(JSON.parse(row.projection_json)) : null;
+    return outcome === "granted" ? SharedReportSchema.parse(JSON.parse(row.projection_json)) : null;
   }
 }
 
@@ -152,6 +168,20 @@ class PostgresShareStore implements ShareStore {
   private ready(): Promise<void> {
     this.initialized ??= ensurePostgreSQLRemediationSchema(this.pool).then(() => undefined);
     return this.initialized;
+  }
+
+  private accountStatesExist: Promise<boolean> | null = null;
+  /**
+   * The same rule as the SQLite store. The account columns are added the first time anyone signs in, which is before
+   * any link can exist; the check for them only keeps a visitor's page from failing if that order is ever broken.
+   */
+  private async ownerIsActive(ownerId: string): Promise<boolean> {
+    this.accountStatesExist ??= this.pool.query(`SELECT 1 FROM information_schema.columns
+      WHERE table_schema = current_schema() AND table_name = 'codeproof_users' AND column_name = 'lifecycle_state' LIMIT 1`)
+      .then((result) => result.rowCount === 1);
+    if (!await this.accountStatesExist) return true;
+    const owner = await this.pool.query<{ lifecycle_state: string }>("SELECT lifecycle_state FROM codeproof_users WHERE id = $1", [ownerId]);
+    return owner.rows[0]?.lifecycle_state === "active";
   }
 
   async create(ownerId: string, candidateId: string, analysisVersionId: string, report: SharedReport, expiry: ShareExpiryOption) {
@@ -204,20 +234,19 @@ class PostgresShareStore implements ShareStore {
   async resolve(token: string, ipFingerprint: string, userAgentFamily: string | null): Promise<SharedReport | null> {
     if (!/^[A-Za-z0-9_-]{43}$/u.test(token)) return null;
     await this.ready();
-    const result = await this.pool.query<ShareRow & { projection_json: SharedReport }>(`SELECT s.id, s.candidate_id,
-      s.analysis_version_id, s.expiry_option, s.expires_at::text, s.revoked_at::text, s.is_demo,
-      s.created_at::text, r.projection_json FROM codeproof_external_shares s
+    const result = await this.pool.query<ShareRow & { owner_user_id: string; projection_json: SharedReport }>(`SELECT s.id,
+      s.owner_user_id, s.candidate_id, s.analysis_version_id, s.expiry_option, s.expires_at::text, s.revoked_at::text,
+      s.is_demo, s.created_at::text, r.projection_json FROM codeproof_external_shares s
       JOIN codeproof_external_report_snapshots r ON r.share_id = s.id WHERE s.token_digest = $1`, [digest(token)]);
     const row = result.rows[0];
     if (!row) return null;
-    const status = summarize(row).status;
+    const outcome = accessOutcome(summarize(row).status, await this.ownerIsActive(row.owner_user_id));
     await this.pool.query(`INSERT INTO codeproof_share_access_log
       (id, share_id, occurred_at, outcome, applied_controls_json, ip_fingerprint, user_agent_family, is_demo)
       VALUES ($1, $2, NOW(), $3, '[]'::jsonb, $4, $5, $6)`, [
-      randomUUID(), row.id, status === "active" ? "granted" : status === "expired" ? "denied_expired" : "denied_revoked",
-      ipFingerprint, userAgentFamily, row.is_demo,
+      randomUUID(), row.id, outcome, ipFingerprint, userAgentFamily, row.is_demo,
     ]);
-    return status === "active" ? SharedReportSchema.parse(row.projection_json) : null;
+    return outcome === "granted" ? SharedReportSchema.parse(row.projection_json) : null;
   }
 }
 

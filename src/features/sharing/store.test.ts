@@ -57,6 +57,21 @@ describe("external evidence links", () => {
     } finally { db.close(); }
   });
 
+  it("closes a suspended owner's links for as long as the account is suspended", async () => {
+    const { db, store } = fixture();
+    try {
+      const created = await store.create("owner", "candidate", "analysis", report, "7d");
+      expect((await store.resolve(created!.token, "0".repeat(64), "vitest"))?.candidateName).toBe("Test candidate");
+      db.prepare("UPDATE users SET lifecycle_state = 'suspended' WHERE id = 'owner'").run();
+      expect(await store.resolve(created!.token, "0".repeat(64), "vitest")).toBeNull();
+      // The link itself was neither withdrawn nor expired, and the refused attempt is not counted as a reading.
+      expect((await store.list("owner", "candidate"))[0]).toMatchObject({ status: "active", openCount: 1 });
+      expect(db.prepare("SELECT outcome FROM share_access_log ORDER BY occurred_at DESC, rowid DESC LIMIT 1").get()).toEqual({ outcome: "denied_invalid" });
+      db.prepare("UPDATE users SET lifecycle_state = 'active' WHERE id = 'owner'").run();
+      expect((await store.resolve(created!.token, "0".repeat(64), "vitest"))?.candidateName).toBe("Test candidate");
+    } finally { db.close(); }
+  });
+
   it("rejects an expired link and records the denied access without storing an IP address", async () => {
     const { db, store } = fixture();
     try {
