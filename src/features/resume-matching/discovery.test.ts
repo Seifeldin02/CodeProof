@@ -27,6 +27,14 @@ describe("CV GitHub discovery", () => {
     expect(role("Noor Example\nMobile Engineer\nSkills: Flutter")).toBe("Mobile Engineer");
   });
 
+  it("extracts names from labeled and decorated CV headers without inventing one from a filename", () => {
+    expect(discoverCandidateLinks("Name: Sara Al-Hassan\nSoftware Engineer\nGitHub: https://github.com/sara").candidateName).toBe("Sara Al-Hassan");
+    expect(discoverCandidateLinks("Mariam Noor | Senior Software Engineer\nmariam@example.com").candidateName).toBe("Mariam Noor");
+    expect(discoverCandidateLinks("Amina Hassan • +966 555 000 000\nDeveloper").candidateName).toBe("Amina Hassan");
+    expect(discoverCandidateLinks("Noura\nAlharbi\nSoftware Engineer\nemail@example.com").candidateName).toBe("Noura Alharbi");
+    expect(discoverCandidateLinks("Software Engineer\nSkills\nJavaScript, TypeScript").candidateName).toBeNull();
+  });
+
   it("provides a manual repository fallback for profile-only CVs", () => {
     const result = discoverCandidateLinks("Grace Hopper\nGitHub: https://github.com/grace");
     expect(result.profiles).toEqual([{ owner: "grace", url: "https://github.com/grace" }]);

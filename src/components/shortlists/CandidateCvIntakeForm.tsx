@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/LocaleProvider";
-import { ROLES, SOURCE_CHANNELS, type SourceChannel } from "@/features/hiring-analytics/types";
+import { SOURCE_CHANNELS, type SourceChannel } from "@/features/hiring-analytics/types";
 
 export default function CandidateCvIntakeForm() {
   const { t } = useI18n();
@@ -29,7 +29,7 @@ export default function CandidateCvIntakeForm() {
     setSaving(true);
     const form = new FormData();
     form.set("name", name);
-    form.set("role", role);
+    if (role.trim()) form.set("role", role.trim());
     form.set("source", source);
     if (resumeText.trim()) form.set("resumeText", resumeText.trim());
     if (file) form.set("resumeFile", file);
@@ -59,7 +59,7 @@ export default function CandidateCvIntakeForm() {
     <form onSubmit={save} className="mt-4 space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div><label htmlFor="intake-name" className="block text-xs font-semibold text-slate-700">{t("Candidate name")}</label><input id="intake-name" required minLength={2} maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-100" /></div>
-        <div><label htmlFor="intake-role" className="block text-xs font-semibold text-slate-700">{t("Candidate role")}</label><input id="intake-role" required minLength={2} maxLength={120} list="intake-role-suggestions" value={role} onChange={(event) => setRole(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-100" /><datalist id="intake-role-suggestions">{ROLES.map((option) => <option key={option} value={option} label={t(option)} />)}</datalist></div>
+        <div><label htmlFor="intake-role" className="block text-xs font-semibold text-slate-700">{t("Candidate-stated role (optional)")}</label><input id="intake-role" maxLength={120} value={role} onChange={(event) => setRole(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-100" /></div>
       </div>
       <label className="block text-xs font-semibold text-slate-700">{t("Applicant source")}<select value={source} onChange={(event) => setSource(event.target.value as SourceChannel)} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">{SOURCE_CHANNELS.map((item) => <option key={item} value={item}>{t(item)}</option>)}</select></label>
       <div><label htmlFor="intake-pdf" className="block text-xs font-semibold text-slate-700">{t("CV PDF (optional if text is pasted)")}</label><input id="intake-pdf" type="file" accept="application/pdf,.pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} className="mt-2 block w-full rounded-xl border border-slate-300 p-2 text-sm text-slate-700 file:me-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:font-semibold" /></div>

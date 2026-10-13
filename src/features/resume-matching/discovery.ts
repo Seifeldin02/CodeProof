@@ -89,11 +89,34 @@ function cleanLink(value: string): string {
 }
 
 function candidateName(lines: string[]): string | null {
-  for (const line of lines.slice(0, 15)) {
-    const value = line.trim().replace(/\s+/g, " ");
-    if (!value || value.length > 80 || /https?:|github|linkedin|@|\d{3,}|curriculum|r[eé]sum[eé]|\bcv\b/i.test(value)) continue;
+  const name = (raw: string): string | null => {
+    const value = raw.trim().replace(/\s+/g, " ").replace(/^[\s:–—|-]+|[\s:–—|-]+$/g, "");
+    if (!value || value.length > 80 || /https?:|github|linkedin|@|\d{3,}|curriculum|r[eé]sum[eé]|\bcv\b/i.test(value)) return null;
     const words = value.split(" ");
-    if (words.length >= 2 && words.length <= 5 && words.every((word) => /^[\p{L}'-]+$/u.test(word))) return value;
+    if (words.length < 2 || words.length > 5 || !words.every((word) => /^[\p{L}][\p{L}'’.-]*$/u.test(word))) return null;
+    if (/\b(engineer|developer|analyst|scientist|manager|designer|architect|specialist|skills|experience|education|profile|summary|contact|projects|software|backend|frontend|fullstack|full-stack|candidate|name)\b/i.test(value)) return null;
+    return value;
+  };
+  const header = lines.slice(0, 30).map((line) => line.trim()).filter(Boolean);
+  for (const line of header) {
+    const labeled = line.match(/^(?:candidate\s+)?(?:full\s+)?name\s*[:：-]\s*(.+)$/i);
+    if (labeled) {
+      const found = name(labeled[1]);
+      if (found) return found;
+    }
+  }
+  for (const line of header) {
+    // CV headers often put a title or contact details after the name on the same line.
+    const firstSegment = line.split(/\s+[|•·]\s+|\s+[–—]\s+/u, 1)[0];
+    const found = name(firstSegment);
+    if (found) return found;
+  }
+  // Some text-based PDFs put given and family names in separate positioned text runs.
+  for (let index = 0; index < Math.min(header.length - 1, 8); index += 1) {
+    if (/^[\p{L}'’.-]+$/u.test(header[index]) && /^[\p{L}'’.-]+$/u.test(header[index + 1])) {
+      const found = name(`${header[index]} ${header[index + 1]}`);
+      if (found) return found;
+    }
   }
   return null;
 }

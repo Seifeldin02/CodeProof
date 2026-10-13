@@ -18,7 +18,7 @@ test("CV to public-code dossier, comparison and live insights", async ({ page, c
   await page.getByRole("button", { name: label("Detect candidate projects", "اكتشف مشاريع المرشح") }).click();
   await expect(page.getByRole("heading", { name: label("Confirm candidate and projects", "أكد المرشح والمشاريع") })).toBeVisible();
   await expect(page.getByText("sindresorhus/is")).toBeVisible();
-  await page.locator('input[list="analyze-role-suggestions"]').fill("Software Engineer");
+  await page.getByLabel(label("Candidate-stated role (optional)", "الدور الذي ذكره المرشح (اختياري)")).fill("Software Engineer");
   await page.getByRole("button", { name: label("Build candidate evidence report", "أنشئ تقرير أدلة المرشح") }).click();
   await expect(page).toHaveURL(/\/candidates\/[0-9a-f-]+$/, { timeout: 120_000 });
   const candidateId = page.url().split("/").at(-1);

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useI18n } from "@/components/i18n/LocaleProvider";
 import Card from "@/components/ui/Card";
-import { ROLES, SOURCE_CHANNELS, type CandidateRecord, type SourceChannel } from "@/features/hiring-analytics/types";
+import { SOURCE_CHANNELS, type CandidateRecord, type SourceChannel } from "@/features/hiring-analytics/types";
 import type { CompanyRequirement } from "@/features/requirements/store";
 import { interviewActionState, type InterviewSession } from "@/features/interviews/contracts";
 import type { CriterionSignal } from "@/features/interviews/suggest";
@@ -12,8 +12,8 @@ import { formatDateForLocale } from "@/i18n/translations";
 
 export const fieldClass = "mt-2 min-h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50";
 export const buttonClass = "inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50";
-export default function InterviewDesk({ candidates: initialCandidates, requirements, sessions, selectedCandidate, selectedRole, suggested, signals }: {
-  candidates: CandidateRecord[]; requirements: CompanyRequirement[]; sessions: InterviewSession[]; selectedCandidate?: string;
+export default function InterviewDesk({ candidates: initialCandidates, roles, requirements, sessions, selectedCandidate, selectedRole, suggested, signals }: {
+  candidates: CandidateRecord[]; roles: { id: string; title: string }[]; requirements: CompanyRequirement[]; sessions: InterviewSession[]; selectedCandidate?: string;
   selectedRole?: { id: string; title: string };
   /** For a chosen applicant and role: the criteria to raise first, and what is already known about each one. */
   suggested?: string[]; signals?: Record<string, CriterionSignal>;
@@ -27,6 +27,9 @@ export default function InterviewDesk({ candidates: initialCandidates, requireme
   function chooseCandidate(id: string) {
     setCandidateId(id);
     if (selectedRole) router.replace(`/interviews?${new URLSearchParams({ ...(id ? { candidate: id } : {}), role: selectedRole.id })}`);
+  }
+  function chooseRole(id: string) {
+    router.push(`/interviews?${new URLSearchParams({ ...(candidateId ? { candidate: candidateId } : {}), ...(id ? { role: id } : {}) })}`);
   }
   const [roleTitle, setRoleTitle] = useState(selectedRole?.title ?? "");
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
@@ -61,8 +64,9 @@ export default function InterviewDesk({ candidates: initialCandidates, requireme
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}
     <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]">
       <div className="min-w-0 space-y-5"><Card title={t("Prepare a focused interview")} subtitle={t("Freeze up to five role criteria. Record observations, not an AI verdict.")}>
-        {requirements.length ? <form onSubmit={create} className="space-y-4">
+        {requirements.length || roles.length ? <form onSubmit={create} className="space-y-4">
           <label className="block text-sm font-medium">{t("Candidate")}<select required className={fieldClass} value={candidateId} onChange={(e) => chooseCandidate(e.target.value)}><option value="">{t("Select a candidate")}</option>{candidates.map((c) => <option key={c.id} value={c.id}>{c.name}{c.isDemo ? ` · ${t("Demo data")}` : ""}</option>)}</select></label>
+          {roles.length > 0 && <label className="block text-sm font-medium">{t("Saved hiring role")}<select className={fieldClass} value={selectedRole?.id ?? ""} onChange={(event) => chooseRole(event.target.value)}><option value="">{t("Use company requirements / enter role manually")}</option>{roles.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>}
           <label className="block text-sm font-medium">{t("Role being hired")}<input required minLength={3} maxLength={160} readOnly={Boolean(selectedRole)} className={fieldClass} value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} /></label>
           <fieldset><legend className="text-sm font-medium">{t("Interview criteria (1–5)")}</legend>{suggested && <p className="mt-1 text-xs leading-5 text-slate-500">{t("Suggested first: what the role requires and this applicant's CV names without verified code behind it.")}</p>}<div className="mt-2 max-h-96 space-y-2 overflow-y-auto pe-1">{requirements.map((r) => { const signal = signals ? signalLabel[signals[r.id] ?? "none"] : null; return <label key={r.id} className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-slate-200 p-3 text-sm"><input type="checkbox" checked={criterionIds.includes(r.id)} disabled={!criterionIds.includes(r.id) && criterionIds.length >= 5} onChange={(e) => setCriterionIds((current) => e.target.checked ? [...current, r.id] : current.filter((id) => id !== r.id))} className="h-4 w-4 shrink-0 accent-emerald-700" /><span className="min-w-0 break-words">{r.requirement}</span>{signal && <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${signals?.[r.id] === "verified" ? "bg-emerald-50 text-emerald-800" : signals?.[r.id] === "pending" ? "bg-amber-50 text-amber-800" : "bg-sky-50 text-sky-800"}`}>{signal}</span>}<span className="ms-auto text-xs text-slate-500">{t(r.importance === "required" ? "Required" : r.importance === "preferred" ? "Preferred" : "Context")}</span></label>; })}</div></fieldset>
           <button disabled={busy || !criterionIds.length} className={buttonClass}>{t(busy ? "Working…" : "Create interview plan")}</button>
@@ -71,7 +75,7 @@ export default function InterviewDesk({ candidates: initialCandidates, requireme
       </Card>
       <Card title={t("No public code? Keep the candidate in the process.")} subtitle={t("Private work is not a negative signal. Use a structured discussion instead.")}><form onSubmit={addCandidate} className="space-y-3">
         <label className="block text-sm font-medium">{t("Candidate name")}<input required minLength={2} maxLength={120} className={fieldClass} value={name} onChange={(e) => setName(e.target.value)} /></label>
-        <label className="block text-sm font-medium">{t("Candidate role")}<input required minLength={2} maxLength={120} list="interview-candidate-role-suggestions" className={fieldClass} value={role} onChange={(e) => setRole(e.target.value)} /></label><datalist id="interview-candidate-role-suggestions">{ROLES.map((r) => <option key={r} value={r} label={t(r)} />)}</datalist>
+        <label className="block text-sm font-medium">{t("Candidate-stated role (optional)")}<input maxLength={120} className={fieldClass} value={role} onChange={(e) => setRole(e.target.value)} /></label>
         <label className="block text-sm font-medium">{t("Applicant source")}<select className={fieldClass} value={source} onChange={(event) => setSource(event.target.value as SourceChannel)}>{SOURCE_CHANNELS.map((item) => <option key={item} value={item}>{t(item)}</option>)}</select></label>
         <button disabled={busy} className={buttonClass}>{t("Add candidate without repository")}</button>
       </form></Card></div>

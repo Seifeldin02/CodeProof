@@ -271,7 +271,7 @@ export function deriveInsights(candidates: CandidateRecord[]): DerivedInsight[] 
 
 /** Distinct roles present in the dataset (for filtering), sorted. */
 export function availableRoles(candidates: CandidateRecord[]): string[] {
-  return [...new Set(candidates.map((c) => c.role))].sort();
+  return [...new Set(candidates.map((c) => c.role).filter(Boolean))].sort();
 }
 
 export function filterByRole(candidates: CandidateRecord[], role: string | 'all'): CandidateRecord[] {

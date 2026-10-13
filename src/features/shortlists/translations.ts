@@ -1,4 +1,6 @@
 export const shortlistArabic: Record<string, string> = {
+  "Candidate-stated role (optional)": "الدور الذي ذكره المرشح (اختياري)",
+  "Name not found in CV. Enter it before importing.": "لم يُعثر على الاسم في السيرة الذاتية. أدخله قبل الاستيراد.",
   "Saved roles to explore for this candidate": "وظائف محفوظة لاستكشافها لهذا المرشح",
   "These review leads use candidate-reported CV claims or verified citations, never a hiring verdict.": "تعتمد مؤشرات المراجعة هذه على ادعاءات المرشح في سيرته الذاتية أو استشهادات موثقة، ولا تمثل قرار توظيف.",
   "Create a role to compare this candidate with a real job brief.": "أنشئ وظيفة لمقارنة هذا المرشح بوصف وظيفي حقيقي.",

@@ -39,7 +39,7 @@ export default async function CandidateSharePage({ params }: { params: Promise<{
       <header className="hero-grid bg-slate-950 p-6 text-white sm:p-9">
         <div className="flex flex-wrap items-center gap-2"><Badge tone="positive">{t("Recruiter evidence summary")}</Badge>{candidate.isDemo && <Badge tone="warning">{t("Demo data")}</Badge>}</div>
         <h1 className="mt-5 text-3xl font-semibold tracking-[-.045em] sm:text-5xl">{candidate.name}</h1>
-        <p className="mt-2 text-sm text-slate-400">{t(candidate.role)} · CodeProof</p>
+        <p className="mt-2 text-sm text-slate-400">{t(candidate.role || "Not recorded")} · CodeProof</p>
         <dl className="mt-8 grid grid-cols-3 gap-2">
           <div><dt className="text-[9px] uppercase text-slate-500">{t("Evidence index")}</dt><dd className="mt-1 text-2xl font-semibold text-lime-300">{candidate.verifiedSkillScore}</dd></div>
           <div><dt className="text-[9px] uppercase text-slate-500">{t("Verified repositories")}</dt><dd className="mt-1 text-2xl font-semibold">{eligibleAnalyses.length}</dd></div>

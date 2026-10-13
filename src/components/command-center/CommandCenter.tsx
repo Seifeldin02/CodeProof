@@ -155,7 +155,7 @@ export function ApplicantList({ t, locale, applicants }: { t: Translate; locale:
               <div className="min-w-0">
                 <Link href={`/candidates/${applicant.id}`} className="break-words text-sm font-semibold text-slate-900 hover:text-brand-700 hover:underline">{applicant.name}</Link>
                 <p className="mt-0.5 text-xs text-slate-600">
-                  {applicant.statedRole ? t("CV states: {role}", { role: t(applicant.statedRole) }) : t(applicant.role)}
+                  {applicant.statedRole ? t("CV states: {role}", { role: t(applicant.statedRole) }) : t(applicant.role || "Not recorded")}
                   <span className="text-slate-400"> · {formatDateForLocale(locale, applicant.appliedAt)}</span>
                 </p>
               </div>

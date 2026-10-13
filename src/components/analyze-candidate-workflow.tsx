@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CvDiscovery, DiscoveredGitHubProfile, DiscoveredRepository } from "@/features/resume-matching/discovery";
-import { ROLES, SOURCE_CHANNELS, type SourceChannel } from "@/features/hiring-analytics/types";
+import { SOURCE_CHANNELS, type SourceChannel } from "@/features/hiring-analytics/types";
 import { useI18n } from "@/components/i18n/LocaleProvider";
 import { localizeAnalysisText } from "@/i18n/translations";
 import type { DiscoveryOrigin } from "@/types/remediation";
@@ -79,6 +79,7 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
   const [typedProfiles, setTypedProfiles] = useState<DiscoveredGitHubProfile[]>([]);
   const [profileLists, setProfileLists] = useState<Record<string, ProfileListState>>({});
   const [repositoryLanguages, setRepositoryLanguages] = useState<Record<string, string>>({});
+  const discoverySequence = useRef(0);
   const savedRole = savedRoles.find((item) => item.id === savedRoleId) ?? null;
   // Profiles named on the CV, then any the recruiter typed into the repository field.
   const profiles = discovery
@@ -121,7 +122,7 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
    * Lists the public projects on one GitHub profile and adds them to the same confirm step, unselected: the
    * recruiter still chooses which to inspect. When GitHub gives no list, the message says to paste links instead.
    */
-  async function listProfile(profileUrl: string): Promise<void> {
+  async function listProfile(profileUrl: string, sequence = discoverySequence.current): Promise<void> {
     const key = profileUrl.toLowerCase();
     setProfileLists((current) => ({ ...current, [key]: { status: "listing" } }));
     try {
@@ -132,6 +133,7 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
       });
       const payload = await response.json() as { listing?: ProfileListing } & ApiError;
       if (!response.ok || !payload.listing) throw new Error(payload.error?.message ?? "GitHub did not provide the project list right now. Paste the repository links you want to inspect.");
+      if (sequence !== discoverySequence.current) return;
       const listing = payload.listing;
       setProfileLists((current) => ({ ...current, [key]: { status: "done", count: listing.repositories.length, more: listing.more } }));
       setRepositoryOrigins((current) => ({
@@ -151,11 +153,13 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
           .map(({ owner, repository, url }) => ({ owner, repository, url }))];
       });
     } catch (caught) {
+      if (sequence !== discoverySequence.current) return;
       setProfileLists((current) => ({ ...current, [key]: { status: "failed", message: caught instanceof Error ? caught.message : "GitHub did not provide the project list right now. Paste the repository links you want to inspect." } }));
     }
   }
 
   async function runDiscovery(): Promise<void> {
+    const sequence = ++discoverySequence.current;
     setBusy("discover"); setError(null);
     try {
       const form = new FormData();
@@ -164,6 +168,7 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
       const response = await fetch("/api/cv/discover", { method: "POST", body: form });
       const payload = await response.json() as { discovery?: CvDiscovery } & ApiError;
       if (!response.ok || !payload.discovery) throw new Error(payload.error?.message ?? "CV discovery failed.");
+      if (sequence !== discoverySequence.current) return;
       setDiscovery(payload.discovery);
       setCandidateName(payload.discovery.candidateName ?? "");
       setRole(payload.discovery.suggestedRole ?? "");
@@ -172,8 +177,10 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
       setSelected(new Set(payload.discovery.repositories.slice(0, 3).map((repository) => repository.url)));
       setRepositoryStatus({});
       setTypedProfiles([]); setProfileLists({}); setRepositoryLanguages({});
+      // The server lists only profiles explicitly present in the CV. Repositories remain unselected for recruiter review.
+      for (const profile of payload.discovery.profiles) void listProfile(profile.url, sequence);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "CV discovery failed."); }
-    finally { setBusy(null); }
+    finally { if (sequence === discoverySequence.current) setBusy(null); }
   }
 
   function addManualRepository(): void {
@@ -204,14 +211,13 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
 
   async function analyze(): Promise<void> {
     if (!candidateName.trim()) { setError(t("Confirm the candidate name before analyzing.")); return; }
-    if (role.trim().length < 2) { setError(t("Confirm the candidate role before analyzing.")); return; }
     if (selected.size === 0) { setError(t("Select at least one public repository.")); return; }
     setBusy("analyze"); setError(null);
     setRepositoryStatus(Object.fromEntries(repositories.map((repository) => [repository.url, { status: selected.has(repository.url) ? "analyzing" : "skipped" }])));
     try {
       const form = new FormData();
       form.set("candidateName", candidateName);
-      form.set("role", role);
+      form.set("role", role.trim());
       form.set("source", source);
       form.set("repositoryUrls", JSON.stringify([...selected]));
       form.set("repositorySelections", JSON.stringify([...selected].map((repositoryUrl) => ({
@@ -248,10 +254,10 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
           <textarea value={resumeText} onChange={(event) => setResumeText(event.target.value)} aria-label={t("Paste CV text")} placeholder={t("Candidate name, experience, GitHub links, projects…")} className="min-h-40 w-full rounded-xl border border-slate-200 bg-white p-4 text-sm leading-6 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-50" />
           <button type="button" onClick={() => runDiscovery()} disabled={busy !== null || (!resumeFile && !resumeText.trim())} className="group flex min-h-12 w-full items-center justify-between rounded-xl bg-slate-950 px-5 py-3.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"><span className="flex items-center gap-2">{busy === "discover" && <i className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white" />}{t(busy === "discover" ? "Reading CV…" : "Detect candidate projects")}</span><span className="directional-icon transition-transform group-hover:translate-x-1">→</span></button>
         </div> : <div className="mt-6 space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-600">{t("Candidate name")}<input value={candidateName} onChange={(event) => setCandidateName(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-brand-500" /></label><label className="text-xs font-semibold text-slate-600">{t("Role you are hiring for")} <span className="font-normal text-slate-400">{t("optional")}</span><select value={savedRoleId} onChange={(event) => setSavedRoleId(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500"><option value="">{t("Not for a saved role")}</option>{savedRoles.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label></div>
+          <div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-600">{t("Candidate name")}<input value={candidateName} onChange={(event) => setCandidateName(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-brand-500" />{!candidateName && <span role="status" className="mt-1 block font-normal text-amber-700">{t("Name not found in CV. Enter it before analyzing.")}</span>}</label><label className="text-xs font-semibold text-slate-600">{t("Role you are hiring for")} <span className="font-normal text-slate-400">{t("optional")}</span><select value={savedRoleId} onChange={(event) => setSavedRoleId(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500"><option value="">{t("Not for a saved role")}</option>{savedRoles.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label></div>
           {savedRoles.length === 0 && <p className="text-xs leading-5 text-slate-500">{t("No roles saved yet. Save a role brief in Role review to compare applicants against it.")} <Link href="/shortlists" className="inline-flex min-h-11 items-center font-semibold text-brand-700 underline underline-offset-2">{t("Open role review")}</Link></p>}
           {savedRole && <div className="rounded-xl border border-brand-100 bg-brand-50/60 p-4"><p className="text-xs leading-5 text-slate-700">{t("Evidence matching uses this role's saved brief.")}</p><details className="mt-1"><summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold text-brand-800">{t("Read original job brief")}</summary><p dir="auto" className="mt-1 max-h-56 overflow-y-auto whitespace-pre-line break-words text-xs leading-5 text-slate-600">{savedRole.description}</p></details></div>}
-          <label className="block text-xs font-semibold text-slate-600 sm:max-w-[calc(50%-0.5rem)]">{t("CV-stated role")}<input required minLength={2} maxLength={120} list="analyze-role-suggestions" value={role} onChange={(event) => setRole(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500" /><datalist id="analyze-role-suggestions">{ROLES.map((item) => <option key={item} value={item} label={t(item)} />)}</datalist><span className="mt-1 block font-normal leading-5 text-slate-400">{t("Read from the CV. Correct it if it is wrong.")}</span></label>
+          <label className="block text-xs font-semibold text-slate-600 sm:max-w-[calc(50%-0.5rem)]">{t("Candidate-stated role (optional)")}<input maxLength={120} value={role} onChange={(event) => setRole(event.target.value)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500" /><span className="mt-1 block font-normal leading-5 text-slate-400">{t("Read from the CV. Correct it if it is wrong.")}</span></label>
           <label className="block text-xs font-semibold text-slate-600 sm:max-w-[calc(50%-0.5rem)]">{t("Applicant source")}<select value={source} onChange={(event) => setSource(event.target.value as SourceChannel)} className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-brand-500">{SOURCE_CHANNELS.map((item) => <option key={item} value={item}>{t(item)}</option>)}</select></label>
           {profiles.length > 0 && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-brand-600" /><strong className="text-sm text-slate-900">{t("GitHub profile detected")}</strong></div><ul className="mt-3 space-y-2">{profiles.map((profile) => { const list = profileLists[profile.url.toLowerCase()]; return <li key={profile.url} className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -280,7 +286,7 @@ export default function AnalyzeCandidateWorkflow({ savedRoles = [], limits }: { 
             </div>}
             {scan?.status === "failed" && <p role="alert" className="mt-2 border-t border-slate-100 pt-2 text-xs text-rose-700">{localizeAnalysisText(locale, scan.message)}</p>}
           </li>; })}</ul><p className="mt-3 text-xs leading-5 text-slate-500">{t("A portfolio states what a candidate claims; only code proves it. CodeProof reads the page for linked public repositories, and anything it cannot verify stays unknown — never counted against the candidate.")}</p></div>}
-          <div><div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-slate-900">{t("Selected repositories")}</h3><span className="text-xs text-slate-400">{t("{count}/3 selected", { count: selected.size })}</span></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{repositories.map((repository) => { const outcome = repositoryStatus[repository.url]; return <div key={repository.url}><button type="button" disabled={busy === "analyze"} onClick={() => toggleRepository(repository.url)} className={`interactive-card flex min-h-16 w-full items-center gap-3 rounded-xl border p-4 text-start transition ${selected.has(repository.url) ? "border-brand-300 bg-brand-50 ring-2 ring-brand-100" : "border-slate-200 bg-white hover:border-brand-200"}`}><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border text-xs ${selected.has(repository.url) ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 text-slate-400"}`}>{outcome?.status === "analyzing" ? <i className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" /> : selected.has(repository.url) ? "✓" : "+"}</span><span className="min-w-0 flex-1"><strong className="tech-ltr block truncate text-sm text-slate-900">{repository.owner}/{repository.repository}</strong><small className={outcome?.status === "failed" ? "text-rose-600" : outcome?.status === "analyzed" ? "text-emerald-600" : "text-slate-400"}>{t(outcome?.status === "analyzing" ? "Analyzing" : outcome?.status === "analyzed" ? "Analyzed successfully" : outcome?.status === "failed" ? "Failed" : outcome?.status === "skipped" ? "Skipped by user" : "Public source archive")}{!outcome && repositoryLanguages[repository.url] && <> · <bdi dir="ltr">{repositoryLanguages[repository.url]}</bdi></>}</small></span></button>{outcome?.status === "failed" && outcome.message && <p role="alert" className="mt-1 px-2 text-[10px] leading-4 text-rose-700">{localizeAnalysisText(locale, outcome.message)}</p>}</div>; })}</div>
+          <div><div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-slate-900">{t("Selected repositories")}</h3><span className="text-xs text-slate-400">{t("{count}/3 selected", { count: selected.size })}</span></div>{repositories.length === 0 && <p role="status" className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-xs leading-5 text-slate-700">{profiles.some((profile) => profileLists[profile.url.toLowerCase()]?.status === "listing") ? t("Looking up public projects from the GitHub profile in this CV...") : profiles.length === 0 ? t("No GitHub repository or profile link was found in this CV. Paste a public repository or profile link below.") : profiles.every((profile) => profileLists[profile.url.toLowerCase()]?.status === "done") ? t("No public projects were found on the GitHub profiles in this CV. You can still paste a repository link below.") : t("GitHub project listing is unavailable. Paste a public repository link below or try listing the profile again.")}</p>}<div className="mt-3 grid gap-2 sm:grid-cols-2">{repositories.map((repository) => { const outcome = repositoryStatus[repository.url]; return <div key={repository.url}><button type="button" disabled={busy === "analyze"} onClick={() => toggleRepository(repository.url)} className={`interactive-card flex min-h-16 w-full items-center gap-3 rounded-xl border p-4 text-start transition ${selected.has(repository.url) ? "border-brand-300 bg-brand-50 ring-2 ring-brand-100" : "border-slate-200 bg-white hover:border-brand-200"}`}><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border text-xs ${selected.has(repository.url) ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 text-slate-400"}`}>{outcome?.status === "analyzing" ? <i className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" /> : selected.has(repository.url) ? "✓" : "+"}</span><span className="min-w-0 flex-1"><strong className="tech-ltr block truncate text-sm text-slate-900">{repository.owner}/{repository.repository}</strong><small className={outcome?.status === "failed" ? "text-rose-600" : outcome?.status === "analyzed" ? "text-emerald-600" : "text-slate-400"}>{t(outcome?.status === "analyzing" ? "Analyzing" : outcome?.status === "analyzed" ? "Analyzed successfully" : outcome?.status === "failed" ? "Failed" : outcome?.status === "skipped" ? "Skipped by user" : "Public source archive")}{!outcome && repositoryLanguages[repository.url] && <> · <bdi dir="ltr">{repositoryLanguages[repository.url]}</bdi></>}</small></span></button>{outcome?.status === "failed" && outcome.message && <p role="alert" className="mt-1 px-2 text-[10px] leading-4 text-rose-700">{localizeAnalysisText(locale, outcome.message)}</p>}</div>; })}</div>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row"><input dir="ltr" value={manualRepository} onChange={(event) => setManualRepository(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addManualRepository(); } }} placeholder="https://github.com/owner/repository" className="h-12 min-h-12 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 text-left text-sm outline-none focus:border-brand-500" /><button type="button" onClick={addManualRepository} className="min-h-12 rounded-lg border border-slate-200 px-5 text-sm font-semibold text-slate-700">{t("Add")}</button></div>
             <p className="mt-2 text-xs leading-5 text-slate-500">{t("Paste a repository link, or a profile link to list its projects.")}</p>
           </div>

@@ -116,7 +116,7 @@ export function CandidateReviewCard({ t, review, role, position }: { t: Translat
           <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-950 font-mono text-xs font-semibold text-lime-300">{position}</span>
           <div className="min-w-0">
             <h3 className="break-words text-base font-semibold text-slate-950">{review.candidateName}</h3>
-            <p className="mt-1 text-xs text-slate-500">{t(review.candidateRole)}</p>
+            <p className="mt-1 text-xs text-slate-500">{t(review.candidateRole || "Not recorded")}</p>
           </div>
         </div>
         {review.isDemo && <Badge tone="warning">{t("Demo")}</Badge>}
@@ -165,7 +165,7 @@ export function CandidatesWithoutSignal({ t, reviews, role, open }: { t: Transla
           <li key={review.candidateId} className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-2.5">
             <div className="min-w-0">
               <Link href={`/candidates/${review.candidateId}`} className="break-words text-sm font-semibold text-slate-900 hover:text-brand-700 hover:underline">{review.candidateName}</Link>
-              <p className="mt-0.5 text-xs text-slate-500">{t(review.candidateRole)}{review.isDemo ? ` · ${t("Demo")}` : ""}</p>
+              <p className="mt-0.5 text-xs text-slate-500">{t(review.candidateRole || "Not recorded")}{review.isDemo ? ` · ${t("Demo")}` : ""}</p>
             </div>
             <Link href={`/interviews?candidate=${encodeURIComponent(review.candidateId)}&role=${encodeURIComponent(role.id)}`} className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">{t("Prepare interview")}</Link>
           </li>

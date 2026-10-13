@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const InputSchema = z.object({
   name: z.string().trim().min(2).max(120),
-  role: z.string().trim().min(2).max(120),
+  role: z.string().trim().max(120).default(""),
   source: z.enum(SOURCE_CHANNELS).optional(),
 }).strict();
 
@@ -30,7 +30,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   try {
     const form = await request.formData();
-    const input = InputSchema.safeParse({ name: form.get("name"), role: form.get("role"), source: form.get("source") ?? undefined });
+    const input = InputSchema.safeParse({ name: form.get("name"), role: form.get("role") ?? undefined, source: form.get("source") ?? undefined });
     if (!input.success) return Response.json({ error: { code: "INVALID_INPUT" } }, { status: 400 });
     const file = form.get("resumeFile");
     const pasted = typeof form.get("resumeText") === "string" ? String(form.get("resumeText")).trim() : "";

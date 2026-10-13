@@ -26,9 +26,11 @@ test("saved role reviews private candidates without treating missing code as a s
   const candidateId = savedCandidates.find((item) => item.name === "Private-code candidate")?.id;
   expect(candidateId).toBeTruthy();
   expect(savedCandidates.find((item) => item.id === candidateId)?.source).toBe("Referral");
-  const unscreened = await context.request.post("/api/candidates", { data: { name: "AAA no CV candidate", role: "Backend Engineer" } });
+  const unscreened = await context.request.post("/api/candidates", { data: { name: "AAA no CV candidate" } });
   expect(unscreened.status()).toBe(201);
-  const unscreenedId = ((await unscreened.json()) as { candidate: { id: string } }).candidate.id;
+  const unscreenedCandidate = ((await unscreened.json()) as { candidate: { id: string; role: string } }).candidate;
+  const unscreenedId = unscreenedCandidate.id;
+  expect(unscreenedCandidate.role).toBe("");
   await expect(page.getByRole("heading", { name: label("Role-based candidate review", "مراجعة المرشحين حسب الوظيفة") })).toBeVisible();
   await page.getByLabel(label("Role title", "المسمى الوظيفي")).fill("Backend platform engineer");
   await page.getByLabel(label("Job brief", "وصف الوظيفة")).fill("TypeScript required; Python preferred; 5 years of experience.");
@@ -118,13 +120,14 @@ test("CV-only PDF intake accepts the local text PDF and keeps claims owner-scope
   const pdf = readFileSync(path.join(process.cwd(), "docs", "demo", "sample-cv-amina-hassan.pdf"));
   const result = await context.request.post("/api/candidates/intake-cv", {
     multipart: {
-      name: "PDF intake candidate", role: "Backend Engineer",
+      name: "PDF intake candidate",
       resumeFile: { name: "resume.pdf", mimeType: "application/pdf", buffer: pdf },
     },
   });
   expect(result.status()).toBe(201);
-  const body = await result.json() as { candidate: { id: string }; claimCount: number };
+  const body = await result.json() as { candidate: { id: string; role: string }; claimCount: number };
   expect(body.claimCount).toBeGreaterThan(0);
+  expect(body.candidate.role).toBe("");
   const other = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
   try {
     expect((await other.request.post("/api/auth/register", {
@@ -148,15 +151,19 @@ test("bounded batch CV intake saves separate applicants with confirmed names", a
   await page.locator("details summary").filter({ hasText: label("Import multiple applicants from CV PDFs", "استيراد عدة متقدمين") }).click();
   const pdf = readFileSync(path.join(process.cwd(), "docs", "demo", "sample-cv-amina-hassan.pdf"));
   await page.locator("#batch-cvs").setInputFiles([
-    { name: "Applicant One.pdf", mimeType: "application/pdf", buffer: pdf },
-    { name: "Applicant Two.pdf", mimeType: "application/pdf", buffer: pdf },
+    { name: "1.pdf", mimeType: "application/pdf", buffer: pdf },
+    { name: "00c879a464787a2f.pdf", mimeType: "application/pdf", buffer: pdf },
   ]);
   await expect(page.locator("#batch-role-0")).toBeEnabled();
   await expect(page.locator("#batch-role-1")).toBeEnabled();
+  await expect(page.locator("#batch-name-0")).toHaveValue("Amina Hassan");
+  await expect(page.locator("#batch-name-1")).toHaveValue("Amina Hassan");
+  await expect(page.locator("#batch-role-0")).not.toHaveAttribute("required", "");
+  await expect(page.locator("#batch-role-0")).not.toHaveAttribute("list", "batch-role-suggestions");
   await page.locator("#batch-name-0").fill("Amina confirmed");
   await page.locator("#batch-name-1").fill("Leila confirmed");
   await page.locator("#batch-role-0").fill("Mobile Engineer");
-  await page.locator("#batch-role-1").fill("QA Engineer");
+  await page.locator("#batch-role-1").fill("");
   await page.locator("#batch-source-0").selectOption("Job Board");
   await page.locator("#batch-source-1").selectOption("Referral");
   await page.getByRole("button", { name: label("Import 2 candidates", "استيراد 2 مرشحين") }).click();
@@ -169,7 +176,7 @@ test("bounded batch CV intake saves separate applicants with confirmed names", a
   const imported = stored.filter((item) => item.name === "Amina confirmed" || item.name === "Leila confirmed");
   expect(imported.map((item) => item.name).sort()).toEqual(["Amina confirmed", "Leila confirmed"]);
   expect(imported.find((item) => item.name === "Amina confirmed")).toMatchObject({ role: "Mobile Engineer", source: "Job Board" });
-  expect(imported.find((item) => item.name === "Leila confirmed")).toMatchObject({ role: "QA Engineer", source: "Referral" });
+  expect(imported.find((item) => item.name === "Leila confirmed")).toMatchObject({ role: "", source: "Referral" });
   for (const item of imported) expect((await context.request.delete(`/api/candidates/${item.id}`)).status()).toBe(204);
 });
 

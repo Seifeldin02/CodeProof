@@ -19,7 +19,7 @@ export const maxDuration = 120;
 const MAX_REPOSITORIES = 3;
 const inputSchema = z.object({
   candidateName: z.string().trim().min(2).max(100),
-  role: z.string().trim().min(2).max(120),
+  role: z.string().trim().max(120).default(""),
   source: z.enum(SOURCE_CHANNELS).optional(),
   repositoryUrls: z.array(z.string().trim().min(1).max(500)).min(1).max(MAX_REPOSITORIES),
   resumeText: z.string().max(50_000),
@@ -106,8 +106,8 @@ export async function POST(request: Request): Promise<Response> {
     // Only the explicitly chosen saved role (or typed brief) sets the hiring bar.
     const jobDescription = text(form, "jobDescription");
     const parsed = inputSchema.parse({
-      candidateName: text(form, "candidateName") || discovered.candidateName || "Unnamed candidate",
-      role: text(form, "role") || discovered.suggestedRole,
+      candidateName: text(form, "candidateName") || discovered.candidateName || "",
+      role: form.has("role") ? text(form, "role") : discovered.suggestedRole ?? "",
       source: text(form, "source") || undefined,
       repositoryUrls: selectedRepositories,
       resumeText,

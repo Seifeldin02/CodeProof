@@ -54,7 +54,7 @@ export default async function SharedReportPage({ params }: { params: Promise<{ t
     <header className="rounded-3xl bg-slate-950 p-6 text-white sm:p-9">
       <p className="text-xs font-semibold uppercase tracking-[.16em] text-lime-300">{copy.eyebrow}</p>
       <h1 className="mt-3 break-words text-3xl font-semibold sm:text-4xl">{report.candidateName}</h1>
-      <p className="mt-2 text-sm text-slate-300">{t(report.role)}{report.isDemo ? ` · ${copy.demo}` : ""}</p>
+      <p className="mt-2 text-sm text-slate-300">{t(report.role || "Not recorded")}{report.isDemo ? ` · ${copy.demo}` : ""}</p>
       <p className="mt-5 text-sm leading-6 text-slate-300">{copy.notice}</p>
     </header>
     <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">

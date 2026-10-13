@@ -43,7 +43,7 @@ function Entry({ entry, position, locale }: { entry: ReviewQueueEntry; position:
               {entry.isDemo && <Badge tone="warning">{t("Demo")}</Badge>}
             </div>
             <p className="mt-1 text-xs text-slate-500">
-              {t(entry.role)} · {entry.repositories.analyzed === 1 ? t("1 repository analyzed") : t("{count} repositories analyzed", { count: entry.repositories.analyzed })}
+              {t(entry.role || "Not recorded")} · {entry.repositories.analyzed === 1 ? t("1 repository analyzed") : t("{count} repositories analyzed", { count: entry.repositories.analyzed })}
             </p>
           </div>
         </div>

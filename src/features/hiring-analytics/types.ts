@@ -41,14 +41,7 @@ export const SOURCE_CHANNELS = [
 ] as const;
 export type SourceChannel = (typeof SOURCE_CHANNELS)[number];
 
-export const ROLES = [
-  'Frontend Engineer',
-  'Backend Engineer',
-  'Full-Stack Engineer',
-  'Data Engineer',
-  'DevOps Engineer',
-] as const;
-/** Candidate-stated titles are open text; ROLES are input suggestions, not an ontology. */
+/** Candidate-stated titles are open text and may be absent until the recruiter confirms one. */
 export type Role = string;
 
 export interface StageEvent {

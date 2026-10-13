@@ -49,10 +49,11 @@ test("saved role and profile projects are explicit recruiter choices", async ({ 
   });
   expect(saved.status()).toBe(201);
   const roleId = ((await saved.json()) as { role: { id: string } }).role.id;
-  await page.route("**/api/github/profile", async (route) => route.fulfill({ json: { listing: {
+  let profileLookups = 0;
+  await page.route("**/api/github/profile", async (route) => { profileLookups += 1; await route.fulfill({ json: { listing: {
     owner: "rana", url: "https://github.com/rana", more: false,
     repositories: [{ owner: "rana", repository: "project", url: "https://github.com/rana/project", language: "TypeScript" }],
-  } } }));
+  } } }); });
   let posted = "";
   await page.route("**/api/candidates/analyze", async (route) => {
     posted = route.request().postDataBuffer()?.toString("utf8") ?? "";
@@ -65,10 +66,11 @@ test("saved role and profile projects are explicit recruiter choices", async ({ 
   await page.getByLabel("Role you are hiring for").selectOption(roleId);
   await page.getByText("Read original job brief").click();
   await expect(page.getByText("Role-specific brief: Flutter required and TypeScript preferred.")).toBeVisible();
-  await expect(page.getByLabel("CV-stated role")).toHaveValue("Mobile Engineer");
+  await expect(page.getByLabel("Candidate-stated role (optional)")).toHaveValue("Mobile Engineer");
   await page.getByLabel("Applicant source").selectOption("Referral");
-  await page.getByRole("button", { name: "List public projects" }).click();
   await expect(page.getByText("rana/project")).toBeVisible();
+  expect(profileLookups).toBe(1);
+  await expect(page.getByRole("button", { name: "Build candidate evidence report" })).toBeDisabled();
   await page.getByRole("button", { name: /rana\/project/u }).click();
   await page.getByRole("button", { name: "Build candidate evidence report" }).click();
   await expect.poll(() => posted).not.toBe("");
@@ -78,4 +80,31 @@ test("saved role and profile projects are explicit recruiter choices", async ({ 
   expect(posted).toContain("Mobile Engineer");
   expect(posted).not.toContain('name="isDemo"');
   expect((await context.request.post("/api/candidates/analyze", { multipart: { isDemo: "true" } })).status()).toBe(400);
+});
+
+test("CV without a GitHub link or extractable name explains both gaps", async ({ page, context }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-en");
+  expect((await context.request.post("/api/auth/register", {
+    data: { email: `no-links-${randomUUID()}@example.invalid`, password: randomUUID() },
+  })).status()).toBe(201);
+  await page.goto("/analyze");
+  await page.getByRole("textbox", { name: "Paste CV text" }).fill("Software Engineer\nSkills\nJavaScript, TypeScript");
+  await page.getByRole("button", { name: "Detect candidate projects" }).click();
+  await expect(page.getByText("Name not found in CV. Enter it before analyzing.")).toBeVisible();
+  await expect(page.getByText("No GitHub repository or profile link was found in this CV. Paste a public repository or profile link below.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Build candidate evidence report" })).toBeDisabled();
+});
+
+test("automated profile lookup reports no public projects truthfully", async ({ page, context }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-en");
+  expect((await context.request.post("/api/auth/register", {
+    data: { email: `empty-profile-${randomUUID()}@example.invalid`, password: randomUUID() },
+  })).status()).toBe(201);
+  await page.route("**/api/github/profile", async (route) => route.fulfill({ json: { listing: {
+    owner: "norepos", url: "https://github.com/norepos", more: false, repositories: [],
+  } } }));
+  await page.goto("/analyze");
+  await page.getByRole("textbox", { name: "Paste CV text" }).fill("Nora Candidate\nGitHub: https://github.com/norepos");
+  await page.getByRole("button", { name: "Detect candidate projects" }).click();
+  await expect(page.getByText("No public projects were found on the GitHub profiles in this CV. You can still paste a repository link below.")).toBeVisible();
 });

@@ -16,7 +16,7 @@ export default async function CompareCandidatesPage() {
   const [{ t }, user] = await Promise.all([getI18n(), requirePageUser("/compare")]);
   const store = getCandidateStore();
   const records = await store.listCandidates(user.id);
-  const candidates = await Promise.all(records.map(async (record): Promise<ComparisonCandidate> => {
+  const candidates = await Promise.all(records.filter((record) => !record.isDemo).map(async (record): Promise<ComparisonCandidate> => {
     const detail = await store.getCandidate(user.id, record.id);
     const skills = new Map<string, { name: string; level: EvidenceLevel; files: string[] }>();
     const eligibleAnalyses = detail ? eligibleCandidateAnalyses(detail) : [];
@@ -40,5 +40,5 @@ export default async function CompareCandidatesPage() {
     };
   }));
 
-  return <div className="space-y-6"><PageHeader eyebrow={t("Decision workspace")} title={t("Compare candidate evidence")} description={t("Line up verified implementation depth, grounded CV claims, repository coverage, and evidence gaps without turning the result into a black-box ranking.")} />{candidates.length ? <CandidateComparison candidates={candidates} /> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white/75"><EmptyState icon={SearchCodeIcon} title={t("Comparison needs candidate dossiers")} description={t("Complete at least one repository analysis to populate this workspace.")} actionLabel={t("Analyze a candidate")} actionHref="/analyze" /></div>}</div>;
+  return <div className="space-y-6"><PageHeader eyebrow={t("Decision workspace")} title={t("Compare candidate evidence")} description={t("Line up verified implementation depth, grounded CV claims, repository coverage, and evidence gaps without turning the result into a black-box ranking.")} />{candidates.length ? <CandidateComparison candidates={candidates} /> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white/75"><EmptyState icon={SearchCodeIcon} title={t("Comparison needs candidate dossiers")} description={t("Analyze a real candidate to populate this workspace. Demo records are not included.")} actionLabel={t("Analyze a candidate")} actionHref="/analyze" /></div>}</div>;
 }

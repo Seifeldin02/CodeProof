@@ -15,7 +15,7 @@ test("role criteria → private-code interview → saved human decision → cand
   await expect(page.getByRole("heading", { name: text("Interview desk", "مكتب المقابلات"), exact: true })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", ar ? "rtl" : "ltr");
   await page.getByLabel(text("Candidate name", "اسم المرشح"), { exact: true }).fill("Browser verification candidate");
-  await page.locator('input[list="interview-candidate-role-suggestions"]').fill("Mobile Engineer");
+  await page.getByRole("textbox", { name: text("Candidate-stated role (optional)", "الدور الذي ذكره المرشح (اختياري)") }).fill("Mobile Engineer");
   await page.getByRole("button", { name: text("Add candidate without repository", "إضافة مرشح دون مستودع") }).click();
   await expect(page.getByRole("combobox", { name: text("Candidate", "المرشح"), exact: true })).not.toHaveValue("");
   await page.getByLabel(text("Role being hired", "الوظيفة المطلوب شغلها")).fill("Backend Engineer · Platform");
@@ -80,4 +80,25 @@ test("interview APIs deny unauthenticated and cross-origin requests", async ({ r
   expect((await request.get("/api/interviews")).status()).toBe(401);
   expect((await request.post("/api/interviews", { data: {} })).status()).toBe(401);
   expect((await request.post("/api/interviews", { headers: { origin: "https://untrusted.example" }, data: {} })).status()).toBe(403);
+});
+
+test("interview desk lists real applicants and binds a saved role's criteria", async ({ page, context }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-en");
+  expect((await context.request.post("/api/auth/register", { data: {
+    email: `interview-role-${randomUUID()}@example.invalid`, password: randomUUID(),
+  } })).status()).toBe(201);
+  const roleResponse = await context.request.post("/api/shortlists", { data: {
+    title: "Platform engineer", description: "TypeScript and Docker are required.",
+  } });
+  expect(roleResponse.status()).toBe(201);
+  const roleId = ((await roleResponse.json()) as { role: { id: string } }).role.id;
+  const candidateResponse = await context.request.post("/api/candidates", { data: { name: "Real Applicant" } });
+  expect(candidateResponse.status()).toBe(201);
+  await page.goto("/interviews");
+  await expect(page.getByRole("combobox", { name: "Candidate", exact: true })).toContainText("Real Applicant");
+  await expect(page.getByRole("combobox", { name: "Candidate", exact: true })).not.toContainText("Demo Candidate");
+  await page.getByRole("combobox", { name: "Saved hiring role" }).selectOption(roleId);
+  await expect(page.getByRole("textbox", { name: "Role being hired" })).toHaveValue("Platform engineer");
+  await expect(page.getByText("TypeScript", { exact: true })).toBeVisible();
+  await expect(page.getByText("Docker", { exact: true })).toBeVisible();
 });
