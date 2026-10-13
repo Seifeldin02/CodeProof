@@ -52,11 +52,14 @@ export function buildSharedReport(candidate: CandidateDetail, analysis: Candidat
 interface ShareRow {
   id: string; candidate_id: string; analysis_version_id: string; expiry_option: ShareExpiryOption;
   expires_at: string; revoked_at: string | null; is_demo: number | boolean; created_at: string;
+  open_count?: number | string | null; last_opened_at?: string | null;
 }
 export interface ShareSummary {
   id: string; candidateId: string; analysisVersionId: string; expiryOption: ShareExpiryOption;
   expiresAt: string; revokedAt: string | null; isDemo: boolean; createdAt: string;
   status: "active" | "expired" | "revoked";
+  /** How often the report was shown to a visitor, and when last. Refused attempts are logged but not counted here. */
+  openCount: number; lastOpenedAt: string | null;
 }
 function summarize(row: ShareRow, now = Date.now()): ShareSummary {
   return {
@@ -65,6 +68,8 @@ function summarize(row: ShareRow, now = Date.now()): ShareSummary {
     revokedAt: row.revoked_at ? new Date(row.revoked_at).toISOString() : null,
     isDemo: Boolean(row.is_demo), createdAt: new Date(row.created_at).toISOString(),
     status: row.revoked_at ? "revoked" : new Date(row.expires_at).getTime() <= now ? "expired" : "active",
+    openCount: Number(row.open_count ?? 0),
+    lastOpenedAt: row.last_opened_at ? new Date(row.last_opened_at).toISOString() : null,
   };
 }
 function digest(token: string): string { return createHash("sha256").update(token).digest("hex"); }
@@ -107,9 +112,12 @@ export class SqliteShareStore implements ShareStore {
   }
 
   async list(ownerId: string, candidateId: string): Promise<ShareSummary[]> {
-    const rows = this.db.prepare(`SELECT id, candidate_id, analysis_version_id, expiry_option, expires_at,
-      revoked_at, is_demo, created_at FROM external_shares
-      WHERE owner_user_id = ? AND candidate_id = ? ORDER BY created_at DESC LIMIT 50`).all(ownerId, candidateId) as unknown as ShareRow[];
+    const rows = this.db.prepare(`SELECT s.id, s.candidate_id, s.analysis_version_id, s.expiry_option, s.expires_at,
+      s.revoked_at, s.is_demo, s.created_at,
+      (SELECT COUNT(*) FROM share_access_log l WHERE l.share_id = s.id AND l.outcome = 'granted') AS open_count,
+      (SELECT MAX(l.occurred_at) FROM share_access_log l WHERE l.share_id = s.id AND l.outcome = 'granted') AS last_opened_at
+      FROM external_shares s
+      WHERE s.owner_user_id = ? AND s.candidate_id = ? ORDER BY s.created_at DESC LIMIT 50`).all(ownerId, candidateId) as unknown as ShareRow[];
     return rows.map((row) => summarize(row));
   }
 
@@ -177,9 +185,12 @@ class PostgresShareStore implements ShareStore {
 
   async list(ownerId: string, candidateId: string): Promise<ShareSummary[]> {
     await this.ready();
-    const result = await this.pool.query<ShareRow>(`SELECT id, candidate_id, analysis_version_id, expiry_option,
-      expires_at::text, revoked_at::text, is_demo, created_at::text FROM codeproof_external_shares
-      WHERE owner_user_id = $1 AND candidate_id = $2 ORDER BY created_at DESC LIMIT 50`, [ownerId, candidateId]);
+    const result = await this.pool.query<ShareRow>(`SELECT s.id, s.candidate_id, s.analysis_version_id, s.expiry_option,
+      s.expires_at::text, s.revoked_at::text, s.is_demo, s.created_at::text,
+      (SELECT COUNT(*) FROM codeproof_share_access_log l WHERE l.share_id = s.id AND l.outcome = 'granted') AS open_count,
+      (SELECT MAX(l.occurred_at)::text FROM codeproof_share_access_log l WHERE l.share_id = s.id AND l.outcome = 'granted') AS last_opened_at
+      FROM codeproof_external_shares s
+      WHERE s.owner_user_id = $1 AND s.candidate_id = $2 ORDER BY s.created_at DESC LIMIT 50`, [ownerId, candidateId]);
     return result.rows.map((row) => summarize(row));
   }
 

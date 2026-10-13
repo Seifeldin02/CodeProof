@@ -39,14 +39,21 @@ describe("external evidence links", () => {
       expect(persisted.token_digest).toMatch(/^[0-9a-f]{64}$/u);
       expect(persisted.token_digest).not.toBe(created!.token);
       expect(await store.list("other", "candidate")).toEqual([]);
-      expect((await store.list("owner", "candidate"))[0].status).toBe("active");
+      expect((await store.list("owner", "candidate"))[0]).toMatchObject({ status: "active", openCount: 0, lastOpenedAt: null });
+      expect(created!.share).toMatchObject({ openCount: 0, lastOpenedAt: null });
       db.prepare("UPDATE candidates SET name = 'Changed later' WHERE id = 'candidate'").run();
       expect((await store.resolve(created!.token, "0".repeat(64), "vitest"))?.candidateName).toBe("Test candidate");
       expect(await store.resolve("wrong", "0".repeat(64), "vitest")).toBeNull();
+      expect((await store.resolve(created!.token, "1".repeat(64), "vitest"))?.candidateName).toBe("Test candidate");
+      // The owner can see that the report was read twice, and when. A wrong token belongs to no link and counts for none.
+      const read = (await store.list("owner", "candidate"))[0];
+      expect(read.openCount).toBe(2);
+      expect(Date.parse(read.lastOpenedAt ?? "")).toBeGreaterThan(Date.parse(created!.share.createdAt) - 1);
       expect(await store.revoke("other", "candidate", created!.share.id)).toBe(false);
       expect(await store.revoke("owner", "candidate", created!.share.id)).toBe(true);
       expect(await store.resolve(created!.token, "0".repeat(64), "vitest")).toBeNull();
-      expect((await store.list("owner", "candidate"))[0].status).toBe("revoked");
+      // A refused attempt after the link was withdrawn is logged, and is not an opening of the report.
+      expect((await store.list("owner", "candidate"))[0]).toMatchObject({ status: "revoked", openCount: 2 });
     } finally { db.close(); }
   });
 
@@ -60,6 +67,7 @@ describe("external evidence links", () => {
       expect(db.prepare("SELECT outcome, ip_fingerprint FROM share_access_log").get()).toEqual({
         outcome: "denied_expired", ip_fingerprint: "f".repeat(64),
       });
+      expect((await store.list("owner", "candidate"))[0]).toMatchObject({ status: "expired", openCount: 0, lastOpenedAt: null });
     } finally { db.close(); }
   });
 });

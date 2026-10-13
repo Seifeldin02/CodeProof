@@ -50,13 +50,27 @@ test("recruiter shares a bounded evidence snapshot, visitor reads it, and revoca
       ? /no-store/u : /no-store|no-cache, must-revalidate/u);
     expect(response?.headers()["x-robots-tag"]).toContain("noindex");
     await expect(visitor.getByRole("heading", { name: "Synthetic Share Candidate" })).toBeVisible();
-    await expect(visitor.getByRole("heading", { name: ar ? "الملفات التي فُحصت" : "Inspected source files" })).toBeVisible();
+    // The same repository yields exact citations where the analysis grounds a finding and a plain file list where it
+    // does not. Either is a correct report; showing both, or neither, is not.
+    await expect(visitor.getByRole("heading", {
+      name: ar ? /^(?:مراجع الملفات الدقيقة|الملفات التي فُحصت)$/u : /^(?:Exact file citations|Inspected source files)$/u,
+    })).toHaveCount(1);
     await expect(visitor.getByRole("link", { name: ar ? "افتح المصدر" : "Open source" }).first()).toBeVisible();
+    // The report is read in the visitor's language: the Arabic page leaves no English role or level name behind.
+    if (ar) {
+      await expect(visitor.getByText("مهندس واجهات أمامية")).toBeVisible();
+      await expect(visitor.getByText(/Frontend Engineer|(?:Strong|Good|Partial|Limited) Evidence/u)).toHaveCount(0);
+    }
     expect(await visitor.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // The recruiter can tell that the report was read.
+    const read = (await (await context.request.get(`/api/candidates/${candidateId}/shares`)).json()) as { shares: Array<{ openCount: number; lastOpenedAt: string | null }> };
+    expect(read.shares[0].openCount).toBeGreaterThanOrEqual(1);
+    expect(read.shares[0].lastOpenedAt).toBeTruthy();
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: ar ? "إلغاء الرابط" : "Revoke link" }).click();
     await expect(page.getByText(ar ? "ملغى" : "Revoked", { exact: false })).toBeVisible();
     expect((await visitor.reload())?.status()).toBe(404);
+    await expect(visitor.getByRole("heading", { name: ar ? "هذا التقرير المشترك غير متاح" : "This shared report is not available" })).toBeVisible();
   } finally {
     await external.close();
     await otherRecruiter.close();

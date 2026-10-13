@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/LocaleProvider";
 interface ShareSummary {
   id: string; analysisVersionId: string; expiryOption: "24h" | "7d" | "30d";
   expiresAt: string; status: "active" | "expired" | "revoked";
+  openCount: number; lastOpenedAt: string | null;
 }
 
 export default function ExternalShareControls({ candidateId, analyses }: {
@@ -29,6 +30,7 @@ export default function ExternalShareControls({ candidateId, analyses }: {
     existing: "الروابط المنشأة", noShares: "لم تُنشأ روابط بعد.", revoke: "إلغاء الرابط",
     revokeConfirm: "إلغاء هذا الرابط فورًا؟", failed: "تعذر إتمام العملية. حاول مجددًا.",
     active: "نشط", expired: "منتهي", revoked: "ملغى", hour: "24 ساعة", week: "7 أيام", month: "30 يومًا",
+    expires: "ينتهي في", opens: "مرات فتح التقرير", lastOpened: "آخر فتح", neverOpened: "لم يُفتح التقرير بعد",
   } : {
     title: "External evidence sharing", description: "Create a time-limited link to one repository's fixed evidence snapshot. CV text and full source-file contents are excluded.",
     select: "Repository analysis", expiry: "Link lifetime", create: "Create secure link", creating: "Creating…",
@@ -37,7 +39,10 @@ export default function ExternalShareControls({ candidateId, analyses }: {
     existing: "Created links", noShares: "No links created yet.", revoke: "Revoke link",
     revokeConfirm: "Revoke this link immediately?", failed: "The action failed. Please try again.",
     active: "Active", expired: "Expired", revoked: "Revoked", hour: "24 hours", week: "7 days", month: "30 days",
+    expires: "Expires", opens: "Times the report was opened", lastOpened: "Last opened", neverOpened: "Report not opened yet",
   };
+  const day = new Intl.DateTimeFormat(ar ? "ar-SA" : "en-US", { dateStyle: "medium" });
+  const moment = new Intl.DateTimeFormat(ar ? "ar-SA" : "en-US", { dateStyle: "medium", timeStyle: "short" });
 
   useEffect(() => {
     let mounted = true;
@@ -99,7 +104,13 @@ export default function ExternalShareControls({ candidateId, analyses }: {
     <h3 className="mt-5 text-sm font-semibold text-slate-900">{copy.existing}</h3>
     {shares.length === 0 ? <p className="mt-2 text-xs text-slate-600">{copy.noShares}</p> : <ul className="mt-2 divide-y divide-slate-100">
       {shares.map((share) => <li key={share.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-xs">
-        <span className="break-words text-slate-700">{copy[share.status]} · {analyses.find((analysis) => analysis.id === share.analysisVersionId)?.label ?? share.analysisVersionId} · {new Intl.DateTimeFormat(ar ? "ar-SA" : "en-US", { dateStyle: "medium" }).format(new Date(share.expiresAt))}</span>
+        <span className="min-w-0 break-words text-slate-700">
+          <span className="font-semibold text-slate-900">{copy[share.status]}</span> · <bdi dir="ltr">{analyses.find((analysis) => analysis.id === share.analysisVersionId)?.label ?? share.analysisVersionId}</bdi> · {copy.expires}: {day.format(new Date(share.expiresAt))}
+          {/* Whether the person it was sent to has read it. Refused attempts on a withdrawn or expired link are not counted. */}
+          <span className="mt-1 block text-slate-600">{share.openCount > 0 && share.lastOpenedAt
+            ? `${copy.opens}: ${share.openCount} · ${copy.lastOpened}: ${moment.format(new Date(share.lastOpenedAt))}`
+            : copy.neverOpened}</span>
+        </span>
         {share.status === "active" && <button type="button" disabled={busy} onClick={() => revoke(share.id)} className="min-h-11 rounded-lg border border-rose-200 px-3 text-xs font-semibold text-rose-800 disabled:opacity-50">{copy.revoke}</button>}
       </li>)}
     </ul>}
