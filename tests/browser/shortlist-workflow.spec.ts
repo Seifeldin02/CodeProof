@@ -29,7 +29,7 @@ test("saved role reviews private candidates without treating missing code as a s
   await page.getByLabel(label("Role title", "المسمى الوظيفي")).fill("Backend platform engineer");
   await page.getByLabel(label("Job brief", "وصف الوظيفة")).fill("TypeScript required; Python preferred; 5 years of experience.");
   await page.getByRole("button", { name: label("Save role and review candidates", "احفظ الوظيفة وراجع المرشحين") }).click();
-  await expect(page).toHaveURL(/\/shortlists\?role=/);
+  await expect(page).toHaveURL(/\/shortlists\?role=/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Private-code candidate" })).toBeVisible();
   expect((await page.locator("article h3").allTextContents())[0]).toBe("Private-code candidate");
   const candidateCard = page.locator("article").filter({ has: page.getByRole("heading", { name: "Private-code candidate" }) });

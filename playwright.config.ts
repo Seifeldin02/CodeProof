@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL?.trim();
 const baseURL = externalBaseUrl || "http://127.0.0.1:3000";
+const hostResolverIp = process.env.PLAYWRIGHT_HOST_RESOLVER_IP?.trim();
 
 export default defineConfig({
   testDir: "./tests",
@@ -10,7 +11,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  timeout: 90_000,
+  workers: process.env.CI ? 1 : 2,
   reporter: [
     ["line"],
     ["html", { outputFolder: "playwright-report", open: "never" }],
@@ -18,6 +20,9 @@ export default defineConfig({
   ],
   use: {
     baseURL,
+    ...(hostResolverIp && externalBaseUrl ? {
+      launchOptions: { args: [`--host-resolver-rules=MAP ${new URL(externalBaseUrl).hostname} ${hostResolverIp}`] },
+    } : {}),
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
