@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { CandidateDetail } from "@/features/candidates/types";
 import type { CompanyRequirement } from "@/features/requirements/store";
 import { resolveCapabilityAlias } from "@/features/repository-analysis/capability-taxonomy";
-import type { InterviewAssessment, InterviewPreparation } from "./contracts";
+import { blankQualityChecks, type InterviewAssessment, type InterviewPreparation } from "./contracts";
 
 function includesToken(text: string, token: string): boolean {
   const normalized = text.toLowerCase();
@@ -73,7 +73,7 @@ export function prepareInterview(
 
 export function blankAssessment(preparation: InterviewPreparation): InterviewAssessment {
   return {
-    ratings: preparation.criteria.map((criterion) => ({ criterionId: criterion.id, rating: "unassessed", observation: "" })),
+    ratings: preparation.criteria.map((criterion) => ({ criterionId: criterion.id, rating: "unassessed", observation: "", qualityChecks: blankQualityChecks() })),
     decision: null, rationale: "", nextAction: "", followUpOn: null, candidateMessage: "",
   };
 }

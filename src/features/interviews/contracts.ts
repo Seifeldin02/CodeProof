@@ -2,6 +2,19 @@ import { z } from "zod";
 
 export const InterviewRatingSchema = z.enum(["unassessed", "emerging", "meets", "exceeds"]);
 export type InterviewRating = z.infer<typeof InterviewRatingSchema>;
+export const QualityCheckSchema = z.enum(["not_checked", "demonstrated", "needs_validation"]);
+export const InterviewQualityChecksSchema = z.object({
+  expectedBehavior: QualityCheckSchema,
+  failureCase: QualityCheckSchema,
+  validation: QualityCheckSchema,
+  ownReasoning: QualityCheckSchema,
+  tradeoffs: QualityCheckSchema,
+}).strict();
+export type InterviewQualityChecks = z.infer<typeof InterviewQualityChecksSchema>;
+export const blankQualityChecks = (): InterviewQualityChecks => ({
+  expectedBehavior: "not_checked", failureCase: "not_checked", validation: "not_checked",
+  ownReasoning: "not_checked", tradeoffs: "not_checked",
+});
 export const DecisionSchema = z.enum(["advance", "hold", "decline"]);
 export type InterviewDecision = z.infer<typeof DecisionSchema>;
 
@@ -34,7 +47,8 @@ export const InterviewPreparationSchema = z.object({
 export type InterviewPreparation = z.infer<typeof InterviewPreparationSchema>;
 
 export const InterviewAssessmentSchema = z.object({
-  ratings: z.array(z.object({ criterionId: z.string(), rating: InterviewRatingSchema, observation: z.string().trim().max(2000) }).strict()).max(5),
+  // Optional so interviews saved before structured checks remain readable.
+  ratings: z.array(z.object({ criterionId: z.string(), rating: InterviewRatingSchema, observation: z.string().trim().max(2000), qualityChecks: InterviewQualityChecksSchema.optional() }).strict()).max(5),
   decision: DecisionSchema.nullable(),
   rationale: z.string().trim().max(3000),
   nextAction: z.string().trim().max(500),
@@ -90,6 +104,11 @@ export function applyInterviewUpdate(session: InterviewSession, input: UpdateInt
     || assessment.candidateMessage.length < 12
     || !assessment.ratings.some((rating) => rating.rating !== "unassessed")
     || assessment.ratings.some((rating) => rating.rating !== "unassessed" && rating.observation.length < 12)
+    || assessment.ratings.some((rating) => (rating.rating === "meets" || rating.rating === "exceeds") && (
+      !rating.qualityChecks || ["expectedBehavior", "failureCase", "validation", "ownReasoning"].some((key) =>
+        rating.qualityChecks?.[key as keyof InterviewQualityChecks] !== "demonstrated")
+      || (rating.rating === "exceeds" && rating.qualityChecks.tradeoffs !== "demonstrated")
+    ))
   )) throw new InterviewConflict("INCOMPLETE_ASSESSMENT");
   return {
     ...session, assessment, revision: session.revision + 1, updatedAt: now,

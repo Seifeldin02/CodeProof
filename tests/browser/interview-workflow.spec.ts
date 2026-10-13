@@ -37,6 +37,12 @@ test("role criteria → private-code interview → saved human decision → cand
   await page.reload();
   await expect(page.getByRole("heading", { name: "1. TypeScript", exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: text("Human assessment", "التقييم البشري"), exact: true }).selectOption("meets");
+  for (const [english, arabic] of [
+    ["Expected behavior satisfies the role requirement", "السلوك المتوقع يلبي متطلب الوظيفة"],
+    ["Explained a realistic failure case", "شرح حالة فشل واقعية"],
+    ["Proposed a credible test or validation", "اقترح اختباراً أو تحققاً موثوقاً"],
+    ["Explained their own decisions, including any AI output they accepted or changed", "شرح قراراته الشخصية، بما فيها مخرجات الذكاء الاصطناعي التي قبلها أو غيّرها"],
+  ]) await page.getByRole("combobox", { name: text(english, arabic) }).selectOption("demonstrated");
   await page.getByRole("textbox", { name: text("Observed answer / concrete evidence", "الإجابة الملحوظة / الدليل المحدد") }).fill("Explained personal implementation, rollback trade-offs and failure tests.");
   await page.getByRole("combobox", { name: text("Human decision", "القرار البشري"), exact: true }).selectOption("advance");
   await page.getByRole("textbox", { name: text("Decision rationale", "مبررات القرار") }).fill("Specific ownership and clear validation of failure cases were observed.");
@@ -56,6 +62,7 @@ test("role criteria → private-code interview → saved human decision → cand
   const finalized = (await (await context.request.get(`/api/interviews/${id}`)).json()).session;
   expect(finalized.communicatedAt).toBeNull();
   expect(finalized.preparation.requirementsHash).toBe(initial.preparation.requirementsHash);
+  expect(finalized.assessment.ratings[0].qualityChecks).toMatchObject({ expectedBehavior: "demonstrated", failureCase: "demonstrated", validation: "demonstrated", ownReasoning: "demonstrated" });
   const candidate = await (await context.request.get(`/api/candidates/${finalized.candidateId}`)).json();
   expect(candidate.outcome).toBe("in_progress"); // Never auto-reject / auto-advance.
   await page.screenshot({ path: `test-results/interview-${testInfo.project.name}.png`, fullPage: true });

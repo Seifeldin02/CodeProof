@@ -17,7 +17,9 @@ async function setup() {
   return { candidates, candidate, store, session };
 }
 function complete(assessment: InterviewAssessment): InterviewAssessment {
-  return { ...assessment, ratings: assessment.ratings.map((r) => ({ ...r, rating: "meets", observation: "Explained own implementation, rollback trade-off and failure tests." })),
+  return { ...assessment, ratings: assessment.ratings.map((r) => ({ ...r, rating: "meets", observation: "Explained own implementation, rollback trade-off and failure tests.", qualityChecks: {
+    expectedBehavior: "demonstrated", failureCase: "demonstrated", validation: "demonstrated", ownReasoning: "demonstrated", tradeoffs: "not_checked",
+  } as const })),
     decision: "advance", rationale: "Observed concrete ownership and described validation of failure cases.", nextAction: "Schedule a team interview", followUpOn: "2026-10-12", candidateMessage: "Thank you for your time. We will contact you by October 12 with the next interview step." };
 }
 afterEach(() => { for (const store of stores.splice(0)) store.db.close(); });
@@ -72,6 +74,17 @@ describe("interview decision workspace", () => {
     expect(communicated.communicatedAt).toBeTruthy();
     expect(communicated.assessment).toEqual(completed.assessment);
     expect(interviewActionState(communicated, "2026-10-15")).toBe("done");
+  });
+  it("requires demonstrated quality checks for positive ratings, without penalizing uncertain answers", async () => {
+    const { store, session } = await setup();
+    const ready = complete(session.assessment);
+    const rating = ready.ratings[0];
+    await expect(store.update("a", session.id, { action: "complete", revision: 1, assessment: { ...ready, ratings: [{ ...rating, qualityChecks: { ...rating.qualityChecks!, validation: "needs_validation" } }] } })).rejects.toMatchObject({ code: "INCOMPLETE_ASSESSMENT" });
+    await expect(store.update("a", session.id, { action: "complete", revision: 1, assessment: { ...ready, ratings: [{ ...rating, rating: "exceeds" }] } })).rejects.toMatchObject({ code: "INCOMPLETE_ASSESSMENT" });
+    const saved = await store.update("a", session.id, { action: "save", revision: 1, assessment: { ...ready, ratings: [{ ...rating, rating: "emerging", qualityChecks: { ...rating.qualityChecks!, validation: "needs_validation" } }] } });
+    expect(saved?.assessment.ratings[0].qualityChecks?.validation).toBe("needs_validation");
+    const completed = await store.update("a", session.id, { action: "complete", revision: 2, assessment: { ...ready, ratings: [{ ...rating, rating: "exceeds", qualityChecks: { ...rating.qualityChecks!, tradeoffs: "demonstrated" } }] } });
+    expect(completed?.status).toBe("completed");
   });
   it("rejects fabricated criteria and prevents marking a draft communicated", async () => {
     const { store, session } = await setup();

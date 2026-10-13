@@ -3,14 +3,21 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useI18n } from "@/components/i18n/LocaleProvider";
 import Card from "@/components/ui/Card";
-import { InterviewRatingSchema, type InterviewAssessment, type InterviewSession, type UpdateInterview } from "@/features/interviews/contracts";
+import { blankQualityChecks, InterviewRatingSchema, QualityCheckSchema, type InterviewAssessment, type InterviewQualityChecks, type InterviewSession, type UpdateInterview } from "@/features/interviews/contracts";
 import { buttonClass, fieldClass } from "./InterviewDesk";
 
 const errors: Record<string, string> = {
   STALE_REVISION: "Someone saved a newer version. Your notes are still here; copy them before reloading to reconcile changes.",
   COMPLETED_LOCKED: "This assessment is complete and locked. Start a new interview for new observations.",
-  INCOMPLETE_ASSESSMENT: "Record at least one rating with a specific observation (12 characters), a decision and rationale (12 characters), next action, follow-up date, and candidate message (12 characters).",
+  INCOMPLETE_ASSESSMENT: "Record a specific observation and complete the quality checks for any positive rating, plus a decision, rationale, next action, follow-up date, and candidate message.",
 };
+const qualityFields: { key: keyof InterviewQualityChecks; label: string }[] = [
+  { key: "expectedBehavior", label: "Expected behavior satisfies the role requirement" },
+  { key: "failureCase", label: "Explained a realistic failure case" },
+  { key: "validation", label: "Proposed a credible test or validation" },
+  { key: "ownReasoning", label: "Explained their own decisions, including any AI output they accepted or changed" },
+  { key: "tradeoffs", label: "Compared alternatives and trade-offs (required for exceeds)" },
+];
 export default function InterviewWorkspace({ initialSession }: { initialSession: InterviewSession }) {
   const { t, locale } = useI18n();
   const [session, setSession] = useState(initialSession), [assessment, setAssessment] = useState<InterviewAssessment>(initialSession.assessment);
@@ -19,6 +26,10 @@ export default function InterviewWorkspace({ initialSession }: { initialSession:
   const [manualPrompt, setManualPrompt] = useState("");
   const locked = session.status === "completed";
   function edit<K extends keyof InterviewAssessment>(key: K, value: InterviewAssessment[K]) { setAssessment((previous) => ({ ...previous, [key]: value })); setNotice(""); }
+  function editQuality(criterionId: string, key: keyof InterviewQualityChecks, value: InterviewQualityChecks[keyof InterviewQualityChecks]) {
+    edit("ratings", assessment.ratings.map((rating) => rating.criterionId === criterionId
+      ? { ...rating, qualityChecks: { ...blankQualityChecks(), ...rating.qualityChecks, [key]: value } } : rating));
+  }
   async function persist(action: UpdateInterview["action"]) {
     setBusy(true); setError(""); setNotice("");
     try {
@@ -74,6 +85,17 @@ export default function InterviewWorkspace({ initialSession }: { initialSession:
             <div className="mt-4 space-y-2">{criterion.sources.length ? criterion.sources.map((source) => <div key={source.citationId} className="rounded-xl border border-slate-200 p-3"><a href={source.sourceLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 max-w-full items-center text-sm font-semibold text-brand-700 underline decoration-brand-200 underline-offset-4"><bdi dir="ltr" className="break-all">{source.filePath}</bdi></a><p className="text-xs leading-5 text-slate-500">{t(source.attributionStatus === "verified_owner" ? "Verified owner" : source.attributionStatus === "verified_contributor" ? "Verified contributor" : source.attributionStatus === "candidate_claimed" ? "Candidate-claimed · not verified" : "Attribution unverified")} · {t(source.evidenceLevel)}</p><p className="mt-1 text-xs text-slate-500">{t("Citation")} <bdi dir="ltr" className="break-all font-mono">{source.citationId}</bdi></p></div>) : <p className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-xs leading-6 text-amber-900">{t("Evidence gap, not a skill deficit. Discuss a work example without requesting confidential code.")}</p>}</div>
             <label className="mt-4 block text-sm font-medium">{t("Human assessment")}<select disabled={locked || busy} className={fieldClass} value={rating.rating} onChange={(e) => edit("ratings", assessment.ratings.map((r) => r.criterionId === criterion.id ? { ...r, rating: InterviewRatingSchema.parse(e.target.value) } : r))}>{InterviewRatingSchema.options.map((value) => <option key={value} value={value}>{t({ unassessed: "Not assessed", emerging: "Needs further validation", meets: "Meets the role criterion", exceeds: "Exceeds the role criterion" }[value])}</option>)}</select></label>
             <p className="mt-2 text-xs leading-5 text-slate-500">{t("Judge the quality of the proposed work, not AI use: does it meet the requirement, address a failure case, and include a credible test? Meets: explains these choices and their own contribution. Exceeds: also compares alternatives and trade-offs. Unclear answers need more validation, not automatic rejection.")}</p>
+            <fieldset className="mt-4 space-y-3 rounded-xl border border-slate-200 p-4">
+              <legend className="px-1 text-sm font-semibold text-slate-900">{t("Observed quality checks")}</legend>
+              <p className="text-xs leading-5 text-slate-600">{t("Record what the candidate demonstrated, not whether they used AI. A positive rating requires the first four checks; exceeds also requires trade-offs.")}</p>
+              {qualityFields.map(({ key, label }) => <label key={key} className="block text-xs font-medium text-slate-700">{t(label)}
+                <select disabled={locked || busy} className={fieldClass} value={rating.qualityChecks?.[key] ?? "not_checked"} onChange={(event) => editQuality(criterion.id, key, QualityCheckSchema.parse(event.target.value))}>
+                  <option value="not_checked">{t("Not checked")}</option>
+                  <option value="demonstrated">{t("Demonstrated")}</option>
+                  <option value="needs_validation">{t("Needs validation")}</option>
+                </select>
+              </label>)}
+            </fieldset>
             <label className="mt-4 block text-sm font-medium">{t("Observed answer / concrete evidence")}<textarea disabled={locked || busy} maxLength={2000} rows={4} className={fieldClass} value={rating.observation} onChange={(e) => edit("ratings", assessment.ratings.map((r) => r.criterionId === criterion.id ? { ...r, observation: e.target.value } : r))} /></label>
           </Card>;
         })}</div>
