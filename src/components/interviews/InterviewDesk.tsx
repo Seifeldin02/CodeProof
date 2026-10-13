@@ -22,7 +22,7 @@ export default function InterviewDesk({ candidates: initialCandidates, roles, re
   const [candidates, setCandidates] = useState(initialCandidates);
   const [candidateId, setCandidateId] = useState(selectedCandidate ?? "");
   const [criterionIds, setCriterionIds] = useState(suggested ?? requirements.filter((r) => r.importance === "required").slice(0, 5).map((r) => r.id));
-  const signalLabel: Record<CriterionSignal, string | null> = { verified: t("Verified citation"), stated: t("On the CV"), pending: t("Repository attribution pending"), none: null };
+  const signalLabel: Record<CriterionSignal, string | null> = { verified: t("Verified citation"), stated: t("On the CV"), pending: t("Public code observed; authorship unverified"), none: null };
   // What is known about each criterion belongs to one applicant, so choosing another one reloads the plan for them.
   function chooseCandidate(id: string) {
     setCandidateId(id);

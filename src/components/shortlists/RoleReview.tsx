@@ -68,7 +68,7 @@ function CriterionRow({ t, item }: { t: Translate; item: CriterionReview }) {
   const inOwnWords = item.statedAs.length === 1 && item.statedAs[0].toLowerCase() === item.criterion.label.toLowerCase();
   const code = {
     cited_evidence: { label: t("Verified citation"), tone: `${CHIP} bg-emerald-50 text-emerald-800` },
-    attribution_pending: { label: t("Repository attribution pending"), tone: `${CHIP} bg-amber-50 text-amber-800` },
+    attribution_pending: { label: t("Public code observed; authorship unverified"), tone: `${CHIP} bg-amber-50 text-amber-800` },
     not_observed: { label: t("Not seen in public code"), tone: QUIET },
     not_checkable: { label: t("No code check"), tone: QUIET },
   }[item.status];
@@ -90,6 +90,7 @@ function CriterionRow({ t, item }: { t: Translate; item: CriterionReview }) {
           ))}
         </ul>
       )}
+      {item.observedCitations && item.observedCitations.length > 0 && <div className="col-span-2 mt-1"><p className="text-[11px] font-semibold text-amber-800">{t("Observed public code; candidate authorship unverified")}</p><ul className="mt-1 space-y-1">{item.observedCitations.map((citation) => <li key={citation.sourceLink}><a href={citation.sourceLink} target="_blank" rel="noopener noreferrer" dir="ltr" className="block break-all text-start text-xs text-amber-800 underline-offset-2 hover:underline">{citation.repositoryName}: {citation.filePath}</a></li>)}</ul></div>}
     </li>
   );
 }

@@ -101,6 +101,16 @@ export async function analyzeRepository(
         onStage("completed");
         return {
           ...cached,
+          // Canonical IDs are scoped to an analysis run. Reusing IDs from the cached run
+          // collides with evidence already persisted for another candidate.
+          canonicalEvidence: cached.canonicalEvidence
+            ? buildGroundedEvidenceBundle({
+                repository,
+                analysisVersionId: analysisId,
+                skills: cached.skills,
+                questions: cached.interviewQuestions,
+              })
+            : cached.canonicalEvidence,
           metadata: {
             ...cached.metadata,
             analysisId,

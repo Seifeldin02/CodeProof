@@ -81,7 +81,9 @@ describe("role-scoped technical review", () => {
     expect(evaluateCandidateForRole(candidate("verified_contributor", "verified_contributor"), role()).criteria[0]).toMatchObject({
       status: "cited_evidence", citations: [{ filePath: "src/app.ts" }],
     });
-    expect(evaluateCandidateForRole(candidate("candidate_claimed", "verified_contributor"), role()).criteria[0].status).toBe("attribution_pending");
+    expect(evaluateCandidateForRole(candidate("candidate_claimed", "verified_contributor"), role()).criteria[0]).toMatchObject({
+      status: "attribution_pending", citations: [], observedCitations: [{ filePath: "src/app.ts", sourceLink: "https://github.com/example/app/blob/abc123/src/app.ts" }],
+    });
     expect(evaluateCandidateForRole(candidate("verified_contributor", "candidate_claimed"), role()).criteria[0].status).toBe("attribution_pending");
     expect(evaluateCandidateForRole(candidate("verified_contributor", "verified_contributor", "limited"), role()).criteria[0].status).toBe("not_observed");
   });

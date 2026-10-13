@@ -1,4 +1,10 @@
 export const interviewArabic: Record<string, string> = {
+  "Focused role-fit interview": "مقابلة مركزة لمدى الملاءمة للوظيفة",
+  "AI-permitted interview discussion": "نقاش مقابلة يسمح باستخدام الذكاء الاصطناعي",
+  "Copy interview prompt": "نسخ سؤال المقابلة",
+  "Select and copy the interview prompt": "حدد سؤال المقابلة وانسخه",
+  "Interview prompt copied. Share it with the candidate in your interview channel.": "تم نسخ سؤال المقابلة. شاركه مع المرشح عبر قناة المقابلة.",
+  "Copy is unavailable. Select and copy the interview prompt manually.": "النسخ غير متاح. حدد سؤال المقابلة وانسخه يدويًا.",
   "Record a specific observation and complete the quality checks for any positive rating, plus a decision, rationale, next action, follow-up date, and candidate message.": "سجّل ملاحظة محددة وأكمل فحوص الجودة لأي تقييم إيجابي، إضافة إلى القرار ومبرراته والإجراء التالي وتاريخ المتابعة ورسالة المرشح.",
   "Observed quality checks": "فحوص الجودة الملحوظة",
   "Record what the candidate demonstrated, not whether they used AI. A positive rating requires the first four checks; exceeds also requires trade-offs.": "سجّل ما أظهره المرشح، لا ما إذا استخدم الذكاء الاصطناعي. يتطلب التقييم الإيجابي تحقق الفحوص الأربعة الأولى، ويتطلب تقييم يتجاوز المعيار توضيح المفاضلات أيضاً.",

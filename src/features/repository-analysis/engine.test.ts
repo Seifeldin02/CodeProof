@@ -60,6 +60,22 @@ describe("analysis caching and fallback", () => {
     expect((await analyzeRepository(base, { github: source, aiProvider: null, cacheStore })).metadata.cacheHit).toBe(false);
   });
 
+  it("gives cached evidence fresh run-scoped IDs so two candidates can persist the same repository", async () => {
+    const cacheStore = new MemoryAnalysisCache();
+    const options = { github: { ingest: async () => fixture() }, aiProvider: null, cacheStore };
+    const input = { repositoryUrl: "https://github.com/example/service" };
+    const first = await analyzeRepository(input, options);
+    const second = await analyzeRepository(input, options);
+    expect(second.metadata.cacheHit).toBe(true);
+    expect(second.metadata.analysisId).not.toBe(first.metadata.analysisId);
+    expect(first.canonicalEvidence?.findings.length).toBeGreaterThan(0);
+    expect(second.canonicalEvidence?.findings.map((finding) => finding.id))
+      .not.toEqual(first.canonicalEvidence?.findings.map((finding) => finding.id));
+    expect(second.canonicalEvidence?.citations.map((citation) => citation.id))
+      .not.toEqual(first.canonicalEvidence?.citations.map((citation) => citation.id));
+    expect(second.canonicalEvidence?.interviewQuestions.every((question) => question.analysisVersionId === second.metadata.analysisId)).toBe(true);
+  });
+
   it("records measured provider usage for a run but zero new calls on a cache hit", async () => {
     const cacheStore = new MemoryAnalysisCache();
     const provider: AiProvider = {

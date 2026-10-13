@@ -42,6 +42,8 @@ export interface CriterionReview {
   /** What public code shows. "not_checkable" means no code check exists for this skill, so only the CV can speak to it. */
   status: "cited_evidence" | "attribution_pending" | "not_observed" | "not_checkable";
   citations: Array<Pick<EvidenceCitation, "filePath" | "sourceLink" | "evidenceLevel" | "repositoryName">>;
+  /** Relevant public-code citations whose relationship to this candidate is not established. Never counted as verified. */
+  observedCitations?: Array<Pick<EvidenceCitation, "filePath" | "sourceLink" | "evidenceLevel" | "repositoryName">>;
   /** The CV's own words that cover this criterion: "Django" for Python. Empty when the CV does not state it. */
   statedAs: string[];
 }
@@ -148,6 +150,7 @@ export function evaluateCandidateForRole(
     const capabilityId = criterion.capabilityId;
     if (!capabilityId) return { criterion, status: "not_checkable", citations: [], statedAs: stated.get(criterion.label) ?? [] };
     const cited: CriterionReview["citations"] = [];
+    const observed: CriterionReview["citations"] = [];
     let attributionPending = false;
     const seen = new Set<string>();
     for (const analysis of candidate.analyses) {
@@ -161,6 +164,11 @@ export function evaluateCandidateForRole(
         if (!CONCLUSIVE_LEVELS.has(citation.evidenceLevel)) continue;
         if (citation.attributionStatus !== "verified_contributor" || !verifiedUrls.has(analysis.repositoryUrl)) {
           attributionPending = true;
+          const key = `${citation.repositoryUrl}:${citation.revision ?? ""}:${citation.filePath}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            observed.push({ filePath: citation.filePath, sourceLink: citation.sourceLink, evidenceLevel: citation.evidenceLevel, repositoryName: citation.repositoryName });
+          }
           continue;
         }
         const key = `${citation.repositoryUrl}:${citation.revision ?? ""}:${citation.filePath}`;
@@ -173,6 +181,7 @@ export function evaluateCandidateForRole(
       criterion,
       status: cited.length > 0 ? "cited_evidence" : attributionPending ? "attribution_pending" : "not_observed",
       citations: cited.slice(0, 3),
+      observedCitations: observed.slice(0, 3),
       statedAs: statedCapabilities.get(capabilityId) ?? [],
     };
   });

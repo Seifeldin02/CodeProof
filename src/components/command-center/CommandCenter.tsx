@@ -95,7 +95,7 @@ function RoleBoardCard({ t, board, wide }: { t: Translate; board: RoleBoard; wid
                 <p className="mt-0.5 text-xs leading-5 text-slate-600">{coverageText(t, lead.coverage)}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {lead.cited > 0 && <Badge tone="positive">{t("Verified code: {count}", { count: lead.cited })}</Badge>}
-                  {lead.attributionPending && <Badge tone="warning">{t("Repository attribution pending")}</Badge>}
+                  {lead.attributionPending && <Badge tone="warning">{t("Public code observed; authorship unverified")}</Badge>}
                   {lead.reported.length > 0 && <Badge tone="neutral">{t("CV claims")}</Badge>}
                   {lead.reported.length > 0 && <span dir="ltr" className="break-words text-start text-[11px] text-slate-500">{lead.reported.join(" · ")}</span>}
                 </div>

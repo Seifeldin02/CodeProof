@@ -3,6 +3,7 @@ import { authenticateRequest, denyCrossOrigin } from "@/features/auth/guard";
 import { getCandidateStore } from "@/features/candidates/store";
 import { analyzeRepository } from "@/features/repository-analysis/engine";
 import { GitHubServiceError, parseGitHubRepositoryUrl } from "@/services/github";
+import { logger } from "@/services/observability/logger";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -22,6 +23,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const store = getCandidateStore();
   const candidate = await store.getCandidate(user.id, id);
   if (!candidate) return Response.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  let stage: "analysis" | "persistence" = "analysis";
   try {
     const url = parseGitHubRepositoryUrl(input.data.repositoryUrl).canonicalUrl;
     if (candidate.repositoryOutcomes.some((outcome) => outcome.repositoryUrl === url)) {
@@ -31,12 +33,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return Response.json({ error: { code: "REPOSITORY_LIMIT" } }, { status: 409 });
     }
     const result = await analyzeRepository({ repositoryUrl: url });
+    stage = "persistence";
     const updated = await store.recordRepositorySuccess(user.id, id, result);
     return updated
       ? Response.json({ candidate: updated }, { headers: { "Cache-Control": "private, no-store" } })
       : Response.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   } catch (error) {
     if (error instanceof GitHubServiceError) return Response.json({ error: { code: error.code } }, { status: error.status });
-    return Response.json({ error: { code: "ANALYSIS_FAILED" } }, { status: 502 });
+    logger.warn("candidate_public_code_failed", { stage, errorType: error instanceof Error ? error.name : "unknown" });
+    return Response.json({ error: { code: stage === "persistence" ? "PERSISTENCE_FAILED" : "ANALYSIS_FAILED" } }, { status: 502 });
   }
 }

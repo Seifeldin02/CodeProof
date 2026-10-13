@@ -12,6 +12,8 @@ test("saved role reviews private candidates without treating missing code as a s
   expect(registration.status()).toBe(201);
   await context.addCookies([{ name: "codeproof-locale", value: arabic ? "ar" : "en", url: testInfo.project.use.baseURL! }]);
   await page.goto("/shortlists");
+  // This test covers separate CV records; live repository analysis has its own opt-in test.
+  await page.route("**/api/candidates/*/analyze-public", async (route) => route.fulfill({ json: { candidate: {} } }));
   await expect(page.locator("html")).toHaveAttribute("dir", arabic ? "rtl" : "ltr");
   await page.locator("details summary").filter({ hasText: label("Add a candidate from a CV", "أضف مرشحًا من سيرته الذاتية") }).click();
   await page.locator("#intake-name").fill("Private-code candidate");
@@ -174,9 +176,15 @@ test("bounded batch CV intake saves separate applicants with confirmed names", a
   await page.locator("details summary").filter({ hasText: label("Import multiple applicants from CV PDFs", "استيراد عدة متقدمين") }).click();
   const pdf = readFileSync(path.join(process.cwd(), "docs", "demo", "sample-cv-amina-hassan.pdf"));
   await page.locator("#batch-cvs").setInputFiles([
+    { name: "remove-me.pdf", mimeType: "application/pdf", buffer: pdf },
     { name: "1.pdf", mimeType: "application/pdf", buffer: pdf },
     { name: "00c879a464787a2f.pdf", mimeType: "application/pdf", buffer: pdf },
   ]);
+  await expect(page.locator("#batch-role-2")).toBeEnabled();
+  const remove = page.getByRole("button", { name: /remove-me\.pdf/ });
+  await remove.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await remove.click();
+  await expect(page.locator("#batch-role-2")).toHaveCount(0);
   await expect(page.locator("#batch-role-0")).toBeEnabled();
   await expect(page.locator("#batch-role-1")).toBeEnabled();
   await expect(page.locator("#batch-name-0")).toHaveValue("Amina Hassan");
@@ -190,7 +198,7 @@ test("bounded batch CV intake saves separate applicants with confirmed names", a
   await page.locator("#batch-source-0").selectOption("Job Board");
   await page.locator("#batch-source-1").selectOption("Referral");
   await page.getByRole("button", { name: label("Import 2 candidates", "استيراد 2 مرشحين") }).click();
-  await expect(page.getByRole("status")).toContainText(label("Imported 2 candidates", "استُورد 2 مرشحين"));
+  await expect(page.getByRole("status").filter({ hasText: label("Imported 2 candidates", "استُورد 2 مرشحين") })).toBeVisible({ timeout: 20_000 });
   await expect.poll(async () => {
     const rows = (await (await context.request.get("/api/candidates")).json()) as Array<{ name: string }>;
     return rows.filter((item) => item.name === "Amina confirmed" || item.name === "Leila confirmed").map((item) => item.name).sort();
@@ -201,6 +209,35 @@ test("bounded batch CV intake saves separate applicants with confirmed names", a
   expect(imported.find((item) => item.name === "Amina confirmed")).toMatchObject({ role: "Mobile Engineer", source: "Job Board" });
   expect(imported.find((item) => item.name === "Leila confirmed")).toMatchObject({ role: "", source: "Referral" });
   for (const item of imported) expect((await context.request.delete(`/api/candidates/${item.id}`)).status()).toBe(204);
+});
+
+test("batch intake analyzes selected CV repository and reports the result", async ({ page, context }, testInfo) => {
+  expect((await context.request.post("/api/auth/register", {
+    data: { email: `batch-code-${randomUUID()}@example.invalid`, password: randomUUID() },
+  })).status()).toBe(201);
+  await context.addCookies([{ name: "codeproof-locale", value: "en", url: testInfo.project.use.baseURL! }]);
+  await page.route("**/api/cv/discover", async (route) => route.fulfill({ json: { discovery: {
+    candidateName: "Amina Hassan", suggestedRole: "Software Engineer",
+    repositories: [{ owner: "example", repository: "sample", url: "https://github.com/example/sample" }],
+    profiles: [], otherSources: [], manualSelectionRequired: false, notes: [],
+  } } }));
+  const analyzed: string[] = [];
+  await page.route("**/api/candidates/*/analyze-public", async (route) => {
+    analyzed.push((route.request().postDataJSON() as { repositoryUrl: string }).repositoryUrl);
+    await route.fulfill({ json: { candidate: {} } });
+  });
+  await page.goto("/shortlists");
+  await page.locator("details summary").filter({ hasText: "Import multiple applicants" }).click();
+  const pdf = readFileSync(path.join(process.cwd(), "docs", "demo", "sample-cv-amina-hassan.pdf"));
+  await page.locator("#batch-cvs").setInputFiles({ name: "candidate.pdf", mimeType: "application/pdf", buffer: pdf });
+  await expect(page.getByRole("checkbox", { name: "example/sample" })).toBeChecked();
+  await page.getByRole("button", { name: "Import 1 candidates" }).click();
+  await expect(page.getByText(/CV saved; 1 of 1 repositories analyzed/)).toBeVisible();
+  expect(analyzed).toEqual(["https://github.com/example/sample"]);
+  const stored = (await (await context.request.get("/api/candidates")).json()) as Array<{ id: string; name: string }>;
+  const candidate = stored.find((item) => item.name === "Amina Hassan");
+  expect(candidate).toBeDefined();
+  if (candidate) expect((await context.request.delete(`/api/candidates/${candidate.id}`)).status()).toBe(204);
 });
 
 test("optional live GitHub analysis enriches the same CV-first candidate", async ({ page, context }, testInfo) => {
@@ -219,7 +256,10 @@ test("optional live GitHub analysis enriches the same CV-first candidate", async
   const candidateId = ((await intake.json()) as { candidate: { id: string } }).candidate.id;
   await page.goto(`/candidates/${candidateId}`);
   await expect(page.getByRole("combobox", { name: "Public GitHub repository URL" })).toHaveValue("https://github.com/sindresorhus/is");
+  const responsePromise = page.waitForResponse((response) => response.url().includes(`/api/candidates/${candidateId}/analyze-public`));
   await page.getByRole("button", { name: "Analyze public code" }).click();
+  const analysisResponse = await responsePromise;
+  expect(analysisResponse.status()).toBe(200);
   await expect(page.getByRole("status").filter({ hasText: "Public repository reviewed" })).toBeVisible({ timeout: 120_000 });
   const enriched = await context.request.get(`/api/candidates/${candidateId}`);
   expect(enriched.status()).toBe(200);

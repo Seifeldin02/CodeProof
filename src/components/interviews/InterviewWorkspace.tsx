@@ -47,8 +47,8 @@ export default function InterviewWorkspace({ initialSession }: { initialSession:
   }
   async function copyProbe(question: string, challenge: string) {
     const prompt = `${question}\n\n${challenge}\n\n${t("AI and documentation are allowed. Work through a concrete solution, explain what you accepted or changed, and show how you would verify it. Do not share confidential code.")}`;
-    try { await navigator.clipboard.writeText(prompt); setManualPrompt(""); setNotice(t("Assessment prompt copied. Share it with the candidate in your interview channel.")); }
-    catch { setManualPrompt(prompt); setError(t("Copy is unavailable. Select and copy the assessment prompt manually.")); }
+    try { await navigator.clipboard.writeText(prompt); setManualPrompt(""); setNotice(t("Interview prompt copied. Share it with the candidate in your interview channel.")); }
+    catch { setManualPrompt(prompt); setError(t("Copy is unavailable. Select and copy the interview prompt manually.")); }
   }
   return <div className="space-y-5">
     <div className="flex flex-wrap gap-4 text-sm font-semibold text-brand-700"><Link className="inline-flex min-h-11 items-center" href="/interviews">{t("Back to interview desk")}</Link><Link className="inline-flex min-h-11 items-center" href={`/candidates/${session.candidateId}`}>{t("Open candidate dossier")}</Link></div>
@@ -56,7 +56,7 @@ export default function InterviewWorkspace({ initialSession }: { initialSession:
       <details className="mt-3 text-xs text-slate-500"><summary className="cursor-pointer py-2">{t("Evidence snapshot / traceability")}</summary><div className="space-y-2 py-2"><p>{t("Role criteria fingerprint")} <bdi dir="ltr" className="break-all font-mono">{session.preparation.requirementsHash}</bdi></p><p>{t("Analysis versions")}: {session.preparation.analysisVersionIds.length ? session.preparation.analysisVersionIds.map((id) => <bdi key={id} dir="ltr" className="me-2 break-all font-mono">{id}</bdi>) : t("No public-code analysis")}</p></div></details>
     </section>
     <section className="rounded-2xl border border-brand-200 bg-brand-50/40 p-5 sm:p-7" aria-labelledby="assessment-method">
-      <h2 id="assessment-method" className="text-lg font-semibold text-slate-950">{t("Focused role-fit assessment")}</h2>
+      <h2 id="assessment-method" className="text-lg font-semibold text-slate-950">{t("Focused role-fit interview")}</h2>
       <p className="mt-2 text-sm leading-6 text-slate-700">{t("Use the selected role criteria to test the most important unresolved evidence before spending time on a broader interview. These are discussion prompts, not an automated hiring verdict.")}</p>
       <ol className="mt-3 list-inside list-decimal space-y-1 text-sm leading-6 text-slate-700">
         <li>{t("Ask the candidate-specific question and allow AI or documentation.")}</li>
@@ -76,11 +76,11 @@ export default function InterviewWorkspace({ initialSession }: { initialSession:
           return <Card key={criterion.id} title={`${index + 1}. ${criterion.requirement}`} subtitle={t(criterion.importance === "required" ? "Required" : criterion.importance === "preferred" ? "Preferred" : "Context")}>
             <p className="rounded-xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">{criterion.question[locale]}</p>
             <div className="mt-3 rounded-xl border border-brand-200 bg-brand-50/40 p-4 text-sm leading-6 text-slate-700">
-              <p className="font-semibold text-brand-800">{t("AI-permitted live assessment")}</p>
+              <p className="font-semibold text-brand-800">{t("AI-permitted interview discussion")}</p>
               <p className="mt-1">{challenge}</p>
               <p className="mt-1">{t("AI and documentation are allowed. Work through a concrete solution, explain what you accepted or changed, and show how you would verify it. Do not share confidential code.")}</p>
-              <button type="button" onClick={() => void copyProbe(criterion.question[locale], challenge)} className="mt-3 min-h-11 rounded-xl border border-brand-300 bg-white px-4 py-2 text-sm font-semibold text-brand-800 hover:border-brand-600">{t("Copy assessment prompt")}</button>
-              {manualPrompt.startsWith(criterion.question[locale]) && <label className="mt-3 block text-xs font-medium">{t("Select and copy the assessment prompt")}<textarea readOnly dir={locale === "ar" ? "rtl" : "ltr"} rows={7} className={fieldClass} value={manualPrompt} onFocus={(event) => event.currentTarget.select()} /></label>}
+              <button type="button" onClick={() => void copyProbe(criterion.question[locale], challenge)} className="mt-3 min-h-11 rounded-xl border border-brand-300 bg-white px-4 py-2 text-sm font-semibold text-brand-800 hover:border-brand-600">{t("Copy interview prompt")}</button>
+              {manualPrompt.startsWith(criterion.question[locale]) && <label className="mt-3 block text-xs font-medium">{t("Select and copy the interview prompt")}<textarea readOnly dir={locale === "ar" ? "rtl" : "ltr"} rows={7} className={fieldClass} value={manualPrompt} onFocus={(event) => event.currentTarget.select()} /></label>}
             </div>
             <div className="mt-4 space-y-2">{criterion.sources.length ? criterion.sources.map((source) => <div key={source.citationId} className="rounded-xl border border-slate-200 p-3"><a href={source.sourceLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 max-w-full items-center text-sm font-semibold text-brand-700 underline decoration-brand-200 underline-offset-4"><bdi dir="ltr" className="break-all">{source.filePath}</bdi></a><p className="text-xs leading-5 text-slate-500">{t(source.attributionStatus === "verified_owner" ? "Verified owner" : source.attributionStatus === "verified_contributor" ? "Verified contributor" : source.attributionStatus === "candidate_claimed" ? "Candidate-claimed · not verified" : "Attribution unverified")} · {t(source.evidenceLevel)}</p><p className="mt-1 text-xs text-slate-500">{t("Citation")} <bdi dir="ltr" className="break-all font-mono">{source.citationId}</bdi></p></div>) : <p className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-xs leading-6 text-amber-900">{t("Evidence gap, not a skill deficit. Discuss a work example without requesting confidential code.")}</p>}</div>
             <label className="mt-4 block text-sm font-medium">{t("Human assessment")}<select disabled={locked || busy} className={fieldClass} value={rating.rating} onChange={(e) => edit("ratings", assessment.ratings.map((r) => r.criterionId === criterion.id ? { ...r, rating: InterviewRatingSchema.parse(e.target.value) } : r))}>{InterviewRatingSchema.options.map((value) => <option key={value} value={value}>{t({ unassessed: "Not assessed", emerging: "Needs further validation", meets: "Meets the role criterion", exceeds: "Exceeds the role criterion" }[value])}</option>)}</select></label>
