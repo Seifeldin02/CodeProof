@@ -18,8 +18,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <bdi className="mt-1 block text-sm text-slate-300">{actor.email}</bdi>
         </div>
         <nav aria-label={copy.area} className="flex min-h-11 items-center gap-2 text-sm font-semibold">
-          <Link className="rounded-lg px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href="/admin">{copy.overview}</Link>
-          <Link className="rounded-lg px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href="/admin/audit">{copy.audit}</Link>
+          <Link className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href="/admin">{copy.overview}</Link>
+          <Link className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href="/admin/audit">{copy.audit}</Link>
         </nav>
       </div>
       {children}
