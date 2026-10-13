@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Badge from "@/components/ui/Badge";
 import ReportActions from "@/components/candidates/ReportActions";
+import ExternalShareControls from "@/components/candidates/ExternalShareControls";
 import { getCandidateStore } from "@/features/candidates/store";
 import { getI18n } from "@/i18n/server";
 import { localizeAnalysisText } from "@/i18n/translations";
@@ -33,6 +34,7 @@ export default async function CandidateSharePage({ params }: { params: Promise<{
       <Link href={`/candidates/${candidate.id}`} className="inline-flex min-h-11 items-center text-xs font-semibold text-slate-500 hover:text-brand-700"><span className="directional-icon me-1">←</span>{t("Back to dossier")}</Link>
       <ReportActions />
     </div>
+    <ExternalShareControls candidateId={candidate.id} analyses={candidate.analyses.filter((analysis) => Boolean(analysis.result.canonicalEvidence) && analysis.result.selectedFiles.length > 0).map((analysis) => ({ id: analysis.result.metadata.analysisId, label: analysis.repositoryName }))} />
     <article className="print-report overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-card">
       <header className="hero-grid bg-slate-950 p-6 text-white sm:p-9">
         <div className="flex flex-wrap items-center gap-2"><Badge tone="positive">{t("Recruiter evidence summary")}</Badge>{candidate.isDemo && <Badge tone="warning">{t("Demo data")}</Badge>}</div>
