@@ -81,7 +81,9 @@ describe("Feature: codeproof-audit-remediation, Property 34: Administrative boot
       }
       db.close();
     }
-  });
+    // 256 cases initialize the schema 768 times. That is a few seconds of work on a laptop, not a hang, so it gets
+    // room beyond the five seconds a single-case test is given.
+  }, 30_000);
 
   it("reports divergence without demoting an admin or elevating a second account", () => {
     const db = legacyAccounts(2);
