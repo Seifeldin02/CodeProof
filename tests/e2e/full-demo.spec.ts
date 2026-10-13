@@ -40,7 +40,7 @@ test("CV to public-code dossier, comparison and live insights", async ({ page, c
 
   await page.goto("/compare");
   await expect(page.getByRole("heading", { name: label("Compare candidate evidence", "قارن أدلة المرشحين") })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Synthetic Applicant", exact: true })).toBeVisible();
+  await expect(page.getByText(label("No verified evidence to compare yet", "لا توجد أدلة موثقة للمقارنة بعد"))).toBeVisible();
   await page.goto("/review");
   await expect(page.getByText("Synthetic Applicant", { exact: true }).first()).toBeVisible();
   await page.goto("/insights");

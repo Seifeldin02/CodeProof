@@ -71,6 +71,7 @@ export const shortlistArabic: Record<string, string> = {
   "These job-brief terms were not checked against code and must not affect a candidate's review order.": "لم تُفحص هذه المتطلبات مقابل الكود، ويجب ألا تؤثر في ترتيب مراجعة المرشحين.",
   "Review order reflects available verified citations only. It is not a hiring rank, and candidates with no public code are not rejected.": "يعكس ترتيب المراجعة الاستشهادات الموثقة المتاحة فقط. وليس ترتيباً لقرار التوظيف، ولا يُستبعد من لا يملك كوداً عاماً.",
   "Your candidates": "مرشحوك",
+  "Candidates are ordered by observed role evidence. Equal evidence shares a position; this is not a hiring verdict.": "يُرتب المرشحون حسب الأدلة المتاحة للوظيفة. يتشارك المتساوون في الأدلة المرتبة نفسها؛ وليس هذا حكماً بالتوظيف.",
   "Demo candidates - examples only": "مرشحون تجريبيون - أمثلة فقط",
   "No candidates in this account yet": "لا يوجد مرشحون في هذا الحساب بعد",
   "Add candidates, then return to this saved role to review them.": "أضف مرشحين ثم عُد إلى هذه الوظيفة المحفوظة لمراجعتهم.",

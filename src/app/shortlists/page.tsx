@@ -6,7 +6,7 @@ import CandidateBatchIntakeForm from "@/components/shortlists/CandidateBatchInta
 import { CandidateReviewCard, CandidatesWithoutSignal, RoleBriefSummary } from "@/components/shortlists/RoleReview";
 import { requirePageUser } from "@/features/auth/page-guard";
 import { getCandidateStore } from "@/features/candidates/store";
-import { compareCandidateRoleReviews, evaluateCandidateForRole, type CandidateRoleReview, type RoleBrief } from "@/features/shortlists/evaluate";
+import { compareCandidateRoleReviews, evaluateCandidateForRole, sameReviewPriority, type CandidateRoleReview, type RoleBrief } from "@/features/shortlists/evaluate";
 import { getRoleStore } from "@/features/shortlists/store";
 import { getCandidateResumeStore } from "@/features/shortlists/resume-store";
 import { getI18n } from "@/i18n/server";
@@ -38,7 +38,7 @@ export default async function ShortlistsPage({ searchParams }: { searchParams: P
   const quiet = reviews.filter((review) => review.signaledCriterionCount === 0);
 
   function candidateCards(role: RoleBrief, items: CandidateRoleReview[]) {
-    return <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-2">{items.map((review, index) => <CandidateReviewCard key={review.candidateId} t={t} review={review} role={role} position={index + 1} />)}</div>;
+    return <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-2">{items.map((review) => <CandidateReviewCard key={review.candidateId} t={t} review={review} role={role} position={items.findIndex((earlier) => sameReviewPriority(earlier, review)) + 1} />)}</div>;
   }
 
   return <div className="space-y-6">
@@ -49,7 +49,7 @@ export default async function ShortlistsPage({ searchParams }: { searchParams: P
     {roles.length > 0 && <section aria-label={t("Saved roles")} className="flex flex-wrap gap-2">{roles.map((role) => <Link key={role.id} href={`/shortlists?role=${encodeURIComponent(role.id)}`} aria-current={selected?.id === role.id ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm font-semibold ${selected?.id === role.id ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-brand-300"}`}>{role.title}</Link>)}</section>}
     {selected ? <>
       <RoleBriefSummary t={t} role={selected} poolSize={reviews.length} />
-      {withSignal(real).length > 0 && <section className="space-y-3"><h2 className="text-lg font-semibold text-slate-950">{t("Your candidates")}</h2>{candidateCards(selected, withSignal(real))}</section>}
+      {withSignal(real).length > 0 && <section className="space-y-3"><h2 className="text-lg font-semibold text-slate-950">{t("Your candidates")}</h2><p className="text-xs text-slate-600">{t("Candidates are ordered by observed role evidence. Equal evidence shares a position; this is not a hiring verdict.")}</p>{candidateCards(selected, withSignal(real))}</section>}
       {withSignal(demo).length > 0 && <section className="space-y-3"><h2 className="text-lg font-semibold text-slate-950">{t("Demo candidates - examples only")}</h2>{candidateCards(selected, withSignal(demo))}</section>}
       {quiet.length > 0 && <CandidatesWithoutSignal t={t} reviews={quiet} role={selected} open={quiet.length === reviews.length} />}
       {reviews.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center"><h2 className="text-base font-semibold text-slate-900">{t("No candidates in this account yet")}</h2><p className="mt-2 text-sm text-slate-600">{t("Add candidates, then return to this saved role to review them.")}</p><Link href="/analyze" className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">{t("Analyze candidate")}</Link></div>}

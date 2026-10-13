@@ -112,6 +112,29 @@ test("role API denies unauthenticated and cross-origin access", async ({ request
   })).status()).toBe(403);
 });
 
+test("equal CV-only role evidence shares review position instead of inventing a winner", async ({ page, context }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-en");
+  expect((await context.request.post("/api/auth/register", { data: {
+    email: `role-tie-${randomUUID()}@example.invalid`, password: randomUUID(),
+  } })).status()).toBe(201);
+  for (const name of ["Amal Applicant", "Ziad Applicant"]) {
+    const response = await context.request.post("/api/candidates/intake-cv", { multipart: {
+      name, resumeText: `${name}\nSkills: TypeScript and React`,
+    } });
+    expect(response.status()).toBe(201);
+  }
+  const saved = await context.request.post("/api/shortlists", { data: {
+    title: "Frontend engineer", description: "Required: TypeScript and React for frontend work.",
+  } });
+  expect(saved.status()).toBe(201);
+  await page.goto("/shortlists");
+  await expect(page.getByText("Candidates are ordered by observed role evidence. Equal evidence shares a position; this is not a hiring verdict.")).toBeVisible();
+  const cards = page.locator("article").filter({ has: page.getByRole("link", { name: "Prepare interview" }) });
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0).locator("span[aria-hidden='true']")).toHaveText("1");
+  await expect(cards.nth(1).locator("span[aria-hidden='true']")).toHaveText("1");
+});
+
 test("CV-only PDF intake accepts the local text PDF and keeps claims owner-scoped", async ({ context, browser }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-en");
   expect((await context.request.post("/api/auth/register", {

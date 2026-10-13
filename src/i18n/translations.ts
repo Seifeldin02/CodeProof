@@ -373,6 +373,8 @@ const ar: Record<string, string> = {
   "Open full dossier": "افتح الملف الكامل",
   "Evidence indexes compare categorical implementation depth across detected skills. They are not model confidence or a hiring recommendation.": "تقارن مؤشرات الأدلة عمق التنفيذ الفئوي بين المهارات المكتشفة. وهي ليست ثقة نموذج أو توصية توظيف.",
   "Comparison needs candidate dossiers": "تحتاج المقارنة إلى ملفات مرشحين",
+  "No verified evidence to compare yet": "لا توجد أدلة موثقة للمقارنة بعد",
+  "These candidates have no verified code evidence yet. Check repository attribution in their dossiers, or review their CV claims against a saved role.": "لا توجد لهؤلاء المرشحين أدلة كود موثقة بعد. تحقق من نسبة المستودعات في ملفاتهم، أو راجع ادعاءات سيرهم الذاتية مقابل وظيفة محفوظة.",
   "Analyze a real candidate to populate this workspace. Demo records are not included.": "حلّل مرشحاً حقيقياً لملء مساحة المقارنة هذه. لا تُدرج البيانات التجريبية.",
   "Complete at least one repository analysis to populate this workspace.": "أكمل تحليلاً واحداً لمستودع على الأقل لملء هذه المساحة.",
   "Hiring operations": "عمليات التوظيف",

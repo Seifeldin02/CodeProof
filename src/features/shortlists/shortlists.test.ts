@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CandidateStore } from "@/features/candidates/store";
 import type { CandidateDetail } from "@/features/candidates/types";
 import type { AnalysisResult } from "@/types/analysis";
-import { compareCandidateRoleReviews, compareRoleCoverage, evaluateCandidateForRole, extractRoleCriteria, reviewCoverage, type RoleBrief } from "./evaluate";
+import { compareCandidateRoleReviews, compareRoleCoverage, evaluateCandidateForRole, extractRoleCriteria, reviewCoverage, sameReviewPriority, type RoleBrief } from "./evaluate";
 import { RoleStore } from "./store";
 import { CandidateResumeStore } from "./resume-store";
 
@@ -111,7 +111,8 @@ describe("role-scoped technical review", () => {
     const cvCandidate = { ...privateCandidate, name: "Alpha" };
     const codeReview = evaluateCandidateForRole(codeCandidate, role());
     const cvReview = evaluateCandidateForRole(cvCandidate, role(), [{ claim: "TypeScript", category: "technology", source: "Candidate Claim" }]);
-    expect([codeReview, cvReview].sort(compareCandidateRoleReviews).map((item) => item.candidateName)).toEqual(["Alpha", "Zeta"]);
+    expect([codeReview, cvReview].sort(compareCandidateRoleReviews).map((item) => item.candidateName)).toEqual(["Zeta", "Alpha"]);
+    expect(sameReviewPriority(codeReview, cvReview)).toBe(false);
   });
 });
 
@@ -155,6 +156,13 @@ describe("role review from what a CV states", () => {
       evaluateCandidateForRole(applicant("All"), brief, skills("Python", "PostgreSQL", "Docker")),
     ];
     expect(reviews.sort(compareCandidateRoleReviews).map((item) => item.candidateName)).toEqual(["All", "Two", "Preferred only", "None"]);
+  });
+
+  it("gives equal review priority to equal evidence regardless of name or CV dates", () => {
+    const first = evaluateCandidateForRole(applicant("Amal"), brief, skills("Python", "Docker"));
+    const second = evaluateCandidateForRole(applicant("Ziad"), brief, skills("Python", "Docker"));
+    expect(sameReviewPriority(first, second)).toBe(true);
+    expect(compareCandidateRoleReviews(first, second)).toBeLessThan(0); // Stable display order only.
   });
 
   it("counts against every criterion when the brief marks none as required", () => {

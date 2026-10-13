@@ -60,7 +60,7 @@ test("saved role and profile projects are explicit recruiter choices", async ({ 
     await route.fulfill({ status: 422, json: { error: { message: "Test stopped before repository ingestion." } } });
   });
   await page.goto("/analyze");
-  await page.getByRole("textbox", { name: "Paste CV text" }).fill("Rana Candidate\nMobile Engineer\nGitHub: https://github.com/rana");
+  await page.getByRole("textbox", { name: "Paste CV text" }).fill("Rana Hassan\nMobile Engineer\nGitHub: https://github.com/rana");
   await page.getByRole("button", { name: "Detect candidate projects" }).click();
   await expect(page.getByRole("heading", { name: "Confirm candidate and projects" })).toBeVisible();
   await page.getByLabel("Role you are hiring for").selectOption(roleId);

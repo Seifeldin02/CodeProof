@@ -10,6 +10,7 @@ test("comparison starts empty for a real account and lists a stored applicant", 
   await expect(page.getByText("Analyze a real candidate to populate this workspace. Demo records are not included.")).toBeVisible();
   expect((await context.request.post("/api/candidates", { data: { name: "Actual Applicant" } })).status()).toBe(201);
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Actual Applicant" })).toBeVisible();
+  await expect(page.getByText("No verified evidence to compare yet")).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: "Role review" })).toBeVisible();
   await expect(page.getByText("Demo Candidate")).toHaveCount(0);
 });

@@ -68,8 +68,19 @@ export interface CandidateRoleReview {
 export function compareCandidateRoleReviews(left: CandidateRoleReview, right: CandidateRoleReview): number {
   return Number(left.isDemo) - Number(right.isDemo)
     || right.signaledRequiredCount - left.signaledRequiredCount
+    || right.citedRequiredCount - left.citedRequiredCount
     || right.signaledCriterionCount - left.signaledCriterionCount
+    || right.citedCriterionCount - left.citedCriterionCount
     || left.candidateName.localeCompare(right.candidateName);
+}
+
+/** Alphabetical tie-breaking keeps rendering stable, but does not imply one tied applicant is a better fit. */
+export function sameReviewPriority(left: CandidateRoleReview, right: CandidateRoleReview): boolean {
+  return left.isDemo === right.isDemo
+    && left.signaledRequiredCount === right.signaledRequiredCount
+    && left.citedRequiredCount === right.citedRequiredCount
+    && left.signaledCriterionCount === right.signaledCriterionCount
+    && left.citedCriterionCount === right.citedCriterionCount;
 }
 
 /** The count shown for a candidate: against the required criteria when the brief marks any, otherwise against all of them. */
