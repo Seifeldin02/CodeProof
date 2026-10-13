@@ -4,7 +4,7 @@ process.env.CODEPROOF_SESSION_SECRET = "test-secret-value";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthStore, hashPassword, signupAllowed, verifyPassword } from "./store";
-import { createSessionToken, readSessionToken, SESSION_MAX_AGE_SECONDS, SessionSecretMissingError, sessionSecretConfigured } from "./session";
+import { activeSessionUser, createSessionToken, readSessionToken, SESSION_MAX_AGE_SECONDS, SessionSecretMissingError, sessionSecretConfigured } from "./session";
 import { denyCrossOrigin } from "./guard";
 
 afterEach(() => {
@@ -33,6 +33,15 @@ describe("password hashing", () => {
 });
 
 describe("session tokens", () => {
+  it("drops existing sessions when the persisted account is suspended or deleted", async () => {
+    const store = new AuthStore(":memory:");
+    const user = await store.createUser("lifecycle@example.test", "a-long-password");
+    expect(activeSessionUser(user)?.id).toBe(user.id);
+    store.db.prepare("UPDATE users SET lifecycle_state = 'suspended' WHERE id = ?").run(user.id);
+    expect(activeSessionUser(await store.findById(user.id))).toBeNull();
+    store.db.prepare("UPDATE users SET lifecycle_state = 'soft_deleted' WHERE id = ?").run(user.id);
+    expect(activeSessionUser(await store.findById(user.id))).toBeNull();
+  });
   it("round-trips a user id", () => {
     const token = createSessionToken("user-123");
     expect(readSessionToken(token)).toBe("user-123");

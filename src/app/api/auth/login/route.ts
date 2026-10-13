@@ -43,7 +43,7 @@ export async function POST(request: Request): Promise<Response> {
   // Identical response whether the account is missing or the password is wrong,
   // so this endpoint cannot be used to discover which emails are registered.
   const valid = verifyPassword(password, user?.passwordHash ?? UNKNOWN_ACCOUNT_HASH);
-  if (!user || !valid) {
+  if (!user || !valid || user.lifecycleState !== "active") {
     return NextResponse.json(
       { error: { code: "INVALID_CREDENTIALS", message: "Incorrect email or password." } },
       { status: 401 },

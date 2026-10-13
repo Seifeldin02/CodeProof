@@ -93,9 +93,14 @@ export function sessionCookieOptions(maxAge: number = SESSION_MAX_AGE_SECONDS) {
   };
 }
 
+/** Existing signed cookies lose authority as soon as the persisted account is disabled. */
+export function activeSessionUser(user: AuthUser | null): AuthUser | null {
+  return user?.lifecycleState === "active" ? user : null;
+}
+
 /** The signed-in recruiter, or null. Safe to call from server components. */
 export const getCurrentUser = cache(async (): Promise<AuthUser | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   const userId = readSessionToken(token);
-  return userId ? await getAuthStore().findById(userId) : null;
+  return userId ? activeSessionUser(await getAuthStore().findById(userId)) : null;
 });

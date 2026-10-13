@@ -6,10 +6,11 @@ import BrandMark from "./BrandMark";
 import { navItems } from "./navItems";
 import { useI18n } from "../i18n/LocaleProvider";
 import NavPendingHint from "./NavPendingHint";
+import { ShieldCheckIcon } from "../ui/icons";
 
-export default function Sidebar() {
+export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname() ?? "";
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return (
     <aside className="workspace-sidebar no-print fixed inset-y-0 start-0 z-40 hidden h-dvh w-64 flex-col overflow-y-auto overscroll-contain border-r border-white/10 bg-[#0b1210] text-white shadow-[18px_0_50px_rgba(15,23,42,.08)] lg:flex">
       <div className="flex h-20 items-center border-b border-white/10 px-5"><BrandMark /></div>
@@ -26,6 +27,11 @@ export default function Sidebar() {
             </Link>
           );
         })}
+        {isAdmin && <Link href="/admin" className={`group relative flex items-center gap-3 overflow-hidden rounded-xl px-3 py-2.5 text-sm font-medium transition ${pathname.startsWith("/admin") ? "bg-white text-slate-950" : "text-slate-400 hover:bg-white/[.06] hover:text-white"}`}>
+          <ShieldCheckIcon className="h-[18px] w-[18px] shrink-0" />
+          <span>{locale === "ar" ? "إدارة المالك" : "Owner administration"}</span>
+          <NavPendingHint />
+        </Link>}
       </nav>
       <div className="border-t border-white/10 px-5 py-5">
         <div className="rounded-xl border border-white/[.07] bg-white/[.035] p-3.5">

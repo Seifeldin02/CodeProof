@@ -23,10 +23,10 @@ export default function AppShell({ children, user }: { children: ReactNode; user
   return (
     <div className="relative flex min-h-screen overflow-x-clip bg-[#f3f5f2]">
       <AmbientCanvas />
-      <Sidebar />
+      <Sidebar isAdmin={user.role === "ADMIN"} />
       <div className="relative z-10 flex min-w-0 flex-1 flex-col lg:ms-64">
         <Topbar user={user} />
-        <MobileNav />
+        <MobileNav isAdmin={user.role === "ADMIN"} />
         <main className="flex-1 pb-20 lg:pb-0">
           <div className="mx-auto w-full max-w-[1480px] px-4 py-6 lg:px-8 lg:py-9">{children}</div>
         </main>

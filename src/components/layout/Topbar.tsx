@@ -13,7 +13,7 @@ export default function Topbar({ user }: { user: AuthUser }) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const current = navItems.find((item) => item.to === "/" ? pathname === "/" : pathname.startsWith(item.to));
   const initials = user.email.slice(0, 2).toUpperCase();
   async function logout(): Promise<void> {
@@ -30,7 +30,7 @@ export default function Topbar({ user }: { user: AuthUser }) {
     <header role="banner" className="sticky top-0 z-30 flex h-20 items-center justify-between gap-3 border-b border-slate-200/80 bg-white/80 px-4 shadow-[0_1px_20px_rgba(15,23,42,.035)] backdrop-blur-xl lg:px-8">
       <div className="flex items-center gap-3">
         <div className="rounded-lg bg-slate-950 p-1.5 lg:hidden"><BrandMark compact /></div>
-        <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{t("CodeProof workspace")}</p><p className="mt-1 text-sm font-semibold text-slate-900">{t(current?.label ?? "Recruiter workspace")}</p></div>
+        <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{t("CodeProof workspace")}</p><p className="mt-1 text-sm font-semibold text-slate-900">{pathname.startsWith("/admin") ? (locale === "ar" ? "إدارة المالك" : "Owner administration") : t(current?.label ?? "Recruiter workspace")}</p></div>
       </div>
       <div className="flex items-center gap-3">
         <span className="hidden sm:inline-flex"><Badge tone="positive">{t("Evidence-first analysis")}</Badge></span>
